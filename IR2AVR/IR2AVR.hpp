@@ -1,14 +1,18 @@
+#ifndef IR2AVR_H
+#define IR2AVR_H
+
 #include <vector>
 
 #include "../utils/common.hpp"
 #include "../IR/IR.hpp"
 
 /*
-  currently the IR registers are 1 to 1 with AVR registers, meaning there's only 32 of them
-not entirely convinced this is the best way of going about it
+currently the IR registers are 1 to 1 with AVR registers, meaning there's only 32 of them
+ not entirely convinced this is the best way of going about it
 */
 
-void printAVR(uint32_t instruction) {
+// NOTE(mdizdar): at some point we might want/need AVR instructions to be >32 bit, I am unaware of the existence of such instructions though
+void printAVR(u32 instruction) {
     if (instruction == 0) {
         // NOP
         printf("[0x0000]\tnop\n");
@@ -18,24 +22,24 @@ void printAVR(uint32_t instruction) {
     } else if ((instruction >> 26) == 0x0B) {
         // MOVRR
         instruction >>= 16;
-        int r1 = (instruction & 0xF) | ((instruction & 0x200) >> 5),
-        r2 = (instruction & 0x1F0) >> 4;
+        const u16 r1 = (instruction & 0xF) | ((instruction & 0x200) >> 5);
+        const u16 r2 = (instruction & 0x1F0) >> 4;
         printf("[0x%x]\tmov r%d, r%d\n", instruction, r2, r1);
     } else if ((instruction >> 28) == 0xE) {
         // LDI
         instruction >>= 16;
-        int value = ((instruction >> 4) & 0xF0) + (instruction & 0xF);
-        int reg = (instruction >> 4) & 0xF;
+        const u16 value = ((instruction >> 4) & 0xF0) + (instruction & 0xF);
+        const u16 reg = (instruction >> 4) & 0xF;
         printf("[0x%x]\tldi r%d, 0x%x\n", instruction, reg+16, value);
     } else if ((instruction & 0xFE0F0000) == 0x900F0000) {
         // POP
         instruction >>= 16;
-        int reg = (instruction & 0x01F0) >> 4;
+        const u16 reg = (instruction & 0x01F0) >> 4;
         printf("[0x%x]\tpop r%d\n", instruction, reg);
     } else if ((instruction & 0xFE0F0000) == 0x920F0000) {
         // PUSH
         instruction >>= 16;
-        int reg = (instruction & 0x01F0) >> 4;
+        const u16 reg = (instruction & 0x01F0) >> 4;
         printf("[0x%x]\tpush r%d\n", instruction, reg);
     } else if (instruction == 0x95080000) {
         // RET
@@ -49,25 +53,27 @@ void IR2AVR(const std::vector<IR> &ir) {
     // https://en.wikipedia.org/wiki/Atmel_AVR_instruction_set#Instruction_encoding
     // http://ww1.microchip.com/downloads/cn/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf
     for (size_t i = 0; i < ir.size(); ++i) {
-        switch (IRt(ir[i] >> 24)) {
+        switch (ir[i].instruction) {
+            // TODO(mdizdar): currently an IR is just an int, this definitely won't work when we start doing things for non AVR chips - it works for those because their instruction word is at most 32 bit and a value is at most 16 bit. We'll need a better way of storing the instruction and its operands; likely 32-64 bit for each.
             case IRt::nop: {
                 printAVR(0);
                 break;
             }
-            case IRt::movrr: {
-                int value = (ir[i] & 0x00FFC000) >> 14;
-                int r1 = value & 0x1F, r2 = (value >> 5) & 0x1F;
-                printAVR((0x2C00 | (r1 & 0xF) | ((r1 & 0x10) << 4) | (r2 << 4)) << 16);
+            case IRt::mov: {
+                if (ir[i].imm == 0) { // rr
+                    const u32 r1 = ir[i].operands[0], r2 = ir[i].operands[1];
+                    printAVR((0x2C00 | (r1 & 0xF) | ((r1 & 0x10) << 4) | (r2 << 4)) << 16);
+                } else if (ir[i].imm == 2) { // cr
+                    const u32 value = ir[i].operands[0];
+                    const u32 reg = ir[i].operands[1];
+                    printAVR((0xE000 | ((value & 0xF0) << 4) | (value & 0xF) | (reg << 4)) << 16);
+                } else {
+                    error("imm corrupt or your mov has too many operands.");
+                }
                 break;
             }
-            case IRt::movrm: {
+            case IRt::movrm: { // TODO(mdizdar): these should be ld/st type operations
                 NOT_IMPL;
-                break;
-            }
-            case IRt::movcr: {
-                int value = (ir[i] & 0x00FF0000) >> 16;
-                int reg   = (ir[i] & 0x0000F000) >> 12;
-                printAVR((0xE000 | ((value & 0xF0) << 4) | (value & 0xF) | (reg << 4)) << 16);
                 break;
             }
             case IRt::movcm: {
@@ -162,7 +168,7 @@ void IR2AVR(const std::vector<IR> &ir) {
                 break;
             }
             case IRt::retc: {
-                int value = (ir[i] & 0x00FFFF00) >> 8;
+                u32 value = ir[i].operands[0];
                 printAVR((0xE080 | ((value & 0xF0) << 4) | (value & 0xF)) << 16);
                 value >>= 8;
                 printAVR((0xE090 | ((value & 0xF0) << 4) | (value & 0xF)) << 16);
@@ -170,12 +176,12 @@ void IR2AVR(const std::vector<IR> &ir) {
                 break;
             }
             case IRt::pop: { // pop into register
-                int reg = (ir[i] & 0x00F80000) >> 19;
+                const u32 reg = ir[i].operands[0];
                 printAVR((0x900F | (reg << 4)) << 16);
                 break;
             }
             case IRt::push: { // push from register, consider adding push from constant
-                int reg = (ir[i] & 0x00F80000) >> 19;
+                const u32 reg = ir[i].operands[0];
                 printAVR((0x920F | (reg << 4)) << 16);
                 break;
             }
@@ -184,8 +190,10 @@ void IR2AVR(const std::vector<IR> &ir) {
                 break;
             }
             default: {
-                error("bro... what even is that IR");
+                error("si puka?");
             }
         }
     }
 }
+
+#endif // IR2AVR_H
