@@ -1,3 +1,6 @@
+#ifndef PRINTING_H
+#define PRINTING_H
+
 #include <cstdio>
 #include <cstdlib>
 
@@ -12,12 +15,14 @@
 #define NOT_IMPL error("Not implemented!");
 
 void error(const char* s) {
-  fputs(RED "ERROR: ", stderr);
-  fputs(s, stderr);
-  fputs(RESET "\n", stderr);
-  exit(0);
+    fputs(RED "ERROR: ", stderr);
+    fputs(s, stderr);
+    fputs(RESET "\n", stderr);
+    exit(0);
 }
 
 void warning(const char *s) {
-  printf(YELLOW "WARNING: %s\n" RESET, s);
+    printf(YELLOW "WARNING: %s\n" RESET, s);
 }
+
+#endif // PRINTING_H
