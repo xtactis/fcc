@@ -1,0 +1,13 @@
+mov reg | mem | const, reg | mem
+and, or, xor, add, sub, mul, div, mod, not...
+jmp_ - z, nz, gz, eq...
+call
+ret
+pop push
+cmp
+nop
+
+nop 0x00
+mov 0x01
+...
+1 byte enough?
