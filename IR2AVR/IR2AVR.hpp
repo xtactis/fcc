@@ -13,19 +13,54 @@ currently the IR registers are 1 to 1 with AVR registers, meaning there's only 3
 
 // NOTE(mdizdar): at some point we might want/need AVR instructions to be >32 bit, I am unaware of the existence of such instructions though
 void printAVR(u32 instruction) {
+    // NOTE(mdizdar): I wonder if there's a nicer way of going about this... (there is)
     if (instruction == 0) {
         // NOP
         printf("[0x0000]\tnop\n");
     } else if ((instruction >> 24) == 1) {
         // MOVW
-        NOT_IMPL;
-    } else if ((instruction >> 26) == 0x0B) {
-        // MOVRR
         instruction >>= 16;
-        // TODO(mdizdar): make extracting the two registers, a register and a value, and just a value into functions... I guess?
+        const u16 r1 = instruction & 0xF;
+        const u16 r2 = (instruction & 0xF0) >> 4;
+        printf("[0x%x]\tmovw r%d, r%d\n", instruction, r2+16, r1+16);
+    } else if ((instruction >> 24) == 2) {
+        // MULS
+        instruction >>= 16;
+        const u16 r1 = instruction & 0xF;
+        const u16 r2 = (instruction & 0xF0) >> 4;
+        printf("[0x%x]\tmuls r%d, r%d\n", instruction, r2+16, r1+16);
+    } else if ((instruction & 0xFF880000) == 0x0300000) {
+        // MULSU
+        instruction >>= 16;
+        const u16 r1 = instruction & 0x7;
+        const u16 r2 = (instruction & 0x70) >> 4;
+        printf("[0x%x]\tmulsu r%d, r%d\n", instruction, r2+16, r1+16);
+    } else if ((instruction & 0xFF880000) == 0x0308000) {
+        // FMUL
+        instruction >>= 16;
+        const u16 r1 = instruction & 0x7;
+        const u16 r2 = (instruction & 0x70) >> 4;
+        printf("[0x%x]\tfmul r%d, r%d\n", instruction, r2+16, r1+16);
+    } else if ((instruction & 0xFF880000) == 0x0380000) {
+        // FMULS
+        instruction >>= 16;
+        const u16 r1 = instruction & 0x7;
+        const u16 r2 = (instruction & 0x70) >> 4;
+        printf("[0x%x]\tfmuls r%d, r%d\n", instruction, r2+16, r1+16);
+    } else if ((instruction & 0xFF880000) == 0x0388000) {
+        // FMULSU
+        instruction >>= 16;
+        const u16 r1 = instruction & 0x7;
+        const u16 r2 = (instruction & 0x70) >> 4;
+        printf("[0x%x]\tfmulsu r%d, r%d\n", instruction, r2+16, r1+16);
+    } else if ((instruction >> 30) == 0) {
+        // 2-op instruction
+        instruction >>= 16;
         const u16 r1 = (instruction & 0xF) | ((instruction & 0x200) >> 5);
         const u16 r2 = (instruction & 0x1F0) >> 4;
-        printf("[0x%x]\tmov r%d, r%d\n", instruction, r2, r1);
+        const u8 op = (instruction & 0x3C00) >> 10;
+        const char * const opnames[] = {"", "cpc", "sbc", "add", "cpse", "cp", "sub", "adc", "and", "eor", "or", "mov"};
+        printf("[0x%x]\t%s r%d, r%d\n", instruction, opnames[op], r1, r2);
     } else if ((instruction >> 28) == 0xE) {
         // LDI
         instruction >>= 16;
@@ -42,12 +77,6 @@ void printAVR(u32 instruction) {
         instruction >>= 16;
         const u16 reg = (instruction & 0x01F0) >> 4;
         printf("[0x%x]\tpush r%d\n", instruction, reg);
-    } else if ((instruction >> 26) == 0x7) {
-        // ADC
-        instruction >>= 16;
-        const u16 r1 = (instruction & 0xF) | ((instruction & 0x200) >> 5);
-        const u16 r2 = (instruction & 0x1F0) >> 4;
-        printf("[0x%x]\tadc r%d, r%d\n", instruction, r1, r2);
     } else if ((instruction >> 28) == 0x4) {
         // SBCI
         instruction >>= 16;
@@ -65,9 +94,10 @@ void printAVR(u32 instruction) {
 void IR2AVR(const std::vector<IR> &ir) {
     // https://en.wikipedia.org/wiki/Atmel_AVR_instruction_set#Instruction_encoding
     // http://ww1.microchip.com/downloads/cn/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf
+    // NOTE(mdizdar): currently IR instructions are 1 to 1 with AVR ones, this shouldn't be the case since the IR should assume e.g. multiplication can be done between any two registers (of which there's an infinite number)
+    // TODO(mdizdar): ... so, there should be a table of identifiers so the mapping can be done correctly
     for (size_t i = 0; i < ir.size(); ++i) {
         switch (ir[i].instruction) {
-            // TODO(mdizdar): currently an IR is just an int, this definitely won't work when we start doing things for non AVR chips - it works for those because their instruction word is at most 32 bit and a value is at most 16 bit. We'll need a better way of storing the instruction and its operands; likely 32-64 bit for each.
             case IRt::nop: {
                 printAVR(0);
                 break;
