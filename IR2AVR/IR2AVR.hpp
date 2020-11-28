@@ -22,6 +22,7 @@ void printAVR(u32 instruction) {
     } else if ((instruction >> 26) == 0x0B) {
         // MOVRR
         instruction >>= 16;
+        // TODO(mdizdar): make extracting the two registers, a register and a value, and just a value into functions... I guess?
         const u16 r1 = (instruction & 0xF) | ((instruction & 0x200) >> 5);
         const u16 r2 = (instruction & 0x1F0) >> 4;
         printf("[0x%x]\tmov r%d, r%d\n", instruction, r2, r1);
@@ -41,6 +42,18 @@ void printAVR(u32 instruction) {
         instruction >>= 16;
         const u16 reg = (instruction & 0x01F0) >> 4;
         printf("[0x%x]\tpush r%d\n", instruction, reg);
+    } else if ((instruction >> 26) == 0x7) {
+        // ADC
+        instruction >>= 16;
+        const u16 r1 = (instruction & 0xF) | ((instruction & 0x200) >> 5);
+        const u16 r2 = (instruction & 0x1F0) >> 4;
+        printf("[0x%x]\tadc r%d, r%d\n", instruction, r1, r2);
+    } else if ((instruction >> 28) == 0x4) {
+        // SBCI
+        instruction >>= 16;
+        const u16 value = ((instruction >> 4) & 0xF0) + (instruction & 0xF);
+        const u16 reg = (instruction >> 4) & 0xF;
+        printf("[0x%x]\tsbci r%d, 0x%x\n", instruction, reg+16, value);
     } else if (instruction == 0x95080000) {
         // RET
         printf("[0x9508]\tret\n");
@@ -68,7 +81,7 @@ void IR2AVR(const std::vector<IR> &ir) {
                     const u32 reg = ir[i].operands[1];
                     printAVR((0xE000 | ((value & 0xF0) << 4) | (value & 0xF) | (reg << 4)) << 16);
                 } else {
-                    error("imm corrupt or your mov has too many operands.");
+                    error("imm corrupt or your mov operands don't make sense");
                 }
                 break;
             }
@@ -101,7 +114,16 @@ void IR2AVR(const std::vector<IR> &ir) {
                 break;
             }
             case IRt::add: {
-                NOT_IMPL;
+                if (ir[i].imm == 0) { // rr
+                    const u32 r1 = ir[i].operands[0], r2 = ir[i].operands[1];
+                    printAVR((0x1C00 | (r1 & 0xF) | ((r1 & 0x10) << 4) | (r2 << 4)) << 16);
+                } else if (ir[i].imm == 2) { // cr
+                    const u32 value = ir[i].operands[0];
+                    const u32 reg = ir[i].operands[1];
+                    printAVR((0x4000 | ((value & 0xF0) << 4) | (value & 0xF) | (reg << 4)) << 16);
+                } else {
+                    error("imm corrupt or your add operands don't make sense");
+                }
                 break;
             }
             case IRt::sub: {
