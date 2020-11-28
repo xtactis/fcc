@@ -18,7 +18,7 @@ void error(const char* s) {
     fputs(RED "ERROR: ", stderr);
     fputs(s, stderr);
     fputs(RESET "\n", stderr);
-    exit(0);
+    exit(1);
 }
 
 void warning(const char *s) {
