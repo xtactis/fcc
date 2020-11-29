@@ -1,4 +1,5 @@
 #include <vector>
+#include "../AVR/AVR.hpp"
 #include "IR2AVR.hpp"
 
 inline u16 swapendiannes16(u16 x) {
@@ -46,6 +47,6 @@ int main(int argc, char **argv) {
         //printf("%x\n", e);
     }
     //IR2AVR(ir, AVRinstructions);
-    AVR::printAVR(AVRinstructions);
+    AVR::print(AVRinstructions);
     return 0;
 }
