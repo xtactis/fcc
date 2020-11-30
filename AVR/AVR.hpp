@@ -2,6 +2,7 @@
 #define AVR_H
 
 #include <vector>
+#include <string>
 #include "../utils/common.hpp"
 
 namespace AVR {
@@ -1335,6 +1336,36 @@ namespace AVR {
                 error("You have invented a new AVR instruction, gz");
             }
         }
+    }
+    
+    inline u16 swapEndiannes16(u16 x) {
+        return ((x & 0xFF00) >> 8) | ((x & 0x00FF) << 8);
+    }
+    
+    inline u32 swapEndiannes32(u32 x) {
+        return (swapEndiannes16((x & 0xFFFF0000) >> 16) << 16) | swapEndiannes16(x & 0x0000FFFF);
+    }
+    
+    void printIntelHex(const std::vector<u16> &instructions) {
+        u8 checksum;
+        for (size_t i = 0; i < instructions.size(); ++i) {
+            if (i % 8 == 0) {
+                if (i) {
+                    printf("%02X\n", u8(~checksum+1));
+                }
+                u8 numberOfRecords = std::min(16, int(instructions.size()-i)*2);
+                printf(":%02X%04X00", numberOfRecords, i*2);
+                checksum = numberOfRecords+i*2;
+            }
+            u16 x = swapEndiannes16(instructions[i]);
+            printf("%04X", x);
+            checksum += x & 0xFFFF;
+            checksum += x >> 8;
+        }
+        if (instructions.size() % 8) {
+            printf("%02X\n", u8(~checksum+1));
+        }
+        printf(":00000001FF\n");
     }
 };
 

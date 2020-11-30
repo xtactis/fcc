@@ -2,14 +2,6 @@
 #include "../AVR/AVR.hpp"
 #include "IR2AVR.hpp"
 
-inline u16 swapendiannes16(u16 x) {
-    return ((x & 0xFF00) >> 8) | ((x & 0x00FF) << 8);
-}
-
-inline u32 swapendiannes(u32 x) {
-    return (swapendiannes16((x & 0xFFFF0000) >> 16) << 16) | swapendiannes16(x & 0x0000FFFF);
-}
-
 int main(int argc, char **argv) {
     std::vector<IR> ir = {
         {IRt::nop, {}, 0},
@@ -23,7 +15,8 @@ int main(int argc, char **argv) {
         {IRt::add, {71, 3}, 0x2},
     };
     // TODO(mdizdar): make a Intel HEX reader/writer instead of this insanity
-    std::vector<u16> AVRinstructions = {
+    /*
+std::vector<u16> AVRinstructions = {
         0x0C94, 0x2A00, 0x0C94, 0x3600, 0x0C94, 0x5400, 0x0C94, 0x3400,
         0x0C94, 0x3400, 0x0C94, 0x3400, 0x0C94, 0x3400, 0x0C94, 0x3400,
         0x0C94, 0x3400, 0x0C94, 0x3400, 0x0C94, 0x3400, 0x0C94, 0x3400,
@@ -41,12 +34,121 @@ int main(int argc, char **argv) {
         0x0F90, 0x1F90, 0x1895, 0x8FEF, 0x8ABB, 0x8BBB, 0x8AE0, 0x85BF,
         0x80EC, 0x8BBF, 0x7894, 0xFFCF, 0xF894, 0xFFCF
     };
+
     for (u16 &e: AVRinstructions) {
         //printf("%x\n", e);
-        e = swapendiannes16(e);
+        e = AVR::swapEndiannes16(e);
         //printf("%x\n", e);
     }
+*/
+#define EXPAND32(x)  u16(((x) >> 16) & 0xFFFF), u16((x) & 0xFFFF)
+    std::vector<u16> AVRinstructions = {
+        EXPAND32(AVR::JMP(0X54>>1)),
+        EXPAND32(AVR::JMP(0X6C>>1)),
+        EXPAND32(AVR::JMP(0XA8>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        EXPAND32(AVR::JMP(0X68>>1)),
+        AVR::EOR(1, 1),
+        AVR::OUT(1, 0X3F),
+        AVR::LDI(28-16, 0X5F),
+        AVR::LDI(29-16, 0X04),
+        AVR::OUT(29, 0X3E),
+        AVR::OUT(28, 0X3D),
+        EXPAND32(AVR::CALL(0XE6>>1)),
+        EXPAND32(AVR::JMP(0XF8>>1)),
+        EXPAND32(AVR::JMP(0>>1)),
+        AVR::PUSH(1),
+        AVR::PUSH(0),
+        AVR::IN(0, 0X3F),
+        AVR::PUSH(0),
+        AVR::EOR(1, 1),
+        AVR::PUSH(18),
+        AVR::PUSH(24),
+        AVR::PUSH(25),
+        AVR::IN(24, 0X1B),
+        AVR::ADD(24, 24),
+        AVR::OUT(24, 0X1B),
+        AVR::LDI(18-16, 0XFF),
+        AVR::LDI(24-16, 0X3F),
+        AVR::LDI(25-16, 0X02),
+        AVR::SUBI(18-16, 0X01),
+        AVR::SBCI(24-16, 0X00),
+        AVR::SBCI(25-16, 0X00),
+        AVR::BRNE(128-8/2),
+        AVR::RJMP(0),
+        AVR::NOP(),
+        AVR::LDI(24-16, 0XC0),
+        AVR::OUT(24, 0X3A),
+        AVR::POP(25),
+        AVR::POP(24),
+        AVR::POP(18),
+        AVR::POP(0),
+        AVR::OUT(0, 0X3F),
+        AVR::POP(0),
+        AVR::POP(1),
+        AVR::RETI(),
+        AVR::PUSH(1),
+        AVR::PUSH(0),
+        AVR::IN(0, 0X3F),
+        AVR::PUSH(0),
+        AVR::EOR(1, 1),
+        AVR::PUSH(18),
+        AVR::PUSH(24),
+        AVR::PUSH(25),
+        AVR::IN(24, 0X1B),
+        AVR::LSR(24),
+        AVR::OUT(24, 0X1B),
+        AVR::SBI(0X1B, 7),
+        AVR::LDI(18-16, 0XFF),
+        AVR::LDI(24-16, 0X3F),
+        AVR::LDI(25-16, 0X02),
+        AVR::SUBI(18, 0X01),
+        AVR::SBCI(24-16, 0X00),
+        AVR::SBCI(25-16, 0X00),
+        AVR::BRNE(128-8/2),
+        AVR::RJMP(0),
+        AVR::NOP(),
+        AVR::LDI(24-16, 0XC0),
+        AVR::OUT(24, 0X3A),
+        AVR::POP(25),
+        AVR::POP(24),
+        AVR::POP(18),
+        AVR::POP(0),
+        AVR::OUT(0, 0X3F),
+        AVR::POP(0),
+        AVR::POP(1),
+        AVR::RETI(),
+        AVR::LDI(24-16, 0XFF),
+        AVR::OUT(24, 0X1A),
+        AVR::OUT(24, 0X1B),
+        AVR::LDI(24-16, 0X0A),
+        AVR::OUT(24, 0X35),
+        AVR::LDI(24-16, 0XC0),
+        AVR::OUT(24, 0X3B),
+        AVR::SEI(),
+        AVR::RJMP((1<<12)-2/2),
+        AVR::CLI(),
+        AVR::RJMP((1<<12)-2/2),
+    };
     //IR2AVR(ir, AVRinstructions);
+    AVR::printIntelHex(AVRinstructions);
+    puts("");
     AVR::print(AVRinstructions);
     return 0;
 }
