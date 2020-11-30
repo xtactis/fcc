@@ -87,7 +87,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x0400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x0400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 CP(u8 rd, u8 rr) {
@@ -100,7 +100,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x1400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x1400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 SBC(u8 rd, u8 rr) {
@@ -113,7 +113,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x0800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x0800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 SUB(u8 rd, u8 rr) {
@@ -126,7 +126,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x1800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x1800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 ADD(u8 rd, u8 rr) {
@@ -139,7 +139,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x0C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x0C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 ADC(u8 rd, u8 rr) {
@@ -152,7 +152,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x1C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x1C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 LSL(u8 rd) {
@@ -162,7 +162,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         u8 rr = rd;
-        return 0x0C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x0C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 ROL(u8 rd) {
@@ -172,7 +172,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         u8 rr = rd;
-        return 0x1C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x1C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 CPSE(u8 rd, u8 rr) {
@@ -185,7 +185,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x1000 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x1000 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 AND(u8 rd, u8 rr) {
@@ -198,7 +198,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x2000 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x2000 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 EOR(u8 rd, u8 rr) {
@@ -211,7 +211,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x2400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x2400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 OR(u8 rd, u8 rr) {
@@ -224,7 +224,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x2800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x2800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 MOV(u8 rd, u8 rr) {
@@ -237,7 +237,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x2C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x2C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 CPI(u8 rd, u8 K) {
@@ -509,7 +509,7 @@ namespace AVR {
         if (rd >= (1 << 6)) {
             warning("POP Rd value greater than 0x1F");
         }
-        return 0x900C | ((rd & 0x1F) << 4);
+        return 0x900F | ((rd & 0x1F) << 4);
     }
     
     inline u16 PUSH(u8 rd) {
@@ -818,7 +818,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         rr &= 0x1F;
-        return 0x9C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 9);
+        return 0x9C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
     }
     
     inline u16 IN(u8 rd, u8 a) {
@@ -831,7 +831,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         a &= 0x3F;
-        return 0xB000 | (rd << 4) | (a & 0xF) | ((a & 0x30) << 9);
+        return 0xB000 | (rd << 4) | (a & 0xF) | ((a & 0x30) << 5);
     }
     
     inline u16 OUT(u8 rd, u8 a) {
@@ -844,7 +844,7 @@ namespace AVR {
         }
         rd &= 0x1F;
         a &= 0x3F;
-        return 0xB800 | (rd << 4) | (a & 0xF) | ((a & 0x30) << 9);
+        return 0xB800 | (rd << 4) | (a & 0xF) | ((a & 0x30) << 5);
     }
     
     inline u16 RJMP(u16 offset) {
@@ -876,167 +876,167 @@ namespace AVR {
     inline u16 BRBC(u8 K, u8 B) {
         // K 0-127 (7 bit signed int, treated as uint), B 0-8
         if (K >= (1 << 8)) {
-            warning("BRBC K value greater than 0x1F");
+            warning("BRBC K value greater than 0x7F");
         }
         if (B >= (1 << 4)) {
             warning("BRBC B value greater than 0x7");
         }
-        return 0xF400 | ((K & 0x1F) << 3) | (B & 0x7);
+        return 0xF400 | ((K & 0x7F) << 3) | (B & 0x7);
     }
     
     inline u16 BRBS(u8 K, u8 B) {
         // K 0-127 (7 bit signed int, treated as uint), B 0-8
         if (K >= (1 << 8)) {
-            warning("BRBS K value greater than 0x1F");
+            warning("BRBS K value greater than 0x7F");
         }
         if (B >= (1 << 4)) {
             warning("BRBS B value greater than 0x7");
         }
-        return 0xF000 | ((K & 0x1F) << 3) | (B & 0x7);
+        return 0xF000 | ((K & 0x7F) << 3) | (B & 0x7);
     }
     
     inline u16 BRCC(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRCC K value greater than 0x1F");
+            warning("BRCC K value greater than 0x7F");
         }
-        return 0xF400 | ((K & 0x1F) << 3);
+        return 0xF400 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRCS(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRCS K value greater than 0x1F");
+            warning("BRCS K value greater than 0x7F");
         }
-        return 0xF000 | ((K & 0x1F) << 3);
+        return 0xF000 | ((K & 0x7F) << 3);
     }
     
     inline u16 BREQ(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BREQ K value greater than 0x1F");
+            warning("BREQ K value greater than 0x7F");
         }
-        return 0xF001 | ((K & 0x1F) << 3);
+        return 0xF001 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRGE(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRGE K value greater than 0x1F");
+            warning("BRGE K value greater than 0x7F");
         }
-        return 0xF404 | ((K & 0x1F) << 3);
+        return 0xF404 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRHC(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRHC K value greater than 0x1F");
+            warning("BRHC K value greater than 0x7F");
         }
-        return 0xF405 | ((K & 0x1F) << 3);
+        return 0xF405 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRHS(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRHS K value greater than 0x1F");
+            warning("BRHS K value greater than 0x7F");
         }
-        return 0xF005 | ((K & 0x1F) << 3);
+        return 0xF005 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRID(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRID K value greater than 0x1F");
+            warning("BRID K value greater than 0x7F");
         }
-        return 0xF407 | ((K & 0x1F) << 3);
+        return 0xF407 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRIE(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRIE K value greater than 0x1F");
+            warning("BRIE K value greater than 0x7F");
         }
-        return 0xF007 | ((K & 0x1F) << 3);
+        return 0xF007 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRLO(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRLO K value greater than 0x1F");
+            warning("BRLO K value greater than 0x7F");
         }
-        return 0xF000 | ((K & 0x1F) << 3);
+        return 0xF000 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRLT(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRLT K value greater than 0x1F");
+            warning("BRLT K value greater than 0x7F");
         }
-        return 0xF004 | ((K & 0x1F) << 3);
+        return 0xF004 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRMI(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRMI K value greater than 0x1F");
+            warning("BRMI K value greater than 0x7F");
         }
-        return 0xF002 | ((K & 0x1F) << 3);
+        return 0xF002 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRNE(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRNE K value greater than 0x1F");
+            warning("BRNE K value greater than 0x7F");
         }
-        return 0xF401 | ((K & 0x1F) << 3);
+        return 0xF401 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRPL(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRPL K value greater than 0x1F");
+            warning("BRPL K value greater than 0x7F");
         }
-        return 0xF402 | ((K & 0x1F) << 3);
+        return 0xF402 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRSH(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRSH K value greater than 0x1F");
+            warning("BRSH K value greater than 0x7F");
         }
-        return 0xF400 | ((K & 0x1F) << 3);
+        return 0xF400 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRTC(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRTC K value greater than 0x1F");
+            warning("BRTC K value greater than 0x7F");
         }
-        return 0xF406 | ((K & 0x1F) << 3);
+        return 0xF406 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRTS(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRTS K value greater than 0x1F");
+            warning("BRTS K value greater than 0x7F");
         }
-        return 0xF006 | ((K & 0x1F) << 3);
+        return 0xF006 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRVC(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRVC K value greater than 0x1F");
+            warning("BRVC K value greater than 0x7F");
         }
-        return 0xF403 | ((K & 0x1F) << 3);
+        return 0xF403 | ((K & 0x7F) << 3);
     }
     
     inline u16 BRVS(u8 K) {
         // K 0-127 (7 bit signed int, treated as uint)
         if (K >= (1 << 8)) {
-            warning("BRVS K value greater than 0x1F");
+            warning("BRVS K value greater than 0x7F");
         }
-        return 0xF003 | ((K & 0x1F) << 3);
+        return 0xF003 | ((K & 0x7F) << 3);
     }
     
     inline u16 BSET(u8 S) {
