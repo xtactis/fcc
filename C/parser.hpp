@@ -9,12 +9,24 @@
 #include "../utils/common.hpp"
 #include "token.hpp"
 
+#define parse_error error("Parse error!")
+#define roll_back { code.peek = code.ptr; return 0; }
+#define confirm_peek { code.ptr = code.peek; return 1; }
+
 struct SymbolTableEntry {
     
 };
 
 namespace CParser {
-    void jumpStatement(std::vector<Token> &tokens) {
+    struct Code {
+        u64 ptr = 0;
+        u64 peek = 0;
+        // NOTE(mdizdar): I'm not sure peek should be contained in the Code struct; or at least not used how it's used currently
+        // I have a hunch it should be a function local variable so the roll back doesn't go back too far
+        // TODO(mdizdar): actual code, and other stuff
+    };
+    
+    void jumpStatement(Code &code) {
         /*
 <jump-statement> ::= goto <identifier> ;
                    | continue ;
@@ -23,7 +35,7 @@ namespace CParser {
 */
     }
     
-    void iterationStatement(std::vector<Token> &tokens) {
+    void iterationStatement(Code &code) {
         /*
 <iteration-statement> ::= while ( <expression> ) <statement>
                         | do <statement> while ( <expression> ) ;
@@ -31,7 +43,7 @@ namespace CParser {
 */
     }
     
-    void selectionStatement(std::vector<Token> &tokens) {
+    void selectionStatement(Code &code) {
         /*
 <selection-statement> ::= if ( <expression> ) <statement>
                         | if ( <expression> ) <statement> else <statement>
@@ -39,13 +51,13 @@ namespace CParser {
 */
     }
     
-    void expressionStatement(std::vector<Token> &tokens) {
+    void expressionStatement(Code &code) {
         /*
 <expression-statement> ::= {<expression>}? ;
 */
     }
     
-    void labeledStatement(std::vector<Token> &tokens) {
+    void labeledStatement(Code &code) {
         /*
 <labeled-statement> ::= <identifier> : <statement>
                       | case <constant-expression> : <statement>
@@ -53,7 +65,7 @@ namespace CParser {
 */
     }
     
-    void statement(std::vector<Token> &tokens) {
+    void statement(Code &code) {
         /*
 <statement> ::= <labeled-statement>
               | <expression-statement>
@@ -64,14 +76,14 @@ namespace CParser {
 */
     }
     
-    void initializerList(std::vector<Token> &tokens) {
+    void initializerList(Code &code) {
         /*
 <initializer-list> ::= <initializer>
                      | <initializer-list> , <initializer>
 */
     }
     
-    void initializer(std::vector<Token> &tokens) {
+    void initializer(Code &code) {
         /*
 <initializer> ::= <assignment-expression>
                 | { <initializer-list> }
@@ -79,28 +91,28 @@ namespace CParser {
 */
     }
     
-    void initDeclarator(std::vector<Token> &tokens) {
+    void initDeclarator(Code &code) {
         /*
 <init-declarator> ::= <declarator>
                     | <declarator> = <initializer>
 */
     }
     
-    void enumerator(std::vector<Token> &tokens) {
+    void enumerator(Code &code) {
         /*
 <enumerator> ::= <identifier>
                | <identifier> = <constant-expression>
 */
     }
     
-    void enumeratorList(std::vector<Token> &tokens) {
+    void enumeratorList(Code &code) {
         /*
 <enumerator-list> ::= <enumerator>
                     | <enumerator-list> , <enumerator>
 */
     }
     
-    void directAbstractDeclarator(std::vector<Token> &tokens) {
+    void directAbstractDeclarator(Code &code) {
         /*
 <direct-abstract-declarator> ::=  ( <abstract-declarator> )
                                | {<direct-abstract-declarator>}? [ {<constant-expression>}? ]
@@ -108,7 +120,7 @@ namespace CParser {
 */
     }
     
-    void parameterDeclaration(std::vector<Token> &tokens) {
+    void parameterDeclaration(Code &code) {
         /*
 <parameter-declaration> ::= {<declaration-specifier>}+ <declarator>
                           | {<declaration-specifier>}+ <abstract-declarator>
@@ -116,14 +128,14 @@ namespace CParser {
 */
     }
     
-    void parameterList(std::vector<Token> &tokens) {
+    void parameterList(Code &code) {
         /*
 <parameter-list> ::= <parameter-declaration>
                    | <parameter-list> , <parameter-declaration>
 */
     }
     
-    void abstractDeclarator(std::vector<Token> &tokens) {
+    void abstractDeclarator(Code &code) {
         /*
 
 <abstract-declarator> ::= <pointer>
@@ -132,7 +144,7 @@ namespace CParser {
 */
     }
     
-    void assignmentOperator(std::vector<Token> &tokens) {
+    void assignmentOperator(Code &code) {
         /*
         <assignment-operator> ::= =
             | *=
@@ -148,27 +160,27 @@ namespace CParser {
             */
     }
     
-    void enumerationConstant(std::vector<Token> &tokens) {
+    void enumerationConstant(Code &code) {
         // TODO(mdizdar): what's an enumeration constant lol
     }
     
-    void floatingConstant(std::vector<Token> &tokens) {
+    void floatingConstant(Code &code) {
         // TODO(mdizdar): what's a floating constant lol
     }
     
-    void characterConstant(std::vector<Token> &tokens) {
+    void characterConstant(Code &code) {
         // TODO(mdizdar): what's a character constant lol
     }
     
-    void integerConstant(std::vector<Token> &tokens) {
+    void integerConstant(Code &code) {
         // TODO(mdizdar): what's an integer constant lol
     }
     
-    void string(std::vector<Token> &tokens) {
+    void string(Code &code) {
         // TODO(mdizdar): what's a string lol
     }
     
-    void constant(std::vector<Token> &tokens) {
+    void constant(Code &code) {
         /*
 <constant> ::= <integer-constant>
              | <character-constant>
@@ -177,14 +189,14 @@ namespace CParser {
 */
     }
     
-    void assignmentExpression(std::vector<Token> &tokens) {
+    void assignmentExpression(Code &code) {
         /*
 <assignment-expression> ::= <conditional-expression>
                           | <unary-expression> <assignment-operator> <assignment-expression>
 */
     }
     
-    void primaryExpression(std::vector<Token> &tokens) {
+    void primaryExpression(Code &code) {
         /*
 <primary-expression> ::= <identifier>
                        | <constant>
@@ -193,7 +205,7 @@ namespace CParser {
 */
     }
     
-    void postfixExpression(std::vector<Token> &tokens) {
+    void postfixExpression(Code &code) {
         /*
 <postfix-expression> ::= <primary-expression>
                        | <postfix-expression> [ <expression> ]
@@ -205,7 +217,7 @@ namespace CParser {
 */
     }
     
-    void unaryOperator(std::vector<Token> &tokens) {
+    void unaryOperator(Code &code) {
         /*
 <unary-operator> ::= &
                    | *
@@ -216,13 +228,13 @@ namespace CParser {
 */
     }
     
-    void typeName(std::vector<Token> &tokens) {
+    void typeName(Code &code) {
         /*
 <type-name> ::= {<specifier-qualifier>}+ {<abstract-declarator>}?
 */
     }
     
-    void unaryExpression(std::vector<Token> &tokens) {
+    void unaryExpression(Code &code) {
         /*
 <unary-expression> ::= <postfix-expression>
                      | ++ <unary-expression>
@@ -233,14 +245,14 @@ namespace CParser {
 */
     }
     
-    void castExpression(std::vector<Token> &tokens) {
+    void castExpression(Code &code) {
         /*
 <cast-expression> ::= <unary-expression>
                     | ( <type-name> ) <cast-expression>
 */
     }
     
-    void multiplicativeExpression(std::vector<Token> &tokens) {
+    void multiplicativeExpression(Code &code) {
         /*
 <multiplicative-expression> ::= <cast-expression>
                               | <multiplicative-expression> * <cast-expression>
@@ -249,7 +261,7 @@ namespace CParser {
 */
     }
     
-    void additiveExpression(std::vector<Token> &tokens) {
+    void additiveExpression(Code &code) {
         /*
 <additive-expression> ::= <multiplicative-expression>
                         | <additive-expression> + <multiplicative-expression>
@@ -257,7 +269,7 @@ namespace CParser {
 */
     }
     
-    void shiftExpression(std::vector<Token> &tokens) {
+    void shiftExpression(Code &code) {
         /*
 <shift-expression> ::= <additive-expression>
                      | <shift-expression> << <additive-expression>
@@ -265,7 +277,7 @@ namespace CParser {
 */
     }
     
-    void relationalExpression(std::vector<Token> &tokens) {
+    void relationalExpression(Code &code) {
         /*
 <relational-expression> ::= <shift-expression>
                           | <relational-expression> < <shift-expression>
@@ -275,7 +287,7 @@ namespace CParser {
 */
     }
     
-    void equalityExpression(std::vector<Token> &tokens) {
+    void equalityExpression(Code &code) {
         /*
 <equality-expression> ::= <relational-expression>
                         | <equality-expression> == <relational-expression>
@@ -283,7 +295,7 @@ namespace CParser {
 */
     }
     
-    void andExpression(std::vector<Token> &tokens) {
+    void andExpression(Code &code) {
         /*
 <and-expression> ::= <equality-expression>
                    | <and-expression> & <equality-expression>
@@ -291,60 +303,60 @@ namespace CParser {
         
     }
     
-    void exclusiveOrExpression(std::vector<Token> &tokens) {
+    void exclusiveOrExpression(Code &code) {
         /*
 <exclusive-or-expression> ::= <and-expression>
                             | <exclusive-or-expression> ^ <and-expression>
 */
     }
     
-    void inclusiveOrExpression(std::vector<Token> &tokens) {
+    void inclusiveOrExpression(Code &code) {
         /*
 <inclusive-or-expression> ::= <exclusive-or-expression>
                             | <inclusive-or-expression> | <exclusive-or-expression>
 */
     }
     
-    void logicalAndExpression(std::vector<Token> &tokens) {
+    void logicalAndExpression(Code &code) {
         /*
 <logical-and-expression> ::= <inclusive-or-expression>
                            | <logical-and-expression> && <inclusive-or-expression>
 */
     }
     
-    void expression(std::vector<Token> &tokens) {
+    void expression(Code &code) {
         /*
 <expression> ::= <assignment-expression>
                | <expression> , <assignment-expression>
 */
     }
     
-    void logicalOrExpression(std::vector<Token> &tokens) {
+    void logicalOrExpression(Code &code) {
         /*
 <logical-or-expression> ::= <logical-and-expression>
                           | <logical-or-expression> || <logical-and-expression>
 */
     }
     
-    void conditionalExpression(std::vector<Token> &tokens) {
+    void conditionalExpression(Code &code) {
         /*
 <conditional-expression> ::= <logical-or-expression>
                            | <logical-or-expression> ? <expression> : <conditional-expression>
 */
     }
     
-    void parameterTypeList(std::vector<Token> &tokens) {
+    void parameterTypeList(Code &code) {
         /*
 <parameter-type-list> ::= <parameter-list>
             | <parameter-list> , ...
 */
     }
     
-    void identifier(std::vector<Token> &tokens) {
+    void identifier(Code &code) {
         // TODO(mdizdar): what's an identifier lol
     }
     
-    void directDeclarator(std::vector<Token> &tokens) {
+    void directDeclarator(Code &code) {
         /*
 <direct-declarator> ::= <identifier>
                       | ( <declarator> )
@@ -354,19 +366,19 @@ namespace CParser {
 */
     }
     
-    void pointer(std::vector<Token> &tokens) {
+    void pointer(Code &code) {
         /*
 <pointer> ::= * {<type-qualifier>}* {<pointer>}?
 */
     }
     
-    void constantExpression(std::vector<Token> &tokens) {
+    void constantExpression(Code &code) {
         /*
 <constant-expression> ::= <conditional-expression>
 */
     }
     
-    void structDeclarator(std::vector<Token> &tokens) {
+    void structDeclarator(Code &code) {
         /*
 <struct-declarator> ::= <declarator>
                       | <declarator> : <constant-expression>
@@ -374,40 +386,40 @@ namespace CParser {
 */
     }
     
-    void structDeclaratorList(std::vector<Token> &tokens) {
+    void structDeclaratorList(Code &code) {
         /*
 <struct-declarator-list> ::= <struct-declarator>
                            | <struct-declarator-list> , <struct-declarator>
 */
     }
     
-    void specifierQualifier(std::vector<Token> &tokens) {
+    void specifierQualifier(Code &code) {
         /*
 <specifier-qualifier> ::= <type-specifier>
                         | <type-qualifier>
 */
     }
     
-    void structDeclaration(std::vector<Token> &tokens) {
+    void structDeclaration(Code &code) {
         /*
 <struct-declaration> ::= {<specifier-qualifier>}* <struct-declarator-list>
 */
     }
     
-    void structOrUnion(std::vector<Token> &tokens) {
+    void structOrUnion(Code &code) {
         /*
 <struct-or-union> ::= struct
                     | union
 */
     }
     
-    void typedefName(std::vector<Token> &tokens) {
+    void typedefName(Code &code) {
         /*
 <typedef-name> ::= <identifier>
 */
     }
     
-    void enumSpecifier(std::vector<Token> &tokens) {
+    void enumSpecifier(Code &code) {
         /*
 <enum-specifier> ::= enum <identifier> { <enumerator-list> }
                    | enum { <enumerator-list> }
@@ -415,7 +427,7 @@ namespace CParser {
 */
     }
     
-    void structOrUnionSpecifier(std::vector<Token> &tokens) {
+    void structOrUnionSpecifier(Code &code) {
         /*
 <struct-or-union-specifier> ::= <struct-or-union> <identifier> { {<struct-declaration>}+ }
                               | <struct-or-union> { {<struct-declaration>}+ }
@@ -423,14 +435,15 @@ namespace CParser {
 */
     }
     
-    void typeQualifier(std::vector<Token> &tokens) {
+    void typeQualifier(Code &code) {
         /*
 <type-qualifier> ::= const
                    | volatile
 */
+        return match("const", code) | match("volatile", code);
     }
     
-    void typeSpecifier(std::vector<Token> &tokens) {
+    u8 typeSpecifier(Code &code) {
         /*
 <type-specifier> ::= void
                    | char
@@ -445,9 +458,12 @@ namespace CParser {
                    | <enum-specifier>
                    | <typedef-name>
 */
+        return match("void", code) | match("char", code) | match("short", code) | match("int", code) | 
+            match("long", code) | match("float", code) | match("double", code) | match("signed", code) | 
+            match("unsigned", code) | structOrUnionSpecifier(code) | enumSpecifier(code) | typedefName(code);
     }
     
-    void storageClassSpecifier(std::vector<Token> &tokens) {
+    u8 storageClassSpecifier(Code &code) {
         /*
 <storage-class-specifier> ::= auto
                             | register
@@ -455,55 +471,96 @@ namespace CParser {
                             | extern
                             | typedef
 */
+        return match("auto", code) | match("register", code) | match("static", code) | match("extern", code) | match("typedef", code);
     }
     
-    void compoundStatement(std::vector<Token> &tokens) {
+    u8 compoundStatement(Code &code) {
         /*
 <compound-statement> ::= { {<declaration>}* {<statement>}* }
 */
+        u8 retval = match("{", code);
+        for (size_t code.ptr = 0; code.ptr < code.length;) {
+            if (!declaration(code)) break;
+        }
+        for (size_t code.ptr = 0; code.ptr < code.length;) {
+            if (!statement(code)) break;
+        }
+        return retval && match("}", code)
     }
     
-    void declarator(std::vector<Token> &tokens) {
+    u8 declarator(Code &code) {
         /*
 <declarator> ::= {<pointer>}? <direct-declarator>
 */
+        if (!pointer(code)) code;
+        return directDeclarator(code);
     }
     
-    void declarationSpecifier(std::vector<Token> &tokens) {
+    u8 declarationSpecifier(Code &code) {
         /*
 <declaration-specifier> ::= <storage-class-specifier>
                           | <type-specifier>
                           | <type-qualifier>
 */
+        if (storageClassSpecifier(code)) confirm_peek;
+        code.peek = code.ptr;
+        if (typeSpecifier(code)) confirm_peek;
+        code.peek = code.ptr;
+        if (typeQualifier(code)) confirm_peek;
+        roll_back;
     }
     
-    void functionDefinition(std::vector<Token> &tokens) {
+    u8 functionDefinition(Code &code) {
         /*
 <function-definition> ::= {<declaration-specifier>}* <declarator> {<declaration>}* <compound-statement>
 */
+        for (size_t code.ptr = 0; code.ptr < code.length;) {
+            if (!declarationSpecifier(code)) break;
+        }
+        if (!declarator(code)) roll_back;
+        for (size_t code.ptr = 0; code.ptr < code.length;) {
+            if (!declaration(code)) break;
+        }
+        if (!compoundStatement(code)) roll_back;
+        confirm_peek;
     }
     
-    void declaration(std::vector<Token> &tokens) {
+    u8 declaration(Code &code) {
         /*
 <declaration> ::=  {<declaration-specifier>}+ {<init-declarator>}* ;
 */
+        u8 retval = 0;
+        for (size_t code.ptr = 0; code.ptr < code.length;) {
+            u8 cur = declarationSpecifier(code);
+            if (!cur) break;
+            retval |= cur;
+        }
+        if (!retval) roll_back;
+        for (size_t code.ptr = 0; code.ptr < code.length;) {
+            if (!initDeclarator(code)) break;
+        }
+        if (!match(";", code)) roll_back;
+        confirm_peek;
     }
     
-    void externalDeclaration(std::vector<Token> &tokens) {
+    u8 externalDeclaration(Code &code) {
         /*
 <external-declaration> ::= <function-definition>
                          | <declaration>
 */
+        if (functionDefinition(code)) confirm_peek;
+        code.peek = code.ptr;
+        if (declaration(code)) confirm_peek;
+        roll_back;
     }
     
-    void translationUnit(std::vector<Token> &tokens) {
+    void parse(Code &code) {
         /*
 <translation-unit> ::= {<external-declaration>}*
 */
-    }
-    
-    void parse(std::vector<Token> &tokens) {
-        
+        for (size_t code.ptr = 0; code.ptr < code.length;) {
+            if (!externalDeclaration(code)) parse_error;
+        }
     }
     
     Token createToken(const std::string &tok) {
