@@ -26,14 +26,7 @@ int main(int argc, char **argv) {
     Token t;
     do {
         t = getNextToken(&lexer);
-        printf("type %d", t.type);
-        if (t.type == TOKEN_STRING_LITERAL) {
-            printf(" - str: %d `%s`", t.string_value.count, t.string_value.data);
-        }
-        if (t.type == TOKEN_IDENT) {
-            printf(" - ident: `%s`", t.name.data);
-        }
-        printf("\n");
+        Token_print(t);
     } while (t.type != TOKEN_ERROR);
     /*
     std::vector<Token> tokens = CParser::tokenize(code);

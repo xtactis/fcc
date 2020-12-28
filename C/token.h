@@ -2,6 +2,7 @@
 #define TOKEN_H
 
 #include "../utils/common.h"
+#include "reserved.h" 
 
 typedef enum {
     // single character Tokens will just be their ascii value
@@ -104,6 +105,60 @@ typedef struct {
         String string_value;
     };
 } Token;
+
+void Token_print(Token t) {
+    printf("Token: { ");
+    if (t.type < 256) {
+        printf("type: operator %c (%u)", (char)t.type, t.type);
+    } else if (t.type > 500 && t.type < 600) {
+        printf("type: keyword %s (%u)",  KEYWORDS[t.type-TOKEN_KEYWORD-1], t.type);
+    } else if (t.type > 600 && t.type < 700) {
+        printf("type: typename %s (%u)", TYPES[t.type-TOKEN_TYPE-1], t.type);
+    } else if (t.type > 700 && t.type < 800) {
+        printf("type: modifier %s (%u)", MODIFIERS[t.type-TOKEN_MODIFIER-1], t.type);
+    } else if (t.type > 800 && t.type < 900) {
+        printf("type: operator %s (%u)", MULTI_OPS[t.type-TOKEN_OPERATOR-1], t.type);
+    } else {
+        switch (t.type) {
+            case TOKEN_INT_LITERAL: {
+                printf("type: int literal (%u); value: %u", t.type, (int)t.integer_value);
+                break;
+            }
+            case TOKEN_LONG_LITERAL: {
+                printf("type: long literal (%u); value: %lu", t.type, (long)t.integer_value);
+                break;
+            }
+            case TOKEN_LLONG_LITERAL: {
+                printf("type: long long literal (%u); value: %llu", t.type, t.integer_value);
+                break;
+            }
+            case TOKEN_FLOAT_LITERAL: {
+                printf("type: float literal (%d); value: %f", t.type, t.float_value);
+                break;
+            }
+            case TOKEN_DOUBLE_LITERAL: {
+                printf("type: double literal (%d); value: %lf", t.type, t.double_value);
+                break;
+            }
+            case TOKEN_STRING_LITERAL: {
+                printf("type: string literal (%d); value: \"%s\"", t.type, t.string_value.data);
+                break;
+            }
+            case TOKEN_IDENT: {
+                printf("type: identifier (%d); name: \"%s\"", t.type, t.name.data);
+                break;
+            }
+            case TOKEN_ERROR: {
+                printf("type: ERROR (%d)", t.type);
+                break;
+            }
+            default: {
+                printf("type: (%d)", t.type);
+            }
+        }
+    }
+    printf(" }\n");
+}
 
 typedef struct _Node {
     Token token;

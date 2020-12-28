@@ -7,11 +7,12 @@
 
 #include "../utils/common.h"
 #include "token.h"
+#include "reserved.h"
 
 #define parse_error error("Parse error!")
 
 typedef struct {
-    
+    int nothing;
 } SymbolTableEntry;
 
 typedef struct {
@@ -20,34 +21,8 @@ typedef struct {
 
 u64 SymbolTable_add(SymbolTable *st, char *name) {
     // TODO(mdizdar): this should add an entry to the hash table and fill out any fields that are passed in; also resize if necessary
+    return 0;
 }
-
-const char * const KEYWORDS[] = {
-    "if", "while", "do", "for", "switch", "case",
-    "break", "continue", "else", "struct", "typedef", 
-    "union", "enum", "return", "goto", "default",
-    "sizeof", "extern", "inline", "restrict", "_Alignas",
-    "_Alignof", "_Atomic", "_Bool", "_Complex",
-    "_Decimal128", "_Decimal32", "_Decimal64",
-    "_Generic", "_Imaginary", "_Noreturn",
-    "_Static_assert", "_Thread_local"
-};
-
-const char * const TYPES[] = {
-    "int", "char", "void", "auto", "float", "double"
-};
-
-const char * const MODIFIERS[] = {
-    "short", "long", "register", "volatile", "const",
-    "signed", "unsigned", "static"
-};
-
-// TODO(mdizdar): trigraphs and alt tokens
-const char * const MULTI_OPS[] = {
-    "+=", "-=", "*=", "/=", "%=", "!=", "|=", "&=", 
-    "^=", "==", "<=", ">=", "||", "&&", "~=", "++",
-    "--", "->", "<<", ">>", ">>=", "<<="
-};
 
 typedef struct {
     SymbolTable *symbol_table;
