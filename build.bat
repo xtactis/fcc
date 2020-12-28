@@ -1,3 +1,2 @@
 @echo off
-g++ -std=c++14 -O2 main.cpp -o fcc.exe
-fcc.exe
+gcc -std=c99 -O2 main.c -o fcc.exe

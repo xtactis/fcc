@@ -12,8 +12,6 @@ currently the IR registers are 1 to 1 with AVR registers, meaning there's only 3
 */
 
 void IR2AVR(const std::vector<IR> &ir, std::vector<u32> &AVRinstructions) {
-    // NOTE(mdizdar): currently IR instructions are 1 to 1 with AVR ones, this shouldn't be the case since the IR should assume e.g. multiplication can be done between any two registers (of which there's an infinite number)
-    // TODO(mdizdar): ... so, there should be a table of identifiers so the mapping can be done correctly
     for (size_t i = 0; i < ir.size(); ++i) {
         switch (ir[i].instruction) {
             case IRt::nop: {
@@ -21,16 +19,7 @@ void IR2AVR(const std::vector<IR> &ir, std::vector<u32> &AVRinstructions) {
                 break;
             }
             case IRt::mov: {
-                if (ir[i].imm == 0) { // rr
-                    const u32 r1 = ir[i].operands[0], r2 = ir[i].operands[1];
-                    AVRinstructions.push_back((0x2C00 | (r1 & 0xF) | ((r1 & 0x10) << 4) | (r2 << 4)) << 16);
-                } else if (ir[i].imm == 2) { // cr
-                    const u32 value = ir[i].operands[0];
-                    const u32 reg = ir[i].operands[1];
-                    AVRinstructions.push_back((0xE000 | ((value & 0xF0) << 4) | (value & 0xF) | (reg << 4)) << 16);
-                } else {
-                    error("imm corrupt or your mov operands don't make sense");
-                }
+                NOT_IMPL;
                 break;
             }
             case IRt::movrm: { // TODO(mdizdar): these should be ld/st type operations
@@ -62,16 +51,7 @@ void IR2AVR(const std::vector<IR> &ir, std::vector<u32> &AVRinstructions) {
                 break;
             }
             case IRt::add: {
-                if (ir[i].imm == 0) { // rr
-                    const u32 r1 = ir[i].operands[0], r2 = ir[i].operands[1];
-                    AVRinstructions.push_back((0x1C00 | (r1 & 0xF) | ((r1 & 0x10) << 4) | (r2 << 4)) << 16);
-                } else if (ir[i].imm == 2) { // cr
-                    const u32 value = ir[i].operands[0];
-                    const u32 reg = ir[i].operands[1];
-                    AVRinstructions.push_back((0x4000 | ((value & 0xF0) << 4) | (value & 0xF) | (reg << 4)) << 16);
-                } else {
-                    error("imm corrupt or your add operands don't make sense");
-                }
+                NOT_IMPL;
                 break;
             }
             case IRt::sub: {
