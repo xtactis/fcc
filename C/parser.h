@@ -8,21 +8,9 @@
 #include "../utils/common.h"
 #include "token.h"
 #include "reserved.h"
+#include "symbol_table.h"
 
 #define parse_error error("Parse error!")
-
-typedef struct {
-    int nothing;
-} SymbolTableEntry;
-
-typedef struct {
-    SymbolTableEntry *hash_table;
-} SymbolTable;
-
-u64 SymbolTable_add(SymbolTable *st, char *name) {
-    // TODO(mdizdar): this should add an entry to the hash table and fill out any fields that are passed in; also resize if necessary
-    return 0;
-}
 
 typedef struct {
     SymbolTable *symbol_table;
@@ -104,7 +92,7 @@ Token getNextToken(Lexer *lexer) {
                 if (t.type == TOKEN_IDENT) {
                     t.type = TOKEN_IDENT;
                     t.name = (String){.data = name, .count = count};
-                    SymbolTable_add(lexer->symbol_table, name);
+                    SymbolTable_add(lexer->symbol_table, &t.name);
                 }
                 lexer->pos = lookahead;
                 return t;

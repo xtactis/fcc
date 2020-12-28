@@ -18,8 +18,9 @@ int main(int argc, char **argv) {
     puts(code);
     puts(CYAN "**TOKENS**" RESET);
     Lexer lexer;
-    SymbolTable st;
+    SymbolTable st = {.resize_threshold = 0.7};
     lexer.symbol_table = &st;
+    SymbolTable_init(lexer.symbol_table, 10);
     lexer.code.data = code;
     lexer.code.count = strlen(code);
     lexer.pos = 0;
@@ -28,9 +29,13 @@ int main(int argc, char **argv) {
         t = getNextToken(&lexer);
         Token_print(t);
     } while (t.type != TOKEN_ERROR);
+    puts("");
+    for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
+        printf("%llu: ", i);
+        if (lexer.symbol_table->hash_table[i].name.count == 0) { printf("\n"); continue; }
+        printf("%s\n", lexer.symbol_table->hash_table[i].name.data);
+    }
     /*
-    std::vector<Token> tokens = CParser::tokenize(code);
-    Token::printTokens(tokens);
     puts(CYAN "****AST***" RESET);
     AST ast;
     parse(tokens, ast);
