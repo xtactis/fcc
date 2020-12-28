@@ -1,8 +1,8 @@
 #ifndef PRINTING_H
 #define PRINTING_H
 
-#include <cstdio>
-#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define RED     "\x1B[31m"
 #define GREEN   "\x1B[32m"
