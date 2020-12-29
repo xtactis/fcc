@@ -24,6 +24,7 @@ int main(int argc, char **argv) {
     lexer.code.data = code;
     lexer.code.count = strlen(code);
     lexer.pos = 0;
+    lexer.cur_line = 1;
     Token t;
     do {
         t = getNextToken(&lexer);
@@ -33,7 +34,8 @@ int main(int argc, char **argv) {
     for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
         printf("%llu: ", i);
         if (lexer.symbol_table->hash_table[i].name.count == 0) { printf("\n"); continue; }
-        printf("%s\n", lexer.symbol_table->hash_table[i].name.data);
+        SymbolTableEntry *entry = &lexer.symbol_table->hash_table[i];
+        printf("{ name: %s; type: %llu; def_line: %llu }\n", entry->name.data, entry->type, entry->definition_line);
     }
     /*
     puts(CYAN "****AST***" RESET);

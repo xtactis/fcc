@@ -72,9 +72,9 @@ void SymbolTable_resize(SymbolTable *st) {
     }
 }
 
-void SymbolTable_add(SymbolTable *st, const String *name) {
+void SymbolTable_add(SymbolTable *st, const String *name, u64 type, u64 definition_line) {
     // assumes the table has been init-ed, if it hasn't it WILL explode
-    const u64 travel = SymbolTable_add_helper(st, name, -1, -1);
+    const u64 travel = SymbolTable_add_helper(st, name, type, definition_line);
     
     if ((travel > st->capacity/2) || (1.0 * st->size / st->capacity > st->resize_threshold)) {
         SymbolTable_resize(st);

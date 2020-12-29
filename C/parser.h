@@ -15,6 +15,7 @@
 typedef struct {
     SymbolTable *symbol_table;
     
+    u64 cur_line;
     u64 pos;
     String code;
 } Lexer;
@@ -65,6 +66,7 @@ Token getNextToken(Lexer *lexer) {
         switch (state) {
             case UNKNOWN: {
                 if (isspace(c)) {
+                    if (c == '\n') ++lexer->cur_line;
                     ++lexer->pos;
                     continue;
                 }
@@ -90,9 +92,10 @@ Token getNextToken(Lexer *lexer) {
                 strncpy(name, lexer->code.data + lexer->pos, count);
                 t.type = checkKeyword(name);
                 if (t.type == TOKEN_IDENT) {
-                    t.type = TOKEN_IDENT;
                     t.name = (String){.data = name, .count = count};
-                    SymbolTable_add(lexer->symbol_table, &t.name);
+                    
+                    // NOTE(mdizdar): type is -1 because we don't know it yet
+                    SymbolTable_add(lexer->symbol_table, &t.name, -1, lexer->cur_line);
                 }
                 lexer->pos = lookahead;
                 return t;
