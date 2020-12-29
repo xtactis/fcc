@@ -74,11 +74,38 @@ void SymbolTable_resize(SymbolTable *st) {
 
 void SymbolTable_add(SymbolTable *st, const String *name) {
     // assumes the table has been init-ed, if it hasn't it WILL explode
-    u64 travel = SymbolTable_add_helper(st, name, -1, -1);
+    const u64 travel = SymbolTable_add_helper(st, name, -1, -1);
     
     if ((travel > st->capacity/2) || (1.0 * st->size / st->capacity > st->resize_threshold)) {
         SymbolTable_resize(st);
     }
+}
+
+const SymbolTableEntry *SymbolTable_find(SymbolTable *st, const String *name) {
+    u64 hash = SymbolTable_hash(st, name);
+    
+    u64 travel = 0;
+    // check the hash exists
+    while (st->hash_table[hash].name.count != 0) {
+        // check the hash is correct
+        if (strcmp(st->hash_table[hash].name.data, name->data) == 0) {
+            return st->hash_table + hash;
+        }
+        hash = (hash+1)%st->capacity;
+        ++travel;
+    }
+    
+    // NOTE(mdizdar): not sure if I want this here, but I'll include it for now
+    if (travel > st->capacity/2) {
+        SymbolTable_resize(st);
+    }
+    
+    return NULL;
+}
+
+const SymbolTableEntry *SymbolTable_find_cstr(SymbolTable *st, char *name) {
+    const String sname = (String){.data = name, .count = strlen(name)};
+    return SymbolTable_find(st, &sname);
 }
 
 #endif //SYMBOL_TABLE_H
