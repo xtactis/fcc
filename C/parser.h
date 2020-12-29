@@ -12,12 +12,15 @@
 
 #define parse_error error("Parse error!")
 
+// TODO(mdizdar): add caching of already lexed tokens
+
 typedef struct {
     SymbolTable *symbol_table;
+    String code;
     
     u64 cur_line;
     u64 pos;
-    String code;
+    u64 peek;
 } Lexer;
 
 TokenType checkKeyword(const char *name) {
@@ -42,7 +45,8 @@ TokenType checkKeyword(const char *name) {
     return TOKEN_IDENT;
 }
 
-Token getNextToken(Lexer *lexer) {
+// finds the next token and returns it
+Token Lexer_peekNextToken(Lexer *lexer) {
     enum State {
         UNKNOWN = 0,
         IDENT   = 1, // [_a-zA-Z][_a-zA-Z0-9]*
@@ -60,14 +64,14 @@ Token getNextToken(Lexer *lexer) {
     double double_value = 0;
     double dec_digit    = 1;
     
-    for (u64 lookahead = lexer->pos; lookahead < lexer->code.count; ++lookahead) {
+    for (u64 lookahead = lexer->peek; lookahead < lexer->code.count; ++lookahead) {
         char c = lexer->code.data[lookahead];
         //printf("%d %c\n", lookahead, c);
         switch (state) {
             case UNKNOWN: {
                 if (isspace(c)) {
                     if (c == '\n') ++lexer->cur_line;
-                    ++lexer->pos;
+                    ++lexer->peek;
                     continue;
                 }
                 if (c == '_' || isalpha(c)) {
@@ -86,10 +90,10 @@ Token getNextToken(Lexer *lexer) {
             case IDENT: {
                 if (c == '_' || isalnum(c)) continue;
                 Token t;
-                u64 count = lookahead - lexer->pos;
+                u64 count = lookahead - lexer->peek;
                 char *name = malloc(count+1);
                 name[count] = 0;
-                strncpy(name, lexer->code.data + lexer->pos, count);
+                strncpy(name, lexer->code.data + lexer->peek, count);
                 t.type = checkKeyword(name);
                 if (t.type == TOKEN_IDENT) {
                     t.name = (String){.data = name, .count = count};
@@ -97,7 +101,7 @@ Token getNextToken(Lexer *lexer) {
                     // NOTE(mdizdar): type is -1 because we don't know it yet
                     SymbolTable_add(lexer->symbol_table, &t.name, -1, lexer->cur_line);
                 }
-                lexer->pos = lookahead;
+                lexer->peek = lookahead;
                 return t;
             }
             case DECINT: {
@@ -110,7 +114,7 @@ Token getNextToken(Lexer *lexer) {
                     } else if (isalpha(c)) {
                         error("Unexpected alpha character (necu ti reci gdje idiote)");
                     } else {
-                        lexer->pos = lookahead;
+                        lexer->peek = lookahead;
                         return (Token){.type = TOKEN_INT_LITERAL, .integer_value = 0};
                     }
                 } else {
@@ -123,7 +127,7 @@ Token getNextToken(Lexer *lexer) {
                         double_value = integer_value;
                         state = FLOAT;
                     } else {
-                        lexer->pos = lookahead; // NOTE(mdizdar): instead of making sure this is always here, write a function that'll create and return the token, while making sure the state is corrected accordingly. this will also allow us to fill in any auxilliary information e.g. the line and column number.
+                        lexer->peek = lookahead; // NOTE(mdizdar): instead of making sure this is always here, write a function that'll create and return the token, while making sure the state is corrected accordingly. this will also allow us to fill in any auxilliary information e.g. the line and column number.
                         return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
                     }
                 }
@@ -138,7 +142,7 @@ Token getNextToken(Lexer *lexer) {
                 } else if (isalpha(c) || c == '.') {
                     error("Look at this dude.");
                 } else {
-                    lexer->pos = lookahead;
+                    lexer->peek = lookahead;
                     return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
                 }
                 break;
@@ -154,7 +158,7 @@ Token getNextToken(Lexer *lexer) {
                 } else if (isalpha(c) || c == '.') {
                     error("Look at this dude.");
                 } else {
-                    lexer->pos = lookahead;
+                    lexer->peek = lookahead;
                     return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
                 }
                 break;
@@ -166,7 +170,7 @@ Token getNextToken(Lexer *lexer) {
                 } else if (isalpha(c) || c == '.') {
                     error("Look at this dude.");
                 } else {
-                    lexer->pos = lookahead;
+                    lexer->peek = lookahead;
                     return (Token){.type = TOKEN_DOUBLE_LITERAL, .double_value = double_value};
                 }
                 break;
@@ -178,29 +182,29 @@ Token getNextToken(Lexer *lexer) {
                     double_value += (c - '0') * dec_digit;
                     state = FLOAT;
                 } else if (prev == '?' || prev == ':' || prev == '.' || prev == '(' || prev == ')' || prev == '[' || prev == ']' || prev == '{' || prev == '}') {
-                    lexer->pos = lookahead;
+                    lexer->peek = lookahead;
                     return (Token){.type = prev};
-                } else if (lookahead - lexer->pos == 1) {
+                } else if (lookahead - lexer->peek == 1) {
                     if ((c != '>' || prev != '>') && (c != '<' || prev != '<')) {
                         for (u32 i = 0; i < sizeof(MULTI_OPS)/sizeof(char *) - 4; ++i) {
                             if (prev == MULTI_OPS[i][0] && c == MULTI_OPS[i][1]) {
-                                lexer->pos = lookahead+1;
+                                lexer->peek = lookahead+1;
                                 return (Token){.type = TOKEN_OPERATOR+i+1}; // NOTE(mdizdar): this is a disgusting error prone hack, but it works...
                             }
                         }
-                        lexer->pos = lookahead;
+                        lexer->peek = lookahead;
                         return (Token){.type = prev};
                     }
                 } else {
                     if (c == '=') {
-                        lexer->pos = lookahead+1;
+                        lexer->peek = lookahead+1;
                         if (prev == '<') {
                             return (Token){.type = TOKEN_BIT_L_ASSIGN};
                         } else {
                             return (Token){.type = TOKEN_BIT_R_ASSIGN};
                         }
                     } else {
-                        lexer->pos = lookahead;
+                        lexer->peek = lookahead;
                         if (prev == '<') {
                             return (Token){.type = TOKEN_BITSHIFT_LEFT};
                         } else {
@@ -220,11 +224,11 @@ Token getNextToken(Lexer *lexer) {
                     continue;
                 }
                 if (c == '"') {
-                    u64 count = lookahead - lexer->pos - 1;
+                    u64 count = lookahead - lexer->peek - 1;
                     char *str = malloc(count+1);
                     str[count] = 0;
-                    strncpy(str, lexer->code.data + lexer->pos + 1, count);
-                    lexer->pos = lookahead+1;
+                    strncpy(str, lexer->code.data + lexer->peek + 1, count);
+                    lexer->peek = lookahead+1;
                     return (Token){
                         .type = TOKEN_STRING_LITERAL,
                         .string_value = {.data = str, .count = count}
@@ -235,6 +239,18 @@ Token getNextToken(Lexer *lexer) {
         }
     }
     return (Token){.type = TOKEN_ERROR};
+}
+
+// consumes peeked tokens
+void Lexer_eat(Lexer *lexer) {
+    lexer->pos = lexer->peek;
+}
+
+// finds and consumes the next token, then returns it
+Token Lexer_getNextToken(Lexer *lexer) {
+    Token t = Lexer_peekNextToken(lexer);
+    Lexer_eat(lexer);
+    return t;
 }
 
 #endif // PARSER_H

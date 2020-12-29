@@ -11,6 +11,14 @@ int main(int argc, char **argv) {
     }
     puts(CYAN "***CODE***" RESET);
     char *code =
+        "typedef struct {                       \n"
+        "  int x;                               \n"
+        "  union {                              \n"
+        "    int int_val;                       \n"
+        "    double real_val;                   \n"
+        "  };                                   \n"
+        "} Struct;                              \n"
+        "                                       \n"
         "int main() {                           \n"
         "  const char * str = \"sdf fdfs sdsf\";\n"
         "  return 42 + str[6];                  \n"
@@ -19,15 +27,17 @@ int main(int argc, char **argv) {
     puts(CYAN "**TOKENS**" RESET);
     Lexer lexer;
     SymbolTable st = {.resize_threshold = 0.7};
-    lexer.symbol_table = &st;
-    SymbolTable_init(lexer.symbol_table, 10);
-    lexer.code.data = code;
-    lexer.code.count = strlen(code);
-    lexer.pos = 0;
-    lexer.cur_line = 1;
+    SymbolTable_init(&st, 10);
+    lexer = (Lexer){
+        .symbol_table = &st, 
+        .code = { .data = code, .count = strlen(code) },
+        .pos = 0,
+        .peek = 0,
+        .cur_line = 1,
+    };
     Token t;
     do {
-        t = getNextToken(&lexer);
+        t = Lexer_peekNextToken(&lexer);
         Token_print(t);
     } while (t.type != TOKEN_ERROR);
     puts("");
