@@ -14,7 +14,7 @@
 #define RESET   "\x1B[0m"
 #define NOT_IMPL error("Not implemented!");
 
-void error(const char* s) {
+_Noreturn void error(const char* s) {
     fputs(RED "ERROR: ", stderr);
     fputs(s, stderr);
     fputs(RESET "\n", stderr);
