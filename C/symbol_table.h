@@ -70,6 +70,7 @@ void SymbolTable_resize(SymbolTable *st) {
         if (old_table[i].name.count == 0) continue;
         SymbolTable_add_helper(st, &old_table[i].name, old_table[i].type, old_table[i].definition_line);
     }
+    free(oldtable);
 }
 
 void SymbolTable_add(SymbolTable *st, const String *name, u64 type, u64 definition_line) {
