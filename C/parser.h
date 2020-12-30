@@ -386,6 +386,9 @@ Node *Parser_operand(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, &token, ')');
     }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
     return node;
 }
 
@@ -1007,6 +1010,9 @@ Node *Parser_parse(Parser *parser) {
     Token token = Lexer_peekNextToken(&parser->lexer);
     
     while (token.type != TOKEN_ERROR) {
+        if (token.type == ';') {
+            Parser_eat(parser, &token, ';');
+        }
         parser->lexer.peek = parser->lexer.pos;
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;

@@ -81,8 +81,8 @@ int main(int argc, char **argv) {
         "c1?++t1--:c2?t2++:f;\n"
         "&*p++.;\n"
         "foo(a, b, c, d)[2][3];\n"
-        ";;;\n";
-    expr = "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
+        ";;;\n"
+        "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
     puts(expr);
     
     Parser parser = (Parser){
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
     clock_t end = clock();
     
     printf("~Time taken for %llu expr: %lf\n", N, (double)(end-begin) / CLOCKS_PER_SEC);
-    printf("Memory: %llu", parser.arena->total_capacity);
+    printf("Memory: %llu\n", parser.arena->total_capacity);
     
     /*
     puts(CYAN "****AST***" RESET);
