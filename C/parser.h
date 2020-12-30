@@ -1001,7 +1001,21 @@ Node *Parser_statement(Parser *parser) {
 }
 
 Node *Parser_parse(Parser *parser) {
-    return Parser_statement(parser);
+    Node *node = Parser_statement(parser);
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type != TOKEN_ERROR) {
+        parser->lexer.peek = parser->lexer.pos;
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token.type = TOKEN_NEXT;
+        tmp->right = Parser_statement(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    return node;
 }
 
 #endif // PARSER_H

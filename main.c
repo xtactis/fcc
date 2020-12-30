@@ -1,3 +1,5 @@
+#include <time.h>
+
 #include "utils/common.h"
 
 #include "C/token.h"
@@ -81,7 +83,6 @@ int main(int argc, char **argv) {
         "foo(a, b, c, d)[2][3];\n"
         ";;;\n";
     expr = "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
-    expr = "a,b,c,d,e,f,g,h;\n";
     puts(expr);
     
     Parser parser = (Parser){
@@ -93,8 +94,33 @@ int main(int argc, char **argv) {
             .cur_line = 1,
         }
     };
-    //Parser_parse(&parser);
+    
     printAST(Parser_parse(&parser), 0);
+    
+    u64 N = 100000, len = strlen(expr);
+    char *long_code = malloc(N*len+25);
+    for (int i = 0; i < N; ++i) {
+        strcpy(long_code+i*len, expr);
+    }
+    long_code[N*len] = 0;
+    
+    parser = (Parser){
+        .lexer = {
+            .symbol_table = &st, // doesn't use this yet though
+            .code = { .data = long_code, .count = N*len },
+            .pos = 0,
+            .peek = 0,
+            .cur_line = 1,
+        }
+    };
+    
+    clock_t begin = clock();
+    
+    Parser_parse(&parser);
+    
+    clock_t end = clock();
+    
+    printf("time taken for %llu expr: %lf\n", N, (double)(end-begin) / CLOCKS_PER_SEC);
     
     /*
     puts(CYAN "****AST***" RESET);

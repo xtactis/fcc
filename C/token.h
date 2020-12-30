@@ -98,6 +98,7 @@ typedef enum {
     
     TOKEN_FUNCTION_CALL  = 900,
     TOKEN_FOR_COND       = 901, // used in `for (<this bit>)`
+    TOKEN_NEXT           = 902, // for chaining statements together
 }  TokenType;
 
 typedef struct {
