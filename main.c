@@ -92,7 +92,8 @@ int main(int argc, char **argv) {
             .pos = 0,
             .peek = 0,
             .cur_line = 1,
-        }
+        },
+        .arena = Arena_init(4096)
     };
     
     printAST(Parser_parse(&parser), 0);
@@ -111,7 +112,8 @@ int main(int argc, char **argv) {
             .pos = 0,
             .peek = 0,
             .cur_line = 1,
-        }
+        },
+        .arena = Arena_init(4096)
     };
     
     clock_t begin = clock();
@@ -120,7 +122,8 @@ int main(int argc, char **argv) {
     
     clock_t end = clock();
     
-    printf("time taken for %llu expr: %lf\n", N, (double)(end-begin) / CLOCKS_PER_SEC);
+    printf("~Time taken for %llu expr: %lf\n", N, (double)(end-begin) / CLOCKS_PER_SEC);
+    printf("Memory: %llu", parser.arena->total_capacity);
     
     /*
     puts(CYAN "****AST***" RESET);

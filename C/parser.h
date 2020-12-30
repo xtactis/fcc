@@ -9,6 +9,7 @@
 #include "token.h"
 #include "reserved.h"
 #include "symbol_table.h"
+#include "arena.h"
 
 #define parse_error error("Parse error!")
 
@@ -287,6 +288,7 @@ Token Lexer_getNextToken(Lexer *lexer) {
 
 typedef struct {
     Lexer lexer;
+    Arena *arena;
 } Parser;
 
 typedef enum {
@@ -316,7 +318,7 @@ _Noreturn void Parser_error(Parser *parser, Token *token, TokenType expected_typ
 // TODO(mdizdar): this is stupid, split everything into header and code files
 Node *Parser_expr(Parser *parser);
 
-void Parser_eat(Parser *parser, Token *token, TokenType token_type) {
+inline void Parser_eat(Parser *parser, Token *token, TokenType token_type) {
     if (token->type == token_type) {
         Lexer_eat(&parser->lexer);
     } else {
@@ -332,49 +334,49 @@ Node *Parser_operand(Parser *parser) {
     
     if (token.type == TOKEN_CHAR_LITERAL) {
         Parser_eat(parser, &token, TOKEN_CHAR_LITERAL);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
     } else if (token.type == TOKEN_INT_LITERAL) {
         Parser_eat(parser, &token, TOKEN_INT_LITERAL);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
     } else if (token.type == TOKEN_LONG_LITERAL) {
         Parser_eat(parser, &token, TOKEN_LONG_LITERAL);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
     } else if (token.type == TOKEN_LLONG_LITERAL) {
         Parser_eat(parser, &token, TOKEN_LLONG_LITERAL);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
     } else if (token.type == TOKEN_FLOAT_LITERAL) {
         Parser_eat(parser, &token, TOKEN_FLOAT_LITERAL);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
     } else if (token.type == TOKEN_DOUBLE_LITERAL) {
         Parser_eat(parser, &token, TOKEN_DOUBLE_LITERAL);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
     } else if (token.type == TOKEN_STRING_LITERAL) {
         Parser_eat(parser, &token, TOKEN_STRING_LITERAL);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
     } else if (token.type == TOKEN_IDENT) {
         Parser_eat(parser, &token, TOKEN_IDENT);
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
@@ -418,7 +420,7 @@ Node *Parser_postfix(Parser *parser) {
             token.type = TOKEN_FUNCTION_CALL;
         }
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = right;
@@ -464,7 +466,7 @@ Node *Parser_prefix(Parser *parser) {
             Parser_eat(parser, &token, '&');
         }
         
-        node = malloc(sizeof(Node));
+        node = Arena_alloc(parser->arena, sizeof(Node));
         node->left = Parser_prefix(parser);
         node->token = token;
         node->right = NULL;
@@ -495,7 +497,7 @@ Node *Parser_muls(Parser *parser) {
             Parser_eat(parser, &token, '%');
         }
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_prefix(parser);
@@ -522,7 +524,7 @@ Node *Parser_sums(Parser *parser) {
         } else if (token.type == '-') {
             Parser_eat(parser, &token, '-');
         }
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_muls(parser);
@@ -548,7 +550,7 @@ Node *Parser_bitshift(Parser *parser) {
             Parser_eat(parser, &token, TOKEN_BITSHIFT_RIGHT);
         }
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_sums(parser);
@@ -579,7 +581,7 @@ Node *Parser_rel_op(Parser *parser) {
             Parser_eat(parser, &token, '>');
         }
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bitshift(parser);
@@ -605,7 +607,7 @@ Node *Parser_rel_eq(Parser *parser) {
             Parser_eat(parser, &token, TOKEN_NOT_EQ);
         }
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_rel_op(parser);
@@ -627,7 +629,7 @@ Node *Parser_bit_and(Parser *parser) {
     while (token.type == '&') {
         Parser_eat(parser, &token, '&');
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_rel_eq(parser);
@@ -649,7 +651,7 @@ Node *Parser_bit_xor(Parser *parser) {
     while (token.type == '^') {
         Parser_eat(parser, &token, '^');
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bit_and(parser);
@@ -671,7 +673,7 @@ Node *Parser_bit_or(Parser *parser) {
     while (token.type == '|') {
         Parser_eat(parser, &token, '|');
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bit_xor(parser);
@@ -693,7 +695,7 @@ Node *Parser_log_and(Parser *parser) {
     while (token.type == TOKEN_LOGICAL_AND) {
         Parser_eat(parser, &token, TOKEN_LOGICAL_AND);
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bit_or(parser);
@@ -715,7 +717,7 @@ Node *Parser_log_or(Parser *parser) {
     while (token.type == TOKEN_LOGICAL_OR) {
         Parser_eat(parser, &token, TOKEN_LOGICAL_OR);
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_log_and(parser);
@@ -740,7 +742,7 @@ Node *Parser_ternary(Parser *parser) {
         Token colon = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, &colon, ':');
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->cond = node;
         tmp->left = ternary_true;
         tmp->token = token;
@@ -790,7 +792,7 @@ Node *Parser_assignment(Parser *parser) {
             Parser_eat(parser, &token, TOKEN_BIT_R_ASSIGN);
         }
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_assignment(parser);
@@ -812,7 +814,7 @@ Node *Parser_comma(Parser *parser) {
             Parser_eat(parser, &token, ',');
         }
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_assignment(parser);
@@ -839,7 +841,7 @@ Node *Parser_block(Parser *parser) {
     while (token.type == ';') {
         Parser_eat(parser, &token, ';');
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_statement(parser);
@@ -854,7 +856,7 @@ Node *Parser_block(Parser *parser) {
 }
 
 Node *Parser_statement(Parser *parser) {
-    Node *node = malloc(sizeof(Node));
+    Node *node = Arena_alloc(parser->arena, sizeof(Node));
     
     Token token = Lexer_peekNextToken(&parser->lexer);
     if (token.type == TOKEN_IF) {
@@ -940,7 +942,7 @@ Node *Parser_statement(Parser *parser) {
         Parser_eat(parser, &token, ')');
         token = Lexer_peekNextToken(&parser->lexer);
         
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->cond  = cond;
         tmp->left  = init;
         tmp->right = iter;
@@ -991,7 +993,7 @@ Node *Parser_statement(Parser *parser) {
         
         node->cond = cond;
     } else { // TODO(mdizdar): declarations
-        free(node); // kinda annoying
+        // we aren't using the node we allocated up there, but since our arena doesn't support freeing memory at the moment, we won't free it here
         node = Parser_expr(parser);
     }
     
@@ -1006,7 +1008,7 @@ Node *Parser_parse(Parser *parser) {
     
     while (token.type != TOKEN_ERROR) {
         parser->lexer.peek = parser->lexer.pos;
-        Node *tmp = malloc(sizeof(Node));
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token.type = TOKEN_NEXT;
         tmp->right = Parser_statement(parser);
