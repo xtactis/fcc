@@ -671,12 +671,12 @@ Node *Parser_assignment(Parser *parser) {
     
     // TODO(mdizdar): doing this exact same thing for each level is kinda stupid, refactor it eventually
     
-    while (token.type == '=' || 
-           token.type == TOKEN_ADD_ASSIGN || token.type == TOKEN_SUB_ASSIGN ||
-           token.type == TOKEN_MUL_ASSIGN || token.type == TOKEN_DIV_ASSIGN || 
-           token.type == TOKEN_MOD_ASSIGN || token.type == TOKEN_OR_ASSIGN  || 
-           token.type == TOKEN_AND_ASSIGN || token.type == TOKEN_XOR_ASSIGN || 
-           token.type == TOKEN_BIT_L_ASSIGN || token.type == TOKEN_BIT_R_ASSIGN) {
+    if (token.type == '=' || 
+        token.type == TOKEN_ADD_ASSIGN || token.type == TOKEN_SUB_ASSIGN ||
+        token.type == TOKEN_MUL_ASSIGN || token.type == TOKEN_DIV_ASSIGN || 
+        token.type == TOKEN_MOD_ASSIGN || token.type == TOKEN_OR_ASSIGN  || 
+        token.type == TOKEN_AND_ASSIGN || token.type == TOKEN_XOR_ASSIGN || 
+        token.type == TOKEN_BIT_L_ASSIGN || token.type == TOKEN_BIT_R_ASSIGN) {
         if (token.type == '=') {
             Parser_eat(parser, &token, '=');
         } else if (token.type == TOKEN_ADD_ASSIGN) {
@@ -704,10 +704,8 @@ Node *Parser_assignment(Parser *parser) {
         Node *tmp = malloc(sizeof(Node));
         tmp->left = node;
         tmp->token = token;
-        tmp->right = Parser_ternary(parser);
+        tmp->right = Parser_assignment(parser);
         node = tmp;
-        
-        token = Lexer_peekNextToken(&parser->lexer);
     }
     
     parser->lexer.peek = parser->lexer.pos;
