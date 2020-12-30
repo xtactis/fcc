@@ -3,6 +3,29 @@
 #include "C/token.h"
 #include "C/parser.h"
 
+
+void printAST(Node *root, u64 indent) {
+    for (u64 i = 0; i < indent; ++i) {
+        if (i % 3 == 0) {
+            putchar('|');
+        } else {
+            putchar(' ');
+        }
+    }
+    char s[100];
+    printf("%s\n", Token_toStr(s, root->token));
+    if (root->token.type == '?') {
+        printAST(root->cond, indent+3);
+    }
+    if (root->left != NULL) {
+        printAST(root->left, indent+3);
+    }
+    if (root->right != NULL) {
+        printAST(root->right, indent+3);
+    }
+}
+
+
 int main(int argc, char **argv) {
     if (false) {
         if (argc == 1) {
@@ -25,10 +48,11 @@ int main(int argc, char **argv) {
         "}                                      \n";
     puts(code);
     puts(CYAN "**TOKENS**" RESET);
-    Lexer lexer;
+    
     SymbolTable st = {.resize_threshold = 0.7};
     SymbolTable_init(&st, 10);
-    lexer = (Lexer){
+    
+    Lexer lexer = (Lexer){
         .symbol_table = &st, 
         .code = { .data = code, .count = strlen(code) },
         .pos = 0,
@@ -36,17 +60,39 @@ int main(int argc, char **argv) {
         .cur_line = 1,
     };
     Token t;
+    char s[1000];
     do {
         t = Lexer_peekNextToken(&lexer);
-        Token_print(t);
+        printf("%s\n", Token_toStr_long(s, t));
     } while (t.type != TOKEN_ERROR);
+    
     puts("");
     for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
         printf("%llu: ", i);
         if (lexer.symbol_table->hash_table[i].name.count == 0) { printf("\n"); continue; }
         SymbolTableEntry *entry = &lexer.symbol_table->hash_table[i];
-        printf("{ name: %s; type: %llu; def_line: %llu }\n", entry->name.data, entry->type, entry->definition_line);
+        printf("{ name: %s; type: %lld; def_line: %llu }\n", entry->name.data, entry->type, entry->definition_line);
     }
+    
+    puts(CYAN "***EXPR***" RESET);
+    // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
+    char *expr;
+    expr = "2+3*5%6*(1/4+3)\n";
+    expr = "x += 2+3*(4-5)%(y?6+7:7*8)\n";
+    puts(expr);
+    
+    Parser parser = (Parser){
+        .lexer = {
+            .symbol_table = &st, // doesn't use this yet though
+            .code = { .data = expr, .count = strlen(expr) },
+            .pos = 0,
+            .peek = 0,
+            .cur_line = 1,
+        }
+    };
+    //Parser_parse(&parser);
+    printAST(Parser_parse(&parser), 0);
+    
     /*
     puts(CYAN "****AST***" RESET);
     AST ast;

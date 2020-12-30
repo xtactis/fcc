@@ -106,63 +106,117 @@ typedef struct {
     };
 } Token;
 
-void Token_print(Token t) {
-    printf("Token: { ");
+// please for the love of god have s be large enough
+char *Token_toStr_long(char *s, Token t) {
     if (t.type < 256) {
-        printf("type: operator %c (%u)", (char)t.type, t.type);
+        sprintf(s, "Token: { type: operator %c (%u) }", (char)t.type, t.type);
     } else if (t.type > 500 && t.type < 600) {
-        printf("type: keyword %s (%u)",  KEYWORDS[t.type-TOKEN_KEYWORD-1], t.type);
+        sprintf(s, "Token: { type: keyword %s (%u) }",  KEYWORDS[t.type-TOKEN_KEYWORD-1], t.type);
     } else if (t.type > 600 && t.type < 700) {
-        printf("type: typename %s (%u)", TYPES[t.type-TOKEN_TYPE-1], t.type);
+        sprintf(s, "Token: { type: typename %s (%u) }", TYPES[t.type-TOKEN_TYPE-1], t.type);
     } else if (t.type > 700 && t.type < 800) {
-        printf("type: modifier %s (%u)", MODIFIERS[t.type-TOKEN_MODIFIER-1], t.type);
+        sprintf(s, "Token: { type: modifier %s (%u) }", MODIFIERS[t.type-TOKEN_MODIFIER-1], t.type);
     } else if (t.type > 800 && t.type < 900) {
-        printf("type: operator %s (%u)", MULTI_OPS[t.type-TOKEN_OPERATOR-1], t.type);
+        sprintf(s, "Token: { type: operator %s (%u) }", MULTI_OPS[t.type-TOKEN_OPERATOR-1], t.type);
     } else {
         switch (t.type) {
             case TOKEN_INT_LITERAL: {
-                printf("type: int literal (%u); value: %u", t.type, (int)t.integer_value);
+                sprintf(s, "Token: { type: int literal (%u); value: %u }", t.type, (int)t.integer_value);
                 break;
             }
             case TOKEN_LONG_LITERAL: {
-                printf("type: long literal (%u); value: %lu", t.type, (long)t.integer_value);
+                sprintf(s, "Token: { type: long literal (%u); value: %lu }", t.type, (long)t.integer_value);
                 break;
             }
             case TOKEN_LLONG_LITERAL: {
-                printf("type: long long literal (%u); value: %llu", t.type, t.integer_value);
+                sprintf(s, "Token: { type: long long literal (%u); value: %llu }", t.type, t.integer_value);
                 break;
             }
             case TOKEN_FLOAT_LITERAL: {
-                printf("type: float literal (%d); value: %f", t.type, t.float_value);
+                sprintf(s, "Token: { type: float literal (%d); value: %f }", t.type, t.float_value);
                 break;
             }
             case TOKEN_DOUBLE_LITERAL: {
-                printf("type: double literal (%d); value: %lf", t.type, t.double_value);
+                sprintf(s, "Token: { type: double literal (%d); value: %lf }", t.type, t.double_value);
                 break;
             }
             case TOKEN_STRING_LITERAL: {
-                printf("type: string literal (%d); value: \"%s\"", t.type, t.string_value.data);
+                sprintf(s, "Token: { type: string literal (%d); value: \"%s\" }", t.type, t.string_value.data);
                 break;
             }
             case TOKEN_IDENT: {
-                printf("type: identifier (%d); name: \"%s\"", t.type, t.name.data);
+                sprintf(s, "Token: { type: identifier (%d); name: \"%s\" }", t.type, t.name.data);
                 break;
             }
             case TOKEN_ERROR: {
-                printf("type: ERROR (%d)", t.type);
+                sprintf(s, "Token: { type: ERROR (%d) }", t.type);
                 break;
             }
             default: {
-                printf("type: (%d)", t.type);
+                sprintf(s, "Token: { type: (%d) }", t.type);
             }
         }
     }
-    printf(" }\n");
+    return s;
+}
+
+char *Token_toStr(char *s, Token t) {
+    if (t.type < 256) {
+        sprintf(s, "%c (%u)", (char)t.type, t.type);
+    } else if (t.type > 500 && t.type < 600) {
+        sprintf(s, "%s (%u)",  KEYWORDS[t.type-TOKEN_KEYWORD-1], t.type);
+    } else if (t.type > 600 && t.type < 700) {
+        sprintf(s, "%s (%u)", TYPES[t.type-TOKEN_TYPE-1], t.type);
+    } else if (t.type > 700 && t.type < 800) {
+        sprintf(s, "%s (%u)", MODIFIERS[t.type-TOKEN_MODIFIER-1], t.type);
+    } else if (t.type > 800 && t.type < 900) {
+        sprintf(s, "%s (%u)", MULTI_OPS[t.type-TOKEN_OPERATOR-1], t.type);
+    } else {
+        switch (t.type) {
+            case TOKEN_INT_LITERAL: {
+                sprintf(s, "%u (%u)", (int)t.integer_value, t.type);
+                break;
+            }
+            case TOKEN_LONG_LITERAL: {
+                sprintf(s, "%luL (%u)", (long)t.integer_value, t.type);
+                break;
+            }
+            case TOKEN_LLONG_LITERAL: {
+                sprintf(s, "%lluLL (%u)", t.integer_value, t.type);
+                break;
+            }
+            case TOKEN_FLOAT_LITERAL: {
+                sprintf(s, "%ff (%d)", t.float_value, t.type);
+                break;
+            }
+            case TOKEN_DOUBLE_LITERAL: {
+                sprintf(s, "%lf (%d)", t.double_value, t.type);
+                break;
+            }
+            case TOKEN_STRING_LITERAL: {
+                sprintf(s, "\"%s\" (%d)", t.string_value.data, t.type);
+                break;
+            }
+            case TOKEN_IDENT: {
+                sprintf(s, "ident %s (%d)", t.name.data, t.type);
+                break;
+            }
+            case TOKEN_ERROR: {
+                sprintf(s, "ERROR (%d)", t.type);
+                break;
+            }
+            default: {
+                sprintf(s, "(%d)", t.type);
+            }
+        }
+    }
+    return s;
 }
 
 typedef struct _Node {
     Token token;
     struct _Node *left, *right;
+    struct _Node *cond; // this is only used for ternary
 } Node;
 
 #endif // TOKEN_H
