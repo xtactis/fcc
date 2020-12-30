@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
     // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
     char *expr;
     expr = "2+3*5%6*(1/4+3)\n";
-    expr = "x += 2+3*(4-5)%(y?6+7:7*8)\n";
+    expr = "y += x += 2+3*(4-5)%(y?6+7:7*8)\n";
     puts(expr);
     
     Parser parser = (Parser){
