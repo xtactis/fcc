@@ -10,9 +10,11 @@ typedef enum {
     
     TOKEN_IDENT = 260,
     
-    TOKEN_INT_LITERAL    = 270,
-    TOKEN_LONG_LITERAL   = 271,
-    TOKEN_LLONG_LITERAL  = 272,
+    TOKEN_LITERAL        = 270,
+    TOKEN_CHAR_LITERAL   = 271,
+    TOKEN_INT_LITERAL    = 272,
+    TOKEN_LONG_LITERAL   = 273,
+    TOKEN_LLONG_LITERAL  = 274,
     TOKEN_FLOAT_LITERAL  = 280,
     TOKEN_DOUBLE_LITERAL = 281,
     TOKEN_STRING_LITERAL = 290,
@@ -120,6 +122,10 @@ char *Token_toStr_long(char *s, Token t) {
         sprintf(s, "Token: { type: operator %s (%u) }", MULTI_OPS[t.type-TOKEN_OPERATOR-1], t.type);
     } else {
         switch (t.type) {
+            case TOKEN_CHAR_LITERAL: {
+                sprintf(s, "Token: { type: char literal (%u); value: \'%c\' }", t.type, (char)t.integer_value);
+                break;
+            }
             case TOKEN_INT_LITERAL: {
                 sprintf(s, "Token: { type: int literal (%u); value: %u }", t.type, (int)t.integer_value);
                 break;
@@ -173,6 +179,10 @@ char *Token_toStr(char *s, Token t) {
         sprintf(s, "%s (%u)", MULTI_OPS[t.type-TOKEN_OPERATOR-1], t.type);
     } else {
         switch (t.type) {
+            case TOKEN_CHAR_LITERAL: {
+                sprintf(s, "'%c' (%u)", (char)t.integer_value, t.type);
+                break;
+            }
             case TOKEN_INT_LITERAL: {
                 sprintf(s, "%u (%u)", (int)t.integer_value, t.type);
                 break;

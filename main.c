@@ -29,7 +29,7 @@ void printAST(Node *root, u64 indent) {
 int main(int argc, char **argv) {
     if (false) {
         if (argc == 1) {
-            error("No arguments provided");
+            error(0, "No arguments provided");
         }
     }
     puts(CYAN "***CODE***" RESET);
@@ -43,8 +43,9 @@ int main(int argc, char **argv) {
         "} Struct;                              \n"
         "                                       \n"
         "int main() {                           \n"
+        "  char c = '\\n'\n"
         "  const char * str = \"sdf fdfs sdsf\";\n"
-        "  return 42 + str[6];                  \n"
+        "  return 42 + str[6] / c;              \n"
         "}                                      \n";
     puts(code);
     puts(CYAN "**TOKENS**" RESET);

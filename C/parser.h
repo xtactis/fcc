@@ -13,6 +13,7 @@
 #define parse_error error("Parse error!")
 
 // TODO(mdizdar): add caching of already lexed tokens
+// TODO(mdizdar): handle escaped characters
 
 typedef struct {
     SymbolTable *symbol_table;
@@ -55,11 +56,13 @@ Token Lexer_peekNextToken(Lexer *lexer) {
         HEXINT  = 4, // 0(x|X)[a-fA-F0-9]+
         FLOAT   = 5, // [0-9]+\.[0-9]* // TODO(mdizdar): add scientific notation (pain in the ass)
         OP      = 6, // ++ | -- | >= | == | <= | || | && | ^= | != | += | -= | *= | /= | %= | |= | &= | << | >> | <<= | >>= | ->
-        STRING  = 7, // ".*"
+        CHAR    = 7, // '.'
+        STRING  = 8, // ".*"
     } state  = UNKNOWN;
     
     bool was_zero       = false;
     bool escaped        = false;
+    bool was_escaped    = false;
     u64 integer_value   = 0;
     double double_value = 0;
     double dec_digit    = 1;
@@ -82,6 +85,8 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                     was_zero = c == '0';
                 } else if (c == '"') {
                     state = STRING;
+                } else if (c == '\'') {
+                    state = CHAR;
                 } else {
                     state = OP;
                 }
@@ -112,7 +117,7 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                         state = OCTINT;
                         --lookahead;
                     } else if (isalpha(c)) {
-                        error("Unexpected alpha character (necu ti reci gdje idiote)");
+                        error(lexer->cur_line, "Parse error: Unexpected alpha character");
                     } else {
                         lexer->peek = lookahead;
                         return (Token){.type = TOKEN_INT_LITERAL, .integer_value = 0};
@@ -123,7 +128,7 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                         integer_value += c - '0';
                     } else if (isalpha(c)) {
                         // TODO(mdizdar): 'L' and 'LL' at the end are allowed though
-                        error("Unexpected alpha character (necu ti reci gdje idiote)");
+                        error(lexer->cur_line, "Parse error: Unexpected alpha character");
                     } else if (c == '.') {
                         double_value = integer_value;
                         state = FLOAT;
@@ -139,9 +144,9 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                 if (c >= '0' && c <= '7') {
                     integer_value += c - '0';
                 } else if (isdigit(c)) {
-                    error("Did you write a '9' in an octal literal?");
+                    error(lexer->cur_line, "Parse error: Did you write a '9' in an octal literal?");
                 } else if (isalpha(c) || c == '.') {
-                    error("Look at this dude.");
+                    error(lexer->cur_line, "Look at this dude.");
                 } else {
                     lexer->peek = lookahead;
                     return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
@@ -157,7 +162,7 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                 } else if (c >= 'A' && c <= 'F') {
                     integer_value += c - 'A';
                 } else if (isalpha(c) || c == '.') {
-                    error("Look at this dude.");
+                    error(lexer->cur_line, "Look at this dude.");
                 } else {
                     lexer->peek = lookahead;
                     return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
@@ -169,7 +174,7 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                     dec_digit /= 10;
                     double_value += (c - '0') * dec_digit;
                 } else if (isalpha(c) || c == '.') {
-                    error("Look at this dude.");
+                    error(lexer->cur_line, "Look at this dude.");
                 } else {
                     lexer->peek = lookahead;
                     return (Token){.type = TOKEN_DOUBLE_LITERAL, .double_value = double_value};
@@ -214,6 +219,30 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                     }
                 }
                 break;
+            }
+            case CHAR: {
+                if (escaped) {
+                    escaped = false;
+                    was_escaped = true;
+                    continue;
+                }
+                if (c == '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (c == '\'') {
+                    u64 count = lookahead - lexer->peek - 1;
+                    if (was_escaped) --count;
+                    if (count > 1) {
+                        error(lexer->cur_line, "Error: character literals can't be longer than 1 character.");
+                    }
+                    lexer->peek = lookahead+1;
+                    char value = lexer->code.data[lookahead-1];
+                    return (Token) {
+                        .type = TOKEN_CHAR_LITERAL,
+                        .integer_value = value
+                    };
+                }
             }
             case STRING: {
                 if (escaped) {
@@ -279,9 +308,10 @@ typedef enum {
 } Precedence;
 
 _Noreturn void Parser_error(Parser *parser, Token *token, TokenType expected_type) {
-    error("[Line %llu] Syntax error: expected token of type %llu, but got %llu", parser->lexer.cur_line, expected_type, token->type);
+    error(parser->lexer.cur_line, "Syntax error: expected token of type %llu, but got %llu", expected_type, token->type);
 }
 
+// TODO(mdizdar): the bodies of these precedence based functions are very similar, generalize maybe
 // TODO(mdizdar): this is stupid, split everything into header and code files
 Node *Parser_expr(Parser *parser);
 
@@ -294,33 +324,69 @@ void Parser_eat(Parser *parser, Token *token, TokenType token_type) {
 }
 
 Node *Parser_operand(Parser *parser) {
-    // factor ::= ident | integer | '(' expr ')'
+    // factor ::= ident | literal | '(' expr ')'
     
     Token token = Lexer_peekNextToken(&parser->lexer);
+    Node *node = NULL;
     
-    if (token.type == TOKEN_INT_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_INT_LITERAL);
-        Node *node = malloc(sizeof(Node));
+    if (token.type == TOKEN_CHAR_LITERAL) {
+        Parser_eat(parser, &token, TOKEN_CHAR_LITERAL);
+        node = malloc(sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-        return node;
+    } else if (token.type == TOKEN_INT_LITERAL) {
+        Parser_eat(parser, &token, TOKEN_INT_LITERAL);
+        node = malloc(sizeof(Node));
+        node->token = token;
+        node->left = NULL;
+        node->right = NULL;
+    } else if (token.type == TOKEN_LONG_LITERAL) {
+        Parser_eat(parser, &token, TOKEN_LONG_LITERAL);
+        node = malloc(sizeof(Node));
+        node->token = token;
+        node->left = NULL;
+        node->right = NULL;
+    } else if (token.type == TOKEN_LLONG_LITERAL) {
+        Parser_eat(parser, &token, TOKEN_LLONG_LITERAL);
+        node = malloc(sizeof(Node));
+        node->token = token;
+        node->left = NULL;
+        node->right = NULL;
+    } else if (token.type == TOKEN_FLOAT_LITERAL) {
+        Parser_eat(parser, &token, TOKEN_FLOAT_LITERAL);
+        node = malloc(sizeof(Node));
+        node->token = token;
+        node->left = NULL;
+        node->right = NULL;
+    } else if (token.type == TOKEN_DOUBLE_LITERAL) {
+        Parser_eat(parser, &token, TOKEN_DOUBLE_LITERAL);
+        node = malloc(sizeof(Node));
+        node->token = token;
+        node->left = NULL;
+        node->right = NULL;
+    } else if (token.type == TOKEN_STRING_LITERAL) {
+        Parser_eat(parser, &token, TOKEN_STRING_LITERAL);
+        node = malloc(sizeof(Node));
+        node->token = token;
+        node->left = NULL;
+        node->right = NULL;
     } else if (token.type == TOKEN_IDENT) {
         Parser_eat(parser, &token, TOKEN_IDENT);
-        Node *node = malloc(sizeof(Node));
+        node = malloc(sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-        return node;
     } else if (token.type == '(') {
         Parser_eat(parser, &token, '(');
-        Node *node = Parser_expr(parser);
+        node = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, &token, ')');
-        return node;
     }
-    return NULL;
+    return node;
 }
+
+// TODO(mdizdar): more things in between these two actually
 
 Node *Parser_muls(Parser *parser) {
     // term ::= factor [('*'|'/'|'%') factor]*
@@ -379,10 +445,201 @@ Node *Parser_sums(Parser *parser) {
     return node;
 }
 
-// TODO(mdizdar): more things in between these two actually
+Node *Parser_bitshift(Parser *parser) {
+    Node *node = Parser_sums(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == TOKEN_BITSHIFT_LEFT || token.type == TOKEN_BITSHIFT_RIGHT) {
+        if (token.type == TOKEN_BITSHIFT_LEFT) {
+            Parser_eat(parser, &token, TOKEN_BITSHIFT_LEFT);
+        } else if (token.type == TOKEN_BITSHIFT_RIGHT) {
+            Parser_eat(parser, &token, TOKEN_BITSHIFT_RIGHT);
+        }
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_sums(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_rel_op(Parser *parser) {
+    Node *node = Parser_bitshift(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == TOKEN_LESS_EQ || token.type == TOKEN_GREATER_EQ ||
+           token.type == '<' || token.type == '>') {
+        if (token.type == TOKEN_LESS_EQ) {
+            Parser_eat(parser, &token, TOKEN_LESS_EQ);
+        } else if (token.type == TOKEN_GREATER_EQ) {
+            Parser_eat(parser, &token, TOKEN_GREATER_EQ);
+        } else if (token.type == '<') {
+            Parser_eat(parser, &token, '<');
+        } else if (token.type == '>') {
+            Parser_eat(parser, &token, '>');
+        }
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_bitshift(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_rel_eq(Parser *parser) {
+    Node *node = Parser_rel_op(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == TOKEN_EQUALS || token.type == TOKEN_NOT_EQ) {
+        if (token.type == TOKEN_EQUALS) {
+            Parser_eat(parser, &token, TOKEN_EQUALS);
+        } else if (token.type == TOKEN_NOT_EQ) {
+            Parser_eat(parser, &token, TOKEN_NOT_EQ);
+        }
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_rel_op(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_bit_and(Parser *parser) {
+    Node *node = Parser_rel_eq(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == '&') {
+        Parser_eat(parser, &token, '&');
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_rel_eq(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_bit_xor(Parser *parser) {
+    Node *node = Parser_bit_and(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == '^') {
+        Parser_eat(parser, &token, '^');
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_bit_and(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_bit_or(Parser *parser) {
+    Node *node = Parser_bit_xor(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == '|') {
+        Parser_eat(parser, &token, '|');
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_bit_xor(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_log_and(Parser *parser) {
+    Node *node = Parser_bit_or(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == TOKEN_LOGICAL_AND) {
+        Parser_eat(parser, &token, TOKEN_LOGICAL_AND);
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_bit_or(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_log_or(Parser *parser) {
+    Node *node = Parser_log_and(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == TOKEN_LOGICAL_OR) {
+        Parser_eat(parser, &token, TOKEN_LOGICAL_OR);
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_log_and(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
 
 Node *Parser_ternary(Parser *parser) {
-    Node *node = Parser_sums(parser);
+    Node *node = Parser_log_or(parser);
     
     Token token = Lexer_peekNextToken(&parser->lexer);
     
@@ -396,7 +653,7 @@ Node *Parser_ternary(Parser *parser) {
         tmp->cond = node;
         tmp->left = ternary_true;
         tmp->token = token;
-        tmp->right = Parser_sums(parser);
+        tmp->right = Parser_log_or(parser);
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
