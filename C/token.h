@@ -95,10 +95,12 @@ typedef enum {
     TOKEN_BITSHIFT_RIGHT = 820,
     TOKEN_BIT_L_ASSIGN   = 821,
     TOKEN_BIT_R_ASSIGN   = 822,
+    
+    TOKEN_FUNCTION_CALL  = 900,
+    TOKEN_FOR_COND       = 901, // used in `for (<this bit>)`
 }  TokenType;
 
 typedef struct {
-    TokenType type;
     union {
         String name;
         u64 integer_value;
@@ -106,6 +108,7 @@ typedef struct {
         double double_value;
         String string_value;
     };
+    TokenType type;
 } Token;
 
 // please for the love of god have s be large enough
@@ -152,6 +155,14 @@ char *Token_toStr_long(char *s, Token t) {
             }
             case TOKEN_IDENT: {
                 sprintf(s, "Token: { type: identifier (%d); name: \"%s\" }", t.type, t.name.data);
+                break;
+            }
+            case TOKEN_FUNCTION_CALL: {
+                sprintf(s, "Token: { type: function call (%d) }", t.type);
+                break;
+            }
+            case TOKEN_FOR_COND: {
+                sprintf(s, "Token: { type: for cond (%d) }", t.type);
                 break;
             }
             case TOKEN_ERROR: {
@@ -209,6 +220,14 @@ char *Token_toStr(char *s, Token t) {
             }
             case TOKEN_IDENT: {
                 sprintf(s, "ident %s (%d)", t.name.data, t.type);
+                break;
+            }
+            case TOKEN_FUNCTION_CALL: {
+                sprintf(s, "() (%d)", t.type);
+                break;
+            }
+            case TOKEN_FOR_COND: {
+                sprintf(s, "for cond (%d)", t.type);
                 break;
             }
             case TOKEN_ERROR: {

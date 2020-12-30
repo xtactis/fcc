@@ -3,8 +3,8 @@
 #include "C/token.h"
 #include "C/parser.h"
 
-
 void printAST(Node *root, u64 indent) {
+    if (root == NULL) return;
     for (u64 i = 0; i < indent; ++i) {
         if (i % 3 == 0) {
             putchar('|');
@@ -14,18 +14,14 @@ void printAST(Node *root, u64 indent) {
     }
     char s[100];
     printf("%s\n", Token_toStr(s, root->token));
-    if (root->token.type == '?') {
+    if (root->token.type == '?' || root->token.type == TOKEN_FOR || root->token.type == TOKEN_FOR_COND || root->token.type == TOKEN_IF || root->token.type == TOKEN_WHILE || root->token.type == TOKEN_DO) {
         printAST(root->cond, indent+3);
     }
-    if (root->left != NULL) {
-        printAST(root->left, indent+3);
-    }
-    if (root->right != NULL) {
-        printAST(root->right, indent+3);
-    }
+    printAST(root->left, indent+3);
+    printAST(root->right, indent+3);
 }
 
-
+// TODO(mdizdar): make it actually read from a file instead of this stupid hardcoded bs
 int main(int argc, char **argv) {
     if (false) {
         if (argc == 1) {
@@ -66,7 +62,6 @@ int main(int argc, char **argv) {
         t = Lexer_peekNextToken(&lexer);
         printf("%s\n", Token_toStr_long(s, t));
     } while (t.type != TOKEN_ERROR);
-    
     puts("");
     for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
         printf("%llu: ", i);
@@ -78,8 +73,15 @@ int main(int argc, char **argv) {
     puts(CYAN "***EXPR***" RESET);
     // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
     char *expr;
-    expr = "2+3*5%6*(1/4+3)\n";
-    expr = "y += x += 2+3*(4-5)%(y?6+7:7*8)\n";
+    expr = 
+        "2+3*5%6*(1/4+3);\n"
+        "x += 2+3*(4-5)%(y?6+7:7*8);\n"
+        "c1?++t1--:c2?t2++:f;\n"
+        "&*p++.;\n"
+        "foo(a, b, c, d)[2][3];\n"
+        ";;;\n";
+    expr = "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
+    expr = "a,b,c,d,e,f,g,h;\n";
     puts(expr);
     
     Parser parser = (Parser){
