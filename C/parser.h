@@ -311,6 +311,7 @@ _Noreturn void Parser_error(Parser *parser, Token *token, TokenType expected_typ
     error(parser->lexer.cur_line, "Syntax error: expected token of type %llu, but got %llu", expected_type, token->type);
 }
 
+// TODO(mdizdar): compound literals
 // TODO(mdizdar): the bodies of these precedence based functions are very similar, generalize maybe
 // TODO(mdizdar): this is stupid, split everything into header and code files
 Node *Parser_expr(Parser *parser);
@@ -386,12 +387,102 @@ Node *Parser_operand(Parser *parser) {
     return node;
 }
 
-// TODO(mdizdar): more things in between these two actually
+Node *Parser_postfix(Parser *parser) {
+    Node *node = Parser_operand(parser);
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == TOKEN_INC || token.type == TOKEN_DEC || token.type == TOKEN_ARROW || token.type == '.' || token.type == '[' || token.type == '(') {
+        Node *right = NULL;
+        if (token.type == TOKEN_INC) {
+            Parser_eat(parser, &token, TOKEN_INC);
+        } else if (token.type == TOKEN_DEC) {
+            Parser_eat(parser, &token, TOKEN_DEC);
+        } else if (token.type == TOKEN_ARROW) {
+            Parser_eat(parser, &token, TOKEN_DEC);
+            right = Parser_operand(parser);
+        } else if (token.type == '.') {
+            Parser_eat(parser, &token, '.');
+            right = Parser_operand(parser);
+        } else if (token.type == '[') {
+            Parser_eat(parser, &token, '[');
+            right = Parser_expr(parser);
+            token = Lexer_peekNextToken(&parser->lexer);
+            Parser_eat(parser, &token, ']');
+        } else if (token.type == '(') {
+            Parser_eat(parser, &token, '(');
+            // NOTE(mdizdar): the commas are treated differently here
+            right = Parser_expr(parser); 
+            token = Lexer_peekNextToken(&parser->lexer);
+            Parser_eat(parser, &token, ')');
+            token.type = TOKEN_FUNCTION_CALL;
+        }
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = right;
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_prefix(Parser *parser) {
+    Node *node;
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    // TODO(mdizdar): casting
+    if (token.type == TOKEN_INC || token.type == TOKEN_DEC ||
+        token.type == TOKEN_SIZEOF || token.type == TOKEN_ALIGNOF || 
+        token.type == '+' || token.type == '-' || token.type == '!' || 
+        token.type == '~' || token.type == '*' || token.type == '&') {
+        if (token.type == TOKEN_INC) {
+            Parser_eat(parser, &token, TOKEN_INC);
+        } else if (token.type == TOKEN_DEC) {
+            Parser_eat(parser, &token, TOKEN_DEC);
+        } else if (token.type == TOKEN_SIZEOF) {
+            Parser_eat(parser, &token, TOKEN_SIZEOF);
+        } else if (token.type == TOKEN_ALIGNOF) {
+            Parser_eat(parser, &token, TOKEN_ALIGNOF);
+        } else if (token.type == '+') {
+            Parser_eat(parser, &token, '+');
+        } else if (token.type == '-') {
+            Parser_eat(parser, &token, '-');
+        } else if (token.type == '!') {
+            Parser_eat(parser, &token, '!');
+        } else if (token.type == '~') {
+            Parser_eat(parser, &token, '~');
+        } else if (token.type == '*') {
+            Parser_eat(parser, &token, '*');
+        } else if (token.type == '&') {
+            Parser_eat(parser, &token, '&');
+        }
+        
+        node = malloc(sizeof(Node));
+        node->left = Parser_prefix(parser);
+        node->token = token;
+        node->right = NULL;
+    } else {
+        parser->lexer.peek = parser->lexer.pos;
+        
+        node = Parser_postfix(parser);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
 
 Node *Parser_muls(Parser *parser) {
     // term ::= factor [('*'|'/'|'%') factor]*
     
-    Node *node = Parser_operand(parser);
+    Node *node = Parser_prefix(parser);
     
     Token token = Lexer_peekNextToken(&parser->lexer);
     
@@ -407,7 +498,7 @@ Node *Parser_muls(Parser *parser) {
         Node *tmp = malloc(sizeof(Node));
         tmp->left = node;
         tmp->token = token;
-        tmp->right = Parser_operand(parser);
+        tmp->right = Parser_prefix(parser);
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -643,7 +734,7 @@ Node *Parser_ternary(Parser *parser) {
     
     Token token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == '?') {
+    if(token.type == '?') {
         Parser_eat(parser, &token, '?');
         Node *ternary_true = Parser_expr(parser);
         Token colon = Lexer_peekNextToken(&parser->lexer);
@@ -653,10 +744,8 @@ Node *Parser_ternary(Parser *parser) {
         tmp->cond = node;
         tmp->left = ternary_true;
         tmp->token = token;
-        tmp->right = Parser_log_or(parser);
+        tmp->right = Parser_ternary(parser);
         node = tmp;
-        
-        token = Lexer_peekNextToken(&parser->lexer);
     }
     
     parser->lexer.peek = parser->lexer.pos;
@@ -741,13 +830,178 @@ Node *Parser_expr(Parser *parser) {
     return Parser_comma(parser);
 }
 
-void Parser_parseStatement(Parser *parser) {
-    NOT_IMPL;
+Node *Parser_statement(Parser *parser);
+
+Node *Parser_block(Parser *parser) {
+    Node *node = Parser_statement(parser);
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    
+    while (token.type == ';') {
+        Parser_eat(parser, &token, ';');
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->left = node;
+        tmp->token = token;
+        tmp->right = Parser_statement(parser);
+        node = tmp;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
+}
+
+Node *Parser_statement(Parser *parser) {
+    Node *node = malloc(sizeof(Node));
+    
+    Token token = Lexer_peekNextToken(&parser->lexer);
+    if (token.type == TOKEN_IF) {
+        Parser_eat(parser, &token, TOKEN_IF);
+        
+        node->token = token;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, '(');
+        Node *cond = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, ')');
+        token = Lexer_peekNextToken(&parser->lexer);
+        
+        node->cond = cond;
+        node->right = NULL;
+        
+        Node *block;
+        if (token.type == '{') {
+            Parser_eat(parser, &token, '{');
+            block = Parser_block(parser);
+            token = Lexer_peekNextToken(&parser->lexer);
+            Parser_eat(parser, &token, '}');
+        } else {
+            block = Parser_statement(parser);
+        }
+        node->left = block;
+        
+        Token token = Lexer_peekNextToken(&parser->lexer);
+        if (token.type == TOKEN_ELSE) {
+            Parser_eat(parser, &token, TOKEN_ELSE);
+            Node *block;
+            if (token.type == '{') {
+                Parser_eat(parser, &token, '{');
+                block = Parser_block(parser);
+                token = Lexer_peekNextToken(&parser->lexer);
+                Parser_eat(parser, &token, '}');
+            } else {
+                block = Parser_statement(parser);
+            }
+            node->right = block;
+        }
+    } else if (token.type == TOKEN_WHILE) {
+        Parser_eat(parser, &token, TOKEN_WHILE);
+        
+        node->token = token;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, '(');
+        Node *cond = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, ')');
+        token = Lexer_peekNextToken(&parser->lexer);
+        
+        node->cond = cond;
+        node->right = NULL;
+        
+        Node *block;
+        if (token.type == '{') {
+            Parser_eat(parser, &token, '{');
+            block = Parser_block(parser);
+            token = Lexer_peekNextToken(&parser->lexer);
+            Parser_eat(parser, &token, '}');
+        } else {
+            block = Parser_statement(parser);
+        }
+        node->left = block;
+    } else if (token.type == TOKEN_FOR) {
+        Parser_eat(parser, &token, TOKEN_FOR);
+        
+        node->token = token;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, '(');
+        Node *init = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, ';');
+        Node *cond = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, ';');
+        Node *iter = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, ')');
+        token = Lexer_peekNextToken(&parser->lexer);
+        
+        Node *tmp = malloc(sizeof(Node));
+        tmp->cond  = cond;
+        tmp->left  = init;
+        tmp->right = iter;
+        tmp->token.type = TOKEN_FOR_COND;
+        
+        node->cond = tmp;
+        node->right = NULL;
+        
+        Node *block;
+        if (token.type == '{') {
+            Parser_eat(parser, &token, '{');
+            block = Parser_block(parser);
+            token = Lexer_peekNextToken(&parser->lexer);
+            Parser_eat(parser, &token, '}');
+        } else {
+            block = Parser_statement(parser);
+        }
+        node->left = block;
+    } else if (token.type == TOKEN_DO) {
+        Parser_eat(parser, &token, TOKEN_DO);
+        
+        node->token = token;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        Node *block;
+        if (token.type == '{') {
+            Parser_eat(parser, &token, '{');
+            block = Parser_block(parser);
+            token = Lexer_peekNextToken(&parser->lexer);
+            Parser_eat(parser, &token, '}');
+        } else {
+            block = Parser_statement(parser);
+        }
+        
+        node->left = block;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, TOKEN_WHILE);
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, '(');
+        Node *cond = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, ')');
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, &token, ';');
+        token = Lexer_peekNextToken(&parser->lexer);
+        
+        node->cond = cond;
+    } else { // TODO(mdizdar): declarations
+        free(node); // kinda annoying
+        node = Parser_expr(parser);
+    }
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    return node;
 }
 
 Node *Parser_parse(Parser *parser) {
-    // TODO(mdizdar): not just one expression.. not just expressions
-    return Parser_expr(parser);
+    return Parser_statement(parser);
 }
 
 #endif // PARSER_H
