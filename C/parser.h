@@ -20,6 +20,9 @@ typedef struct {
     SymbolTable *symbol_table;
     String code;
     
+    Token **token_at;
+    Arena *token_arena;
+    
     u64 cur_line;
     u64 pos;
     u64 peek;
@@ -47,8 +50,23 @@ TokenType checkKeyword(const char *name) {
     return TOKEN_IDENT;
 }
 
+inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
+    //printf("peek %llu / %llu\n", lexer->peek, lexer->code.count);
+    if (t != NULL && t->type != TOKEN_ERROR) {
+        lexer->token_at[lexer->peek] = t;
+        lexer->token_at[lexer->peek]->lookahead = lookahead;
+    }
+    lexer->peek = lookahead;
+    return t;
+}
+
 // finds the next token and returns it
-Token Lexer_peekNextToken(Lexer *lexer) {
+Token *Lexer_peekNextToken(Lexer *lexer) {
+    if (lexer->token_at[lexer->peek] != NULL) {
+        Token *ret = lexer->token_at[lexer->peek];
+        lexer->peek = lexer->token_at[lexer->peek]->lookahead;
+        return ret;
+    }
     enum State {
         UNKNOWN = 0,
         IDENT   = 1, // [_a-zA-Z][_a-zA-Z0-9]*
@@ -67,6 +85,9 @@ Token Lexer_peekNextToken(Lexer *lexer) {
     u64 integer_value   = 0;
     double double_value = 0;
     double dec_digit    = 1;
+    
+    Token *t = Arena_alloc(lexer->token_arena, sizeof(Token)); // the token we return
+    t->type = TOKEN_ERROR;
     
     for (u64 lookahead = lexer->peek; lookahead < lexer->code.count; ++lookahead) {
         char c = lexer->code.data[lookahead];
@@ -95,20 +116,18 @@ Token Lexer_peekNextToken(Lexer *lexer) {
             }
             case IDENT: {
                 if (c == '_' || isalnum(c)) continue;
-                Token t;
                 u64 count = lookahead - lexer->peek;
                 char *name = malloc(count+1);
                 name[count] = 0;
                 strncpy(name, lexer->code.data + lexer->peek, count);
-                t.type = checkKeyword(name);
-                if (t.type == TOKEN_IDENT) {
-                    t.name = (String){.data = name, .count = count};
+                t->type = checkKeyword(name);
+                if (t->type == TOKEN_IDENT) {
+                    t->name = (String){.data = name, .count = count};
                     
-                    // NOTE(mdizdar): type is -1 because we don't know it yet
-                    SymbolTable_add(lexer->symbol_table, &t.name, -1, lexer->cur_line);
+                    // NOTE(mdizdar): type is 0 because we don't know it yet
+                    SymbolTable_add(lexer->symbol_table, &t->name, 0, lexer->cur_line);
                 }
-                lexer->peek = lookahead;
-                return t;
+                return Lexer_returnToken(lexer, lookahead, t);
             }
             case DECINT: {
                 if (was_zero) {
@@ -120,8 +139,9 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                     } else if (isalpha(c)) {
                         error(lexer->cur_line, "Parse error: Unexpected alpha character");
                     } else {
-                        lexer->peek = lookahead;
-                        return (Token){.type = TOKEN_INT_LITERAL, .integer_value = 0};
+                        t->type = TOKEN_INT_LITERAL;
+                        t->integer_value = 0;
+                        return Lexer_returnToken(lexer, lookahead, t);
                     }
                 } else {
                     if (isdigit(c)) {
@@ -131,11 +151,12 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                         // TODO(mdizdar): 'L' and 'LL' at the end are allowed though
                         error(lexer->cur_line, "Parse error: Unexpected alpha character");
                     } else if (c == '.') {
-                        double_value = integer_value;
+                        double_value = (double)integer_value;
                         state = FLOAT;
                     } else {
-                        lexer->peek = lookahead; // NOTE(mdizdar): instead of making sure this is always here, write a function that'll create and return the token, while making sure the state is corrected accordingly. this will also allow us to fill in any auxilliary information e.g. the line and column number.
-                        return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
+                        t->type = TOKEN_INT_LITERAL;
+                        t->integer_value = integer_value;
+                        return Lexer_returnToken(lexer, lookahead, t);
                     }
                 }
                 break;
@@ -149,8 +170,9 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                 } else if (isalpha(c) || c == '.') {
                     error(lexer->cur_line, "Look at this dude.");
                 } else {
-                    lexer->peek = lookahead;
-                    return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
+                    t->type = TOKEN_INT_LITERAL;
+                    t->integer_value = integer_value;
+                    return Lexer_returnToken(lexer, lookahead, t);
                 }
                 break;
             }
@@ -165,20 +187,22 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                 } else if (isalpha(c) || c == '.') {
                     error(lexer->cur_line, "Look at this dude.");
                 } else {
-                    lexer->peek = lookahead;
-                    return (Token){.type = TOKEN_INT_LITERAL, .integer_value = integer_value};
+                    t->type = TOKEN_INT_LITERAL;
+                    t->integer_value = integer_value;
+                    return Lexer_returnToken(lexer, lookahead, t);
                 }
                 break;
             }
-            case FLOAT: {
+            case FLOAT: { // TODO(mdizdar): differentiate floats and doubles
                 if (isdigit(c)) {
                     dec_digit /= 10;
                     double_value += (c - '0') * dec_digit;
                 } else if (isalpha(c) || c == '.') {
                     error(lexer->cur_line, "Look at this dude.");
                 } else {
-                    lexer->peek = lookahead;
-                    return (Token){.type = TOKEN_DOUBLE_LITERAL, .double_value = double_value};
+                    t->type = TOKEN_DOUBLE_LITERAL;
+                    t->double_value = double_value;
+                    return Lexer_returnToken(lexer, lookahead, t);
                 }
                 break;
             }
@@ -189,34 +213,35 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                     double_value += (c - '0') * dec_digit;
                     state = FLOAT;
                 } else if (prev == '?' || prev == ':' || prev == '.' || prev == '(' || prev == ')' || prev == '[' || prev == ']' || prev == '{' || prev == '}') {
-                    lexer->peek = lookahead;
-                    return (Token){.type = prev};
+                    t->type = prev;
+                    return Lexer_returnToken(lexer, lookahead, t);
                 } else if (lookahead - lexer->peek == 1) {
                     if ((c != '>' || prev != '>') && (c != '<' || prev != '<')) {
                         for (u32 i = 0; i < sizeof(MULTI_OPS)/sizeof(char *) - 4; ++i) {
                             if (prev == MULTI_OPS[i][0] && c == MULTI_OPS[i][1]) {
-                                lexer->peek = lookahead+1;
-                                return (Token){.type = TOKEN_OPERATOR+i+1}; // NOTE(mdizdar): this is a disgusting error prone hack, but it works...
+                                t->type = TOKEN_OPERATOR+i+1; // NOTE(mdizdar): this is a disgusting error prone hack, but it works...
+                                return Lexer_returnToken(lexer, lookahead+1, t);
                             }
                         }
-                        lexer->peek = lookahead;
-                        return (Token){.type = prev};
+                        t->type = prev;
+                        return Lexer_returnToken(lexer, lookahead, t);
                     }
                 } else {
                     if (c == '=') {
-                        lexer->peek = lookahead+1;
                         if (prev == '<') {
-                            return (Token){.type = TOKEN_BIT_L_ASSIGN};
+                            t->type = TOKEN_BIT_L_ASSIGN;
                         } else {
-                            return (Token){.type = TOKEN_BIT_R_ASSIGN};
+                            t->type = TOKEN_BIT_R_ASSIGN;
                         }
+                        return Lexer_returnToken(lexer, lookahead+1, t);
                     } else {
-                        lexer->peek = lookahead;
+                        
                         if (prev == '<') {
-                            return (Token){.type = TOKEN_BITSHIFT_LEFT};
+                            t->type = TOKEN_BITSHIFT_LEFT;
                         } else {
-                            return (Token){.type = TOKEN_BITSHIFT_RIGHT};
+                            t->type = TOKEN_BITSHIFT_RIGHT;
                         }
+                        return Lexer_returnToken(lexer, lookahead, t);
                     }
                 }
                 break;
@@ -237,12 +262,9 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                     if (count > 1) {
                         error(lexer->cur_line, "Error: character literals can't be longer than 1 character.");
                     }
-                    lexer->peek = lookahead+1;
-                    char value = lexer->code.data[lookahead-1];
-                    return (Token) {
-                        .type = TOKEN_CHAR_LITERAL,
-                        .integer_value = value
-                    };
+                    t->type = TOKEN_CHAR_LITERAL;
+                    t->integer_value = lexer->code.data[lookahead-1];;
+                    return Lexer_returnToken(lexer, lookahead+1, t);
                 }
             }
             case STRING: {
@@ -256,20 +278,18 @@ Token Lexer_peekNextToken(Lexer *lexer) {
                 }
                 if (c == '"') {
                     u64 count = lookahead - lexer->peek - 1;
-                    char *str = malloc(count+1);
+                    char *str = Arena_alloc(lexer->token_arena, count+1);
                     str[count] = 0;
                     strncpy(str, lexer->code.data + lexer->peek + 1, count);
-                    lexer->peek = lookahead+1;
-                    return (Token){
-                        .type = TOKEN_STRING_LITERAL,
-                        .string_value = {.data = str, .count = count}
-                    };
+                    t->type = TOKEN_STRING_LITERAL;
+                    t->string_value = (String){.data = str, .count = count};
+                    return Lexer_returnToken(lexer, lookahead+1, t);
                 }
                 break;
             }
         }
     }
-    return (Token){.type = TOKEN_ERROR};
+    return Lexer_returnToken(lexer, lexer->code.count, t);
 }
 
 // consumes peeked tokens
@@ -278,8 +298,8 @@ void Lexer_eat(Lexer *lexer) {
 }
 
 // finds and consumes the next token, then returns it
-Token Lexer_getNextToken(Lexer *lexer) {
-    Token t = Lexer_peekNextToken(lexer);
+Token *Lexer_getNextToken(Lexer *lexer) {
+    Token *t = Lexer_peekNextToken(lexer);
     Lexer_eat(lexer);
     return t;
 }
@@ -329,62 +349,61 @@ inline void Parser_eat(Parser *parser, Token *token, TokenType token_type) {
 Node *Parser_operand(Parser *parser) {
     // factor ::= ident | literal | '(' expr ')'
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer); // TODO(mdizdar): I should really be handling the pointer but it's annoying right now
     Node *node = NULL;
-    
-    if (token.type == TOKEN_CHAR_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_CHAR_LITERAL);
+    if (token->type == TOKEN_CHAR_LITERAL) {
+        Parser_eat(parser, token, TOKEN_CHAR_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == TOKEN_INT_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_INT_LITERAL);
+    } else if (token->type == TOKEN_INT_LITERAL) {
+        Parser_eat(parser, token, TOKEN_INT_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == TOKEN_LONG_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_LONG_LITERAL);
+    } else if (token->type == TOKEN_LONG_LITERAL) {
+        Parser_eat(parser, token, TOKEN_LONG_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == TOKEN_LLONG_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_LLONG_LITERAL);
+    } else if (token->type == TOKEN_LLONG_LITERAL) {
+        Parser_eat(parser, token, TOKEN_LLONG_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == TOKEN_FLOAT_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_FLOAT_LITERAL);
+    } else if (token->type == TOKEN_FLOAT_LITERAL) {
+        Parser_eat(parser, token, TOKEN_FLOAT_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == TOKEN_DOUBLE_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_DOUBLE_LITERAL);
+    } else if (token->type == TOKEN_DOUBLE_LITERAL) {
+        Parser_eat(parser, token, TOKEN_DOUBLE_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == TOKEN_STRING_LITERAL) {
-        Parser_eat(parser, &token, TOKEN_STRING_LITERAL);
+    } else if (token->type == TOKEN_STRING_LITERAL) {
+        Parser_eat(parser, token, TOKEN_STRING_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == TOKEN_IDENT) {
-        Parser_eat(parser, &token, TOKEN_IDENT);
+    } else if (token->type == TOKEN_IDENT) {
+        Parser_eat(parser, token, TOKEN_IDENT);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
-    } else if (token.type == '(') {
-        Parser_eat(parser, &token, '(');
+    } else if (token->type == '(') {
+        Parser_eat(parser, token, '(');
         node = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ')');
+        Parser_eat(parser, token, ')');
     }
     
     parser->lexer.peek = parser->lexer.pos;
@@ -395,32 +414,32 @@ Node *Parser_operand(Parser *parser) {
 Node *Parser_postfix(Parser *parser) {
     Node *node = Parser_operand(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == TOKEN_INC || token.type == TOKEN_DEC || token.type == TOKEN_ARROW || token.type == '.' || token.type == '[' || token.type == '(') {
+    while (token->type == TOKEN_INC || token->type == TOKEN_DEC || token->type == TOKEN_ARROW || token->type == '.' || token->type == '[' || token->type == '(') {
         Node *right = NULL;
-        if (token.type == TOKEN_INC) {
-            Parser_eat(parser, &token, TOKEN_INC);
-        } else if (token.type == TOKEN_DEC) {
-            Parser_eat(parser, &token, TOKEN_DEC);
-        } else if (token.type == TOKEN_ARROW) {
-            Parser_eat(parser, &token, TOKEN_DEC);
+        if (token->type == TOKEN_INC) {
+            Parser_eat(parser, token, TOKEN_INC);
+        } else if (token->type == TOKEN_DEC) {
+            Parser_eat(parser, token, TOKEN_DEC);
+        } else if (token->type == TOKEN_ARROW) {
+            Parser_eat(parser, token, TOKEN_DEC);
             right = Parser_operand(parser);
-        } else if (token.type == '.') {
-            Parser_eat(parser, &token, '.');
+        } else if (token->type == '.') {
+            Parser_eat(parser, token, '.');
             right = Parser_operand(parser);
-        } else if (token.type == '[') {
-            Parser_eat(parser, &token, '[');
+        } else if (token->type == '[') {
+            Parser_eat(parser, token, '[');
             right = Parser_expr(parser);
             token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, &token, ']');
-        } else if (token.type == '(') {
-            Parser_eat(parser, &token, '(');
+            Parser_eat(parser, token, ']');
+        } else if (token->type == '(') {
+            Parser_eat(parser, token, '(');
             // NOTE(mdizdar): the commas are treated differently here
             right = Parser_expr(parser); 
             token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, &token, ')');
-            token.type = TOKEN_FUNCTION_CALL;
+            Parser_eat(parser, token, ')');
+            token->type = TOKEN_FUNCTION_CALL;
         }
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -440,33 +459,33 @@ Node *Parser_postfix(Parser *parser) {
 Node *Parser_prefix(Parser *parser) {
     Node *node;
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
     // TODO(mdizdar): casting
-    if (token.type == TOKEN_INC || token.type == TOKEN_DEC ||
-        token.type == TOKEN_SIZEOF || token.type == TOKEN_ALIGNOF || 
-        token.type == '+' || token.type == '-' || token.type == '!' || 
-        token.type == '~' || token.type == '*' || token.type == '&') {
-        if (token.type == TOKEN_INC) {
-            Parser_eat(parser, &token, TOKEN_INC);
-        } else if (token.type == TOKEN_DEC) {
-            Parser_eat(parser, &token, TOKEN_DEC);
-        } else if (token.type == TOKEN_SIZEOF) {
-            Parser_eat(parser, &token, TOKEN_SIZEOF);
-        } else if (token.type == TOKEN_ALIGNOF) {
-            Parser_eat(parser, &token, TOKEN_ALIGNOF);
-        } else if (token.type == '+') {
-            Parser_eat(parser, &token, '+');
-        } else if (token.type == '-') {
-            Parser_eat(parser, &token, '-');
-        } else if (token.type == '!') {
-            Parser_eat(parser, &token, '!');
-        } else if (token.type == '~') {
-            Parser_eat(parser, &token, '~');
-        } else if (token.type == '*') {
-            Parser_eat(parser, &token, '*');
-        } else if (token.type == '&') {
-            Parser_eat(parser, &token, '&');
+    if (token->type == TOKEN_INC || token->type == TOKEN_DEC ||
+        token->type == TOKEN_SIZEOF || token->type == TOKEN_ALIGNOF || 
+        token->type == '+' || token->type == '-' || token->type == '!' || 
+        token->type == '~' || token->type == '*' || token->type == '&') {
+        if (token->type == TOKEN_INC) {
+            Parser_eat(parser, token, TOKEN_INC);
+        } else if (token->type == TOKEN_DEC) {
+            Parser_eat(parser, token, TOKEN_DEC);
+        } else if (token->type == TOKEN_SIZEOF) {
+            Parser_eat(parser, token, TOKEN_SIZEOF);
+        } else if (token->type == TOKEN_ALIGNOF) {
+            Parser_eat(parser, token, TOKEN_ALIGNOF);
+        } else if (token->type == '+') {
+            Parser_eat(parser, token, '+');
+        } else if (token->type == '-') {
+            Parser_eat(parser, token, '-');
+        } else if (token->type == '!') {
+            Parser_eat(parser, token, '!');
+        } else if (token->type == '~') {
+            Parser_eat(parser, token, '~');
+        } else if (token->type == '*') {
+            Parser_eat(parser, token, '*');
+        } else if (token->type == '&') {
+            Parser_eat(parser, token, '&');
         }
         
         node = Arena_alloc(parser->arena, sizeof(Node));
@@ -486,18 +505,17 @@ Node *Parser_prefix(Parser *parser) {
 
 Node *Parser_muls(Parser *parser) {
     // term ::= factor [('*'|'/'|'%') factor]*
-    
     Node *node = Parser_prefix(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == '*' || token.type == '/' || token.type == '%') {
-        if (token.type == '*') {
-            Parser_eat(parser, &token, '*');
-        } else if (token.type == '/') {
-            Parser_eat(parser, &token, '/');
-        } else if (token.type == '%') {
-            Parser_eat(parser, &token, '%');
+    while (token->type == '*' || token->type == '/' || token->type == '%') {
+        if (token->type == '*') {
+            Parser_eat(parser, token, '*');
+        } else if (token->type == '/') {
+            Parser_eat(parser, token, '/');
+        } else if (token->type == '%') {
+            Parser_eat(parser, token, '%');
         }
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -519,13 +537,12 @@ Node *Parser_sums(Parser *parser) {
     
     Node *node = Parser_muls(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
-    
-    while (token.type == '+' || token.type == '-') {
-        if (token.type == '+') {
-            Parser_eat(parser, &token, '+');
-        } else if (token.type == '-') {
-            Parser_eat(parser, &token, '-');
+    Token *token = Lexer_peekNextToken(&parser->lexer);
+    while (token->type == '+' || token->type == '-') {
+        if (token->type == '+') {
+            Parser_eat(parser, token, '+');
+        } else if (token->type == '-') {
+            Parser_eat(parser, token, '-');
         }
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
@@ -544,13 +561,13 @@ Node *Parser_sums(Parser *parser) {
 Node *Parser_bitshift(Parser *parser) {
     Node *node = Parser_sums(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == TOKEN_BITSHIFT_LEFT || token.type == TOKEN_BITSHIFT_RIGHT) {
-        if (token.type == TOKEN_BITSHIFT_LEFT) {
-            Parser_eat(parser, &token, TOKEN_BITSHIFT_LEFT);
-        } else if (token.type == TOKEN_BITSHIFT_RIGHT) {
-            Parser_eat(parser, &token, TOKEN_BITSHIFT_RIGHT);
+    while (token->type == TOKEN_BITSHIFT_LEFT || token->type == TOKEN_BITSHIFT_RIGHT) {
+        if (token->type == TOKEN_BITSHIFT_LEFT) {
+            Parser_eat(parser, token, TOKEN_BITSHIFT_LEFT);
+        } else if (token->type == TOKEN_BITSHIFT_RIGHT) {
+            Parser_eat(parser, token, TOKEN_BITSHIFT_RIGHT);
         }
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -570,18 +587,18 @@ Node *Parser_bitshift(Parser *parser) {
 Node *Parser_rel_op(Parser *parser) {
     Node *node = Parser_bitshift(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == TOKEN_LESS_EQ || token.type == TOKEN_GREATER_EQ ||
-           token.type == '<' || token.type == '>') {
-        if (token.type == TOKEN_LESS_EQ) {
-            Parser_eat(parser, &token, TOKEN_LESS_EQ);
-        } else if (token.type == TOKEN_GREATER_EQ) {
-            Parser_eat(parser, &token, TOKEN_GREATER_EQ);
-        } else if (token.type == '<') {
-            Parser_eat(parser, &token, '<');
-        } else if (token.type == '>') {
-            Parser_eat(parser, &token, '>');
+    while (token->type == TOKEN_LESS_EQ || token->type == TOKEN_GREATER_EQ ||
+           token->type == '<' || token->type == '>') {
+        if (token->type == TOKEN_LESS_EQ) {
+            Parser_eat(parser, token, TOKEN_LESS_EQ);
+        } else if (token->type == TOKEN_GREATER_EQ) {
+            Parser_eat(parser, token, TOKEN_GREATER_EQ);
+        } else if (token->type == '<') {
+            Parser_eat(parser, token, '<');
+        } else if (token->type == '>') {
+            Parser_eat(parser, token, '>');
         }
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -601,13 +618,13 @@ Node *Parser_rel_op(Parser *parser) {
 Node *Parser_rel_eq(Parser *parser) {
     Node *node = Parser_rel_op(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == TOKEN_EQUALS || token.type == TOKEN_NOT_EQ) {
-        if (token.type == TOKEN_EQUALS) {
-            Parser_eat(parser, &token, TOKEN_EQUALS);
-        } else if (token.type == TOKEN_NOT_EQ) {
-            Parser_eat(parser, &token, TOKEN_NOT_EQ);
+    while (token->type == TOKEN_EQUALS || token->type == TOKEN_NOT_EQ) {
+        if (token->type == TOKEN_EQUALS) {
+            Parser_eat(parser, token, TOKEN_EQUALS);
+        } else if (token->type == TOKEN_NOT_EQ) {
+            Parser_eat(parser, token, TOKEN_NOT_EQ);
         }
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -627,10 +644,10 @@ Node *Parser_rel_eq(Parser *parser) {
 Node *Parser_bit_and(Parser *parser) {
     Node *node = Parser_rel_eq(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == '&') {
-        Parser_eat(parser, &token, '&');
+    while (token->type == '&') {
+        Parser_eat(parser, token, '&');
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
@@ -649,10 +666,10 @@ Node *Parser_bit_and(Parser *parser) {
 Node *Parser_bit_xor(Parser *parser) {
     Node *node = Parser_bit_and(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == '^') {
-        Parser_eat(parser, &token, '^');
+    while (token->type == '^') {
+        Parser_eat(parser, token, '^');
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
@@ -671,10 +688,10 @@ Node *Parser_bit_xor(Parser *parser) {
 Node *Parser_bit_or(Parser *parser) {
     Node *node = Parser_bit_xor(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == '|') {
-        Parser_eat(parser, &token, '|');
+    while (token->type == '|') {
+        Parser_eat(parser, token, '|');
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
@@ -693,10 +710,10 @@ Node *Parser_bit_or(Parser *parser) {
 Node *Parser_log_and(Parser *parser) {
     Node *node = Parser_bit_or(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == TOKEN_LOGICAL_AND) {
-        Parser_eat(parser, &token, TOKEN_LOGICAL_AND);
+    while (token->type == TOKEN_LOGICAL_AND) {
+        Parser_eat(parser, token, TOKEN_LOGICAL_AND);
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
@@ -715,10 +732,10 @@ Node *Parser_log_and(Parser *parser) {
 Node *Parser_log_or(Parser *parser) {
     Node *node = Parser_log_and(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == TOKEN_LOGICAL_OR) {
-        Parser_eat(parser, &token, TOKEN_LOGICAL_OR);
+    while (token->type == TOKEN_LOGICAL_OR) {
+        Parser_eat(parser, token, TOKEN_LOGICAL_OR);
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
@@ -737,13 +754,13 @@ Node *Parser_log_or(Parser *parser) {
 Node *Parser_ternary(Parser *parser) {
     Node *node = Parser_log_or(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    if(token.type == '?') {
-        Parser_eat(parser, &token, '?');
+    if(token->type == '?') {
+        Parser_eat(parser, token, '?');
         Node *ternary_true = Parser_expr(parser);
-        Token colon = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &colon, ':');
+        Token *colon = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, colon, ':');
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->cond = node;
@@ -761,38 +778,38 @@ Node *Parser_ternary(Parser *parser) {
 Node *Parser_assignment(Parser *parser) {
     Node *node = Parser_ternary(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
     // TODO(mdizdar): doing this exact same thing for each level is kinda stupid, refactor it eventually
     
-    if (token.type == '=' || 
-        token.type == TOKEN_ADD_ASSIGN || token.type == TOKEN_SUB_ASSIGN ||
-        token.type == TOKEN_MUL_ASSIGN || token.type == TOKEN_DIV_ASSIGN || 
-        token.type == TOKEN_MOD_ASSIGN || token.type == TOKEN_OR_ASSIGN  || 
-        token.type == TOKEN_AND_ASSIGN || token.type == TOKEN_XOR_ASSIGN || 
-        token.type == TOKEN_BIT_L_ASSIGN || token.type == TOKEN_BIT_R_ASSIGN) {
-        if (token.type == '=') {
-            Parser_eat(parser, &token, '=');
-        } else if (token.type == TOKEN_ADD_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_ADD_ASSIGN);
-        } else if (token.type == TOKEN_SUB_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_SUB_ASSIGN);
-        } else if (token.type == TOKEN_MUL_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_MUL_ASSIGN);
-        } else if (token.type == TOKEN_DIV_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_DIV_ASSIGN);
-        } else if (token.type == TOKEN_MOD_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_MOD_ASSIGN);
-        } else if (token.type == TOKEN_OR_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_OR_ASSIGN);
-        } else if (token.type == TOKEN_AND_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_AND_ASSIGN);
-        } else if (token.type == TOKEN_XOR_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_XOR_ASSIGN);
-        } else if (token.type == TOKEN_BIT_L_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_BIT_L_ASSIGN);
-        } else if (token.type == TOKEN_BIT_R_ASSIGN) {
-            Parser_eat(parser, &token, TOKEN_BIT_R_ASSIGN);
+    if (token->type == '=' || 
+        token->type == TOKEN_ADD_ASSIGN || token->type == TOKEN_SUB_ASSIGN ||
+        token->type == TOKEN_MUL_ASSIGN || token->type == TOKEN_DIV_ASSIGN || 
+        token->type == TOKEN_MOD_ASSIGN || token->type == TOKEN_OR_ASSIGN  || 
+        token->type == TOKEN_AND_ASSIGN || token->type == TOKEN_XOR_ASSIGN || 
+        token->type == TOKEN_BIT_L_ASSIGN || token->type == TOKEN_BIT_R_ASSIGN) {
+        if (token->type == '=') {
+            Parser_eat(parser, token, '=');
+        } else if (token->type == TOKEN_ADD_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_ADD_ASSIGN);
+        } else if (token->type == TOKEN_SUB_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_SUB_ASSIGN);
+        } else if (token->type == TOKEN_MUL_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_MUL_ASSIGN);
+        } else if (token->type == TOKEN_DIV_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_DIV_ASSIGN);
+        } else if (token->type == TOKEN_MOD_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_MOD_ASSIGN);
+        } else if (token->type == TOKEN_OR_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_OR_ASSIGN);
+        } else if (token->type == TOKEN_AND_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_AND_ASSIGN);
+        } else if (token->type == TOKEN_XOR_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_XOR_ASSIGN);
+        } else if (token->type == TOKEN_BIT_L_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_BIT_L_ASSIGN);
+        } else if (token->type == TOKEN_BIT_R_ASSIGN) {
+            Parser_eat(parser, token, TOKEN_BIT_R_ASSIGN);
         }
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -810,11 +827,11 @@ Node *Parser_assignment(Parser *parser) {
 Node *Parser_comma(Parser *parser) {
     Node *node = Parser_assignment(parser);
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == ',') {
-        if (token.type == ',') {
-            Parser_eat(parser, &token, ',');
+    while (token->type == ',') {
+        if (token->type == ',') {
+            Parser_eat(parser, token, ',');
         }
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -839,10 +856,10 @@ Node *Parser_statement(Parser *parser);
 
 Node *Parser_block(Parser *parser) {
     Node *node = Parser_statement(parser);
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type == ';') {
-        Parser_eat(parser, &token, ';');
+    while (token->type == ';') {
+        Parser_eat(parser, token, ';');
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
@@ -861,121 +878,121 @@ Node *Parser_block(Parser *parser) {
 Node *Parser_statement(Parser *parser) {
     Node *node = Arena_alloc(parser->arena, sizeof(Node));
     
-    Token token = Lexer_peekNextToken(&parser->lexer);
-    if (token.type == TOKEN_IF) {
-        Parser_eat(parser, &token, TOKEN_IF);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
+    if (token->type == TOKEN_IF) {
+        Parser_eat(parser, token, TOKEN_IF);
         
         node->token = token;
         
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, '(');
+        Parser_eat(parser, token, '(');
         Node *cond = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ')');
+        Parser_eat(parser, token, ')');
         token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
         node->right = NULL;
         
         Node *block;
-        if (token.type == '{') {
-            Parser_eat(parser, &token, '{');
+        if (token->type == '{') {
+            Parser_eat(parser, token, '{');
             block = Parser_block(parser);
             token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, &token, '}');
+            Parser_eat(parser, token, '}');
         } else {
             block = Parser_statement(parser);
         }
         node->left = block;
         
-        Token token = Lexer_peekNextToken(&parser->lexer);
-        if (token.type == TOKEN_ELSE) {
-            Parser_eat(parser, &token, TOKEN_ELSE);
-            Node *block;
-            if (token.type == '{') {
-                Parser_eat(parser, &token, '{');
+        token = Lexer_peekNextToken(&parser->lexer);
+        if (token->type == TOKEN_ELSE) {
+            Parser_eat(parser, token, TOKEN_ELSE);
+            if (token->type == '{') {
+                Parser_eat(parser, token, '{');
                 block = Parser_block(parser);
                 token = Lexer_peekNextToken(&parser->lexer);
-                Parser_eat(parser, &token, '}');
+                Parser_eat(parser, token, '}');
             } else {
                 block = Parser_statement(parser);
             }
             node->right = block;
         }
-    } else if (token.type == TOKEN_WHILE) {
-        Parser_eat(parser, &token, TOKEN_WHILE);
+    } else if (token->type == TOKEN_WHILE) {
+        Parser_eat(parser, token, TOKEN_WHILE);
         
         node->token = token;
         
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, '(');
+        Parser_eat(parser, token, '(');
         Node *cond = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ')');
+        Parser_eat(parser, token, ')');
         token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
         node->right = NULL;
         
         Node *block;
-        if (token.type == '{') {
-            Parser_eat(parser, &token, '{');
+        if (token->type == '{') {
+            Parser_eat(parser, token, '{');
             block = Parser_block(parser);
             token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, &token, '}');
+            Parser_eat(parser, token, '}');
         } else {
             block = Parser_statement(parser);
         }
         node->left = block;
-    } else if (token.type == TOKEN_FOR) {
-        Parser_eat(parser, &token, TOKEN_FOR);
+    } else if (token->type == TOKEN_FOR) {
+        Parser_eat(parser, token, TOKEN_FOR);
         
         node->token = token;
         
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, '(');
+        Parser_eat(parser, token, '(');
         Node *init = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ';');
+        Parser_eat(parser, token, ';');
         Node *cond = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ';');
+        Parser_eat(parser, token, ';');
         Node *iter = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ')');
+        Parser_eat(parser, token, ')');
         token = Lexer_peekNextToken(&parser->lexer);
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->cond  = cond;
         tmp->left  = init;
         tmp->right = iter;
-        tmp->token.type = TOKEN_FOR_COND;
+        tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
+        tmp->token->type = TOKEN_FOR_COND;
         
         node->cond = tmp;
         node->right = NULL;
         
         Node *block;
-        if (token.type == '{') {
-            Parser_eat(parser, &token, '{');
+        if (token->type == '{') {
+            Parser_eat(parser, token, '{');
             block = Parser_block(parser);
             token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, &token, '}');
+            Parser_eat(parser, token, '}');
         } else {
             block = Parser_statement(parser);
         }
         node->left = block;
-    } else if (token.type == TOKEN_DO) {
-        Parser_eat(parser, &token, TOKEN_DO);
+    } else if (token->type == TOKEN_DO) {
+        Parser_eat(parser, token, TOKEN_DO);
         
         node->token = token;
         
         token = Lexer_peekNextToken(&parser->lexer);
         Node *block;
-        if (token.type == '{') {
-            Parser_eat(parser, &token, '{');
+        if (token->type == '{') {
+            Parser_eat(parser, token, '{');
             block = Parser_block(parser);
             token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, &token, '}');
+            Parser_eat(parser, token, '}');
         } else {
             block = Parser_statement(parser);
         }
@@ -983,15 +1000,15 @@ Node *Parser_statement(Parser *parser) {
         node->left = block;
         
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, TOKEN_WHILE);
+        Parser_eat(parser, token, TOKEN_WHILE);
         
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, '(');
+        Parser_eat(parser, token, '(');
         Node *cond = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ')');
+        Parser_eat(parser, token, ')');
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, &token, ';');
+        Parser_eat(parser, token, ';');
         token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
@@ -1005,21 +1022,32 @@ Node *Parser_statement(Parser *parser) {
     return node;
 }
 
+typedef struct _Type {
+    struct _Type *pointer;
+    int is_const:1;
+    int is_volatile:1;
+    int is_static:1;
+} Type;
+
+Node *Parser_declaration(Parser *parser) {
+    
+}
+
 Node *Parser_parse(Parser *parser) {
     Node *node = Parser_statement(parser);
-    Token token = Lexer_peekNextToken(&parser->lexer);
+    Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token.type != TOKEN_ERROR) {
-        if (token.type == ';') {
-            Parser_eat(parser, &token, ';');
+    while (token->type != TOKEN_ERROR) {
+        if (token->type == ';') {
+            Parser_eat(parser, token, ';');
         }
         parser->lexer.peek = parser->lexer.pos;
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
-        tmp->token.type = TOKEN_NEXT;
+        tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
+        tmp->token->type = TOKEN_NEXT;
         tmp->right = Parser_statement(parser);
         node = tmp;
-        
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
