@@ -4,7 +4,6 @@
 
 #include "C/token.h"
 #include "C/parser.h"
-
 void printAST(Node *root, u64 indent) {
     if (root == NULL) return;
     for (u64 i = 0; i < indent; ++i) {
@@ -15,8 +14,8 @@ void printAST(Node *root, u64 indent) {
         }
     }
     char s[100];
-    printf("%s\n", Token_toStr(s, root->token));
-    if (root->token.type == '?' || root->token.type == TOKEN_FOR || root->token.type == TOKEN_FOR_COND || root->token.type == TOKEN_IF || root->token.type == TOKEN_WHILE || root->token.type == TOKEN_DO) {
+    printf("%s\n", Token_toStr(s, *root->token));
+    if (root->token->type == '?' || root->token->type == TOKEN_FOR || root->token->type == TOKEN_FOR_COND || root->token->type == TOKEN_IF || root->token->type == TOKEN_WHILE || root->token->type == TOKEN_DO) {
         printAST(root->cond, indent+3);
     }
     printAST(root->left, indent+3);
@@ -54,16 +53,20 @@ int main(int argc, char **argv) {
     Lexer lexer = (Lexer){
         .symbol_table = &st, 
         .code = { .data = code, .count = strlen(code) },
+        .token_at = calloc(strlen(code)+5, sizeof(Token*)),
+        .token_arena = Arena_init(4096),
         .pos = 0,
         .peek = 0,
         .cur_line = 1,
+#pragma warning(suppress: 4221) 
     };
-    Token t;
+    // NOTE(mdizdar): this is just so it doesn't scream about initializing .symbol_table with the address of a variable that's on the stack
+    Token *t;
     char s[1000];
     do {
         t = Lexer_peekNextToken(&lexer);
-        printf("%s\n", Token_toStr_long(s, t));
-    } while (t.type != TOKEN_ERROR);
+        printf("%s\n", Token_toStr_long(s, *t));
+    } while (t->type != TOKEN_ERROR);
     puts("");
     for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
         printf("%llu: ", i);
@@ -76,31 +79,35 @@ int main(int argc, char **argv) {
     // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
     char *expr;
     expr = 
-        "2+3*5%6*(1/4+3);\n"
-        "x += 2+3*(4-5)%(y?6+7:7*8);\n"
-        "c1?++t1--:c2?t2++:f;\n"
-        "&*p++.;\n"
-        "foo(a, b, c, d)[2][3];\n"
-        ";;;\n"
-        "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
+        "2+3*5%6*(1/4+3);\n";
+    //"x += 2+3*(4-5)%(y?6+7:7*8);\n"
+    //"c1?++t1--:c2?t2++:f;\n"
+    //"&*p++.;\n"
+    //"foo(a, b, c, d)[2][3];\n"
+    //";;;\n"
+    //"if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
     puts(expr);
     
     Parser parser = (Parser){
         .lexer = {
             .symbol_table = &st, // doesn't use this yet though
             .code = { .data = expr, .count = strlen(expr) },
+            .token_at = calloc(strlen(code)+5, sizeof(Token*)),
+            .token_arena = Arena_init(4096),
             .pos = 0,
             .peek = 0,
             .cur_line = 1,
         },
         .arena = Arena_init(4096)
+#pragma warning(suppress: 4221) 
     };
+    // NOTE(mdizdar): this is just so it doesn't scream about initializing .symbol_table with the address of a variable that's on the stack
     
     printAST(Parser_parse(&parser), 0);
     
-    u64 N = 100000, len = strlen(expr);
+    u64 N = 1000000, len = strlen(expr);
     char *long_code = malloc(N*len+25);
-    for (int i = 0; i < N; ++i) {
+    for (u64 i = 0; i < N; ++i) {
         strcpy(long_code+i*len, expr);
     }
     long_code[N*len] = 0;
@@ -109,12 +116,16 @@ int main(int argc, char **argv) {
         .lexer = {
             .symbol_table = &st, // doesn't use this yet though
             .code = { .data = long_code, .count = N*len },
+            .token_at = calloc(N*len+5, sizeof(Token*)),
+            .token_arena = Arena_init(4096),
             .pos = 0,
             .peek = 0,
             .cur_line = 1,
         },
         .arena = Arena_init(4096)
+#pragma warning(suppress: 4221) 
     };
+    // NOTE(mdizdar): this is just so it doesn't scream about initializing .symbol_table with the address of a variable that's on the stack
     
     clock_t begin = clock();
     
