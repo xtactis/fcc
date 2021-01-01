@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "../utils/common.h"
 
@@ -29,7 +30,6 @@ _Arena *_Arena_init(u64 capacity, _Arena *prev) {
     arena->used = 0;
     arena->capacity = capacity;
     arena->data = malloc(capacity);
-    
     return arena;
 }
 
@@ -45,7 +45,7 @@ void *Arena_alloc(Arena *arena, u64 size) {
     _Arena *cur = arena->current;
     
     if (size + cur->used > cur->capacity) {
-        u64 new_cap = arena->total_capacity;
+        u64 new_cap = max(arena->total_capacity, size); // NOTE(mdizdar): this is slightly dumb and I don't currently know how this affects alignment...
         arena->current = _Arena_init(new_cap, cur);
         arena->total_capacity += new_cap;
         cur = arena->current;
