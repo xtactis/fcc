@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
         "} Struct;                              \n"
         "                                       \n"
         "int main() {                           \n"
-        "  char c = '\\n'\n"
+        "  char c = '\\n'                       \n"
         "  const char * str = \"sdf fdfs sdsf\";\n"
         "  return 42 + str[6] / c;              \n"
         "}                                      \n";
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
     Lexer lexer = (Lexer){
         .symbol_table = &st, 
         .code = { .data = code, .count = strlen(code) },
-        .token_at = calloc(strlen(code)+5, sizeof(Token*)),
+        .token_at = calloc(strlen(code)+5, sizeof(CachedToken)),
         .token_arena = Arena_init(4096),
         .pos = 0,
         .peek = 0,
@@ -72,39 +72,62 @@ int main(int argc, char **argv) {
         printf("%llu: ", i);
         if (lexer.symbol_table->hash_table[i].name.count == 0) { printf("\n"); continue; }
         SymbolTableEntry *entry = &lexer.symbol_table->hash_table[i];
-        printf("{ name: %s; type: %lld; def_line: %llu }\n", entry->name.data, entry->type, entry->definition_line);
+        printf("{ name: %s; type: UNKNOWN; def_line: %llu }\n", entry->name.data, entry->definition_line);
     }
     
     puts(CYAN "***EXPR***" RESET);
     // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
     char *expr;
     expr = 
-        "2+3*5%6*(1/4+3);\n";
-    //"x += 2+3*(4-5)%(y?6+7:7*8);\n"
-    //"c1?++t1--:c2?t2++:f;\n"
-    //"&*p++.;\n"
-    //"foo(a, b, c, d)[2][3];\n"
-    //";;;\n"
-    //"if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
+        "struct foo {\n"
+        "  signed const long * const volatile const x;\n"
+        "  struct {\n"
+        "    void * const y;\n"
+        "  } w;\n"
+        "  unsigned char *px;\n"
+        "} z;\n"
+        "z.x = 2+3*5%6*(1/4+3);\n"
+        "z.x += 2+3*(4-5)%(y?6+7:7*8);\n";
+    "c1?++t1--:c2?t2++:f;\n";
+    "&*p++.;\n";
+    "foo(a, b, c, d)[2][3];\n";
+    ";;;\n";
+    "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
     puts(expr);
+    
+    SymbolTable_init(&st, 10);
     
     Parser parser = (Parser){
         .lexer = {
             .symbol_table = &st, // doesn't use this yet though
             .code = { .data = expr, .count = strlen(expr) },
-            .token_at = calloc(strlen(code)+5, sizeof(Token*)),
+            .token_at = calloc(strlen(code)+5, sizeof(CachedToken)),
             .token_arena = Arena_init(4096),
             .pos = 0,
             .peek = 0,
             .cur_line = 1,
         },
-        .arena = Arena_init(4096)
+        .arena = Arena_init(4096),
+        .type_arena = Arena_init(4096)
 #pragma warning(suppress: 4221) 
     };
     // NOTE(mdizdar): this is just so it doesn't scream about initializing .symbol_table with the address of a variable that's on the stack
     
     printAST(Parser_parse(&parser), 0);
     
+    for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
+        printf("%llu: ", i);
+        if (lexer.symbol_table->hash_table[i].name.count == 0) { printf("\n"); continue; }
+        SymbolTableEntry *entry = &lexer.symbol_table->hash_table[i];
+        if (entry->type) {
+            printf("{ name: %s; type: %d; def_line: %llu }\n", entry->name.data, entry->type->basic_type, entry->definition_line);
+        } else {
+            printf("{ name: %s; type: UNKNOWN; def_line: %llu }\n", entry->name.data, entry->definition_line);
+        }
+    }
+    
+    
+    /*
     u64 N = 1000000, len = strlen(expr);
     char *long_code = malloc(N*len+25);
     for (u64 i = 0; i < N; ++i) {
@@ -116,13 +139,14 @@ int main(int argc, char **argv) {
         .lexer = {
             .symbol_table = &st, // doesn't use this yet though
             .code = { .data = long_code, .count = N*len },
-            .token_at = calloc(N*len+5, sizeof(Token*)),
+            .token_at = calloc(N*len+5, sizeof(CachedToken)),
             .token_arena = Arena_init(4096),
             .pos = 0,
             .peek = 0,
             .cur_line = 1,
         },
-        .arena = Arena_init(4096)
+        .arena = Arena_init(4096),
+        .type_arena = Arena_init(4096)
 #pragma warning(suppress: 4221) 
     };
     // NOTE(mdizdar): this is just so it doesn't scream about initializing .symbol_table with the address of a variable that's on the stack
@@ -135,7 +159,7 @@ int main(int argc, char **argv) {
     
     printf("~Time taken for %llu expr: %lf\n", N, (double)(end-begin) / CLOCKS_PER_SEC);
     printf("Memory: %llu\n", parser.arena->total_capacity);
-    
+    */
     /*
     puts(CYAN "****AST***" RESET);
     AST ast;

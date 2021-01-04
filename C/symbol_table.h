@@ -6,10 +6,14 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "../utils/common.h"
+#include "type.h"
+
 typedef struct {
     String name;
-    u64 type;
+    Type *type;
     u64 definition_line;
+    bool is_typename;
 } SymbolTableEntry;
 
 typedef struct {
@@ -40,7 +44,7 @@ u64 SymbolTable_hash(const SymbolTable *st, const String *name) {
 }
 
 // returns how much we had to travel to find a vacant cell
-u64 SymbolTable_add_helper(SymbolTable *st, const String *name, u64 type, u64 definition_line) {
+u64 SymbolTable_add_helper(SymbolTable *st, const String *name, Type *type, u64 definition_line) {
     u64 hash = SymbolTable_hash(st, name);
     
     u64 travel = 0;
@@ -73,7 +77,7 @@ void SymbolTable_resize(SymbolTable *st) {
     free(old_table);
 }
 
-void SymbolTable_add(SymbolTable *st, const String *name, u64 type, u64 definition_line) {
+void SymbolTable_add(SymbolTable *st, const String *name, Type *type, u64 definition_line) {
     // assumes the table has been init-ed, if it hasn't it WILL explode
     const u64 travel = SymbolTable_add_helper(st, name, type, definition_line);
     
@@ -82,7 +86,7 @@ void SymbolTable_add(SymbolTable *st, const String *name, u64 type, u64 definiti
     }
 }
 
-const SymbolTableEntry *SymbolTable_find(SymbolTable *st, const String *name) {
+SymbolTableEntry *SymbolTable_find(SymbolTable *st, const String *name) {
     u64 hash = SymbolTable_hash(st, name);
     
     u64 travel = 0;
@@ -104,7 +108,7 @@ const SymbolTableEntry *SymbolTable_find(SymbolTable *st, const String *name) {
     return NULL;
 }
 
-const SymbolTableEntry *SymbolTable_find_cstr(SymbolTable *st, char *name) {
+SymbolTableEntry *SymbolTable_find_cstr(SymbolTable *st, char *name) {
     const String sname = (String){.data = name, .count = strlen(name)};
     return SymbolTable_find(st, &sname);
 }

@@ -109,6 +109,7 @@ typedef struct {
         double double_value;
         String string_value;
     };
+    
     u64 lookahead;
     TokenType type;
 } Token;

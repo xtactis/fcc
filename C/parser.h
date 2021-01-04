@@ -10,6 +10,7 @@
 #include "reserved.h"
 #include "symbol_table.h"
 #include "arena.h"
+#include "type.h"
 
 #define parse_error error("Parse error!")
 
@@ -17,13 +18,20 @@
 // TODO(mdizdar): handle escaped characters
 
 typedef struct {
+    Token *token;
+    u64 lookahead;
+    u64 cur_line;
+} CachedToken;
+
+typedef struct {
     SymbolTable *symbol_table;
     String code;
     
-    Token **token_at;
+    CachedToken *token_at;
     Arena *token_arena;
     
     u64 cur_line;
+    u64 line;
     u64 pos;
     u64 peek;
 } Lexer;
@@ -53,8 +61,10 @@ TokenType checkKeyword(const char *name) {
 inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
     //printf("peek %llu / %llu\n", lexer->peek, lexer->code.count);
     if (t != NULL && t->type != TOKEN_ERROR) {
-        lexer->token_at[lexer->peek] = t;
-        lexer->token_at[lexer->peek]->lookahead = lookahead;
+        //printf("%p\n", lexer->token_at[lexer->peek]);
+        lexer->token_at[lexer->peek].token = t;
+        lexer->token_at[lexer->peek].lookahead = lookahead;
+        lexer->token_at[lexer->peek].cur_line = lexer->line;
     }
     lexer->peek = lookahead;
     return t;
@@ -62,10 +72,11 @@ inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
 
 // finds the next token and returns it
 Token *Lexer_peekNextToken(Lexer *lexer) {
-    if (lexer->token_at[lexer->peek] != NULL) {
-        Token *ret = lexer->token_at[lexer->peek];
-        lexer->peek = lexer->token_at[lexer->peek]->lookahead;
-        return ret;
+    if (lexer->token_at[lexer->peek].token != NULL) {
+        CachedToken *ct = &lexer->token_at[lexer->peek];
+        lexer->peek = ct->lookahead;
+        lexer->cur_line = ct->cur_line;
+        return ct->token;
     }
     enum State {
         UNKNOWN = 0,
@@ -95,7 +106,9 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
         switch (state) {
             case UNKNOWN: {
                 if (isspace(c)) {
-                    if (c == '\n') ++lexer->cur_line;
+                    if (c == '\n') {
+                        lexer->cur_line = ++lexer->line;
+                    }
                     ++lexer->peek;
                     continue;
                 }
@@ -124,8 +137,8 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                 if (t->type == TOKEN_IDENT) {
                     t->name = (String){.data = name, .count = count};
                     
-                    // NOTE(mdizdar): type is 0 because we don't know it yet
-                    SymbolTable_add(lexer->symbol_table, &t->name, 0, lexer->cur_line);
+                    // NOTE(mdizdar): type is NULL because we don't know it yet
+                    SymbolTable_add(lexer->symbol_table, &t->name, NULL, lexer->cur_line);
                 }
                 return Lexer_returnToken(lexer, lookahead, t);
             }
@@ -307,8 +320,9 @@ Token *Lexer_getNextToken(Lexer *lexer) {
 //~ PARSER
 
 typedef struct {
-    Lexer lexer;
     Arena *arena;
+    Arena *type_arena;
+    Lexer lexer;
 } Parser;
 
 typedef enum {
@@ -330,7 +344,22 @@ typedef enum {
 } Precedence;
 
 _Noreturn void Parser_error(Parser *parser, Token *token, TokenType expected_type) {
-    error(parser->lexer.cur_line, "Syntax error: expected token of type %llu, but got %llu", expected_type, token->type);
+    char s[123], p[123];
+    Token_toStr(s, *token);
+    Token_toStr(p, (Token){.type = expected_type});
+    error(parser->lexer.cur_line, "Error: expected '%s', but got '%s'", p, s);
+}
+
+_Noreturn void Parser_duplicateError(Parser *parser, SymbolTableEntry *previous) {
+    error(parser->lexer.cur_line, "Error: redefinition of %s; previous definition on line %llu", previous->name.data, previous->definition_line);
+}
+
+_Noreturn void Parser_conflictingTypesError(Parser *parser, TokenType current, TokenType conflicting) {
+    error(parser->lexer.cur_line, "Error: can't combine type %llu with previously defined %llu", conflicting, current);
+}
+
+_Noreturn void Parser_notATypeError(Parser *parser, u64 longs, u64 shorts, TokenType type) {
+    error(parser->lexer.cur_line, "Error: '%s %s%d' is not a valid type", longs?"long":shorts?"short":"", longs == 2?"long ":"", type);
 }
 
 // TODO(mdizdar): compound literals
@@ -875,7 +904,233 @@ Node *Parser_block(Parser *parser) {
     return node;
 }
 
+Declaration *Parser_declaration(Parser *parser);
+
+Declaration *Parser_struct(Parser *parser, Type *type) {
+    type->is_struct = true;
+    
+    Token *token = Lexer_peekNextToken(&parser->lexer);
+    String *type_name = NULL;
+    
+    if (token->type == TOKEN_IDENT) {
+        Parser_eat(parser, token, TOKEN_IDENT);
+        type_name = &token->name;
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    if (token->type == '{') {
+        type->struct_type = Arena_alloc(parser->type_arena, sizeof(StructType));
+        
+        //type->struct_type->members.data         = NULL;
+        type->struct_type->members.element_size = sizeof(Declaration);
+        type->struct_type->members.capacity     = 0;
+        type->struct_type->members.count        = 0;
+        
+        Parser_eat(parser, token, '{');
+        token = Lexer_peekNextToken(&parser->lexer);
+        while (token->type != '}') {
+            parser->lexer.peek = parser->lexer.pos; // reset peek
+            Declaration *member = Parser_declaration(parser);
+            if (member) {
+                DynArray_add(&type->struct_type->members, member);
+            }
+            token = Lexer_peekNextToken(&parser->lexer);
+            while (token->type == ';') {
+                Parser_eat(parser, token, ';');
+                token = Lexer_peekNextToken(&parser->lexer);
+            }
+        }
+    } else {
+        error(parser->lexer.cur_line, "bruh"); // NOTE(mdizdar): idk what to tell this dude tbh
+    }
+    Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
+    declaration->type = type;
+    if (type_name) {
+        declaration->name = *type_name;
+    } else {
+        declaration->name.data  = "";
+        declaration->name.count = 0;
+    }
+    return declaration;
+}
+
+Declaration *Parser_declaration(Parser *parser) {
+    Token *token = Lexer_peekNextToken(&parser->lexer);
+    
+    if (!((token->type > TOKEN_TYPE && token->type < TOKEN_MODIFIER) ||
+          (token->type > TOKEN_MODIFIER && token->type < TOKEN_OPERATOR) ||
+          token->type == TOKEN_STRUCT)) {
+        parser->lexer.peek = parser->lexer.pos;
+        return NULL;
+    }
+    
+    Type *type = Arena_alloc(parser->type_arena, sizeof(Type));
+    
+    type->is_static   = false;
+    type->is_struct   = false;
+    type->is_union    = false;
+    type->is_typedef  = false;
+    type->is_array    = false;
+    type->is_function = false;
+    type->pointer_count = 0;
+    for (int i = 0; i < sizeof(type->is_const)/sizeof(*type->is_const); ++i) {
+        type->is_const[i]    = 0;
+        type->is_volatile[i] = 0;
+        type->is_restrict[i] = 0;
+    }
+    type->basic_type = BASIC_ERROR;
+    
+    u8 longs = 0;
+    u8 shorts = 0;
+    bool is_signed = false;
+    bool is_unsigned = false;
+    
+    while ((token->type > TOKEN_TYPE && token->type < TOKEN_MODIFIER) ||
+           (token->type > TOKEN_MODIFIER && token->type < TOKEN_OPERATOR) ||
+           token->type == TOKEN_STRUCT) { 
+        Parser_eat(parser, token, token->type); // uhh
+        
+        switch (token->type) {
+            case TOKEN_CHAR: {
+                type->basic_type = BASIC_CHAR;
+                break;
+            }
+            case TOKEN_INT: {
+                type->basic_type = BASIC_SINT;
+                break;
+            }
+            case TOKEN_VOID: {
+                type->basic_type = BASIC_VOID;
+                break;
+            }
+            case TOKEN_FLOAT: {
+                type->basic_type = BASIC_FLOAT;
+                break;
+            }
+            case TOKEN_DOUBLE: {
+                type->basic_type = BASIC_DOUBLE;
+                break;
+            }
+            case TOKEN_STATIC: {
+                type->is_static = 1;
+                break;
+            }
+            case TOKEN_CONST: {
+                Bitset_set(type->is_const, type->pointer_count);
+                break;
+            }
+            case TOKEN_VOLATILE: {
+                Bitset_set(type->is_volatile, type->pointer_count);
+                break;
+            }
+            case TOKEN_SIGNED: {
+                if (is_unsigned) {
+                    Parser_conflictingTypesError(parser, TOKEN_SIGNED, TOKEN_UNSIGNED);
+                }
+                is_signed = true;
+                break;
+            }
+            case TOKEN_UNSIGNED: {
+                if (is_signed) {
+                    Parser_conflictingTypesError(parser, TOKEN_UNSIGNED, TOKEN_SIGNED);
+                }
+                is_unsigned = true;
+                break;
+            }
+            case TOKEN_STRUCT: {
+                Parser_struct(parser, type);
+                break;
+            }
+            case TOKEN_LONG: {
+                if (++longs > 2) {
+                    error(parser->lexer.cur_line, "Error: that's too many 'long's, this isn't gcc, you won't get a funny error message.");
+                }
+                if (shorts) {
+                    Parser_conflictingTypesError(parser, TOKEN_SHORT, TOKEN_LONG);
+                }
+                break;
+            }
+            case TOKEN_SHORT: {
+                if (++shorts > 1) {
+                    error(parser->lexer.cur_line, "Error: what's a 'short short'");
+                }
+                if (longs) {
+                    Parser_conflictingTypesError(parser, TOKEN_LONG, TOKEN_SHORT);
+                }
+                break;
+            }
+            // TODO(mdizdar): case TOKEN_AUTO:     error(parser->lexer.cur_line, "Please don't use auto");
+        }
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    
+    if (!is_signed && !is_unsigned) {
+        is_signed = true;
+    } else if (type->basic_type != BASIC_ERROR && type->basic_type != BASIC_SINT && type->basic_type != BASIC_CHAR) {
+        error(parser->lexer.cur_line, "Error: %d can't be signed or unsigned", type->basic_type);
+    }
+    if (type->basic_type != BASIC_SINT && type->basic_type != BASIC_ERROR && (longs || shorts)) {
+        Parser_notATypeError(parser, longs, shorts, token->type);
+    }
+    if ((type->basic_type == BASIC_SINT || type->basic_type == BASIC_ERROR) && (shorts || longs || is_signed || is_unsigned)) {
+        // taking care of implicit int in e.g. 'long long x'
+        if (longs == 1)      type->basic_type = is_signed ? BASIC_SLONG : BASIC_ULONG;
+        else if (longs == 2) type->basic_type = is_signed ? BASIC_SLLONG : BASIC_ULLONG;
+        else if (shorts)     type->basic_type = is_signed ? BASIC_SSHORT : BASIC_USHORT;
+        else                 type->basic_type = is_signed ? BASIC_SINT : BASIC_UINT;
+    } else if (type->basic_type == BASIC_CHAR && (is_signed || is_unsigned)) {
+        if (is_signed)        type->basic_type = BASIC_SCHAR;
+        else if (is_unsigned) type->basic_type = BASIC_UCHAR;
+    }
+    
+    while (token->type == '*') {
+        Parser_eat(parser, token, '*');
+        ++type->pointer_count;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        
+        while (token->type == TOKEN_CONST ||
+               token->type == TOKEN_VOLATILE /*||
+ token->type == TOKEN_RESTRICT*/) { 
+            Parser_eat(parser, token, token->type); // uhh
+            
+            switch (token->type) {
+                case TOKEN_CONST: {
+                    Bitset_set(type->is_const, type->pointer_count);
+                    break;
+                }
+                case TOKEN_VOLATILE: {
+                    Bitset_set(type->is_volatile, type->pointer_count);
+                    break;
+                }
+                // TODO(mdizdar): case TOKEN_RESTRICT: Bitset_set(type->is_restrict, type->pointer_count); break;
+            }
+            
+            token = Lexer_peekNextToken(&parser->lexer);
+        }
+    }
+    
+    if (token->type != TOKEN_IDENT) Parser_error(parser, token, TOKEN_IDENT);
+    Parser_eat(parser, token, TOKEN_IDENT);
+    
+    SymbolTableEntry *entry = SymbolTable_find(parser->lexer.symbol_table, &token->name);
+    if (entry->type != NULL) Parser_duplicateError(parser, entry);
+    
+    Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
+    declaration->type = type;
+    declaration->name = token->name;
+    
+    entry->type = type;
+    
+    parser->lexer.peek = parser->lexer.pos;
+    
+    Type_print(type, 0);
+    
+    return declaration;
+}
+
 Node *Parser_statement(Parser *parser) {
+    Parser_declaration(parser);
+    
     Node *node = Arena_alloc(parser->arena, sizeof(Node));
     
     Token *token = Lexer_peekNextToken(&parser->lexer);
@@ -1012,7 +1267,7 @@ Node *Parser_statement(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
-    } else { // TODO(mdizdar): declarations
+    } else {
         // we aren't using the node we allocated up there, but since our arena doesn't support freeing memory at the moment, we won't free it here
         node = Parser_expr(parser);
     }
@@ -1020,17 +1275,6 @@ Node *Parser_statement(Parser *parser) {
     parser->lexer.peek = parser->lexer.pos;
     
     return node;
-}
-
-typedef struct _Type {
-    struct _Type *pointer;
-    int is_const:1;
-    int is_volatile:1;
-    int is_static:1;
-} Type;
-
-Node *Parser_declaration(Parser *parser) {
-    
 }
 
 Node *Parser_parse(Parser *parser) {
