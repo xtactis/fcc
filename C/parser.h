@@ -24,7 +24,6 @@ typedef struct {
 } CachedToken;
 
 typedef struct {
-    SymbolTable *symbol_table;
     String code;
     
     CachedToken *token_at;
@@ -136,9 +135,6 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                 t->type = checkKeyword(name);
                 if (t->type == TOKEN_IDENT) {
                     t->name = (String){.data = name, .count = count};
-                    
-                    // NOTE(mdizdar): type is NULL because we don't know it yet
-                    SymbolTable_add(lexer->symbol_table, &t->name, NULL, lexer->cur_line);
                 }
                 return Lexer_returnToken(lexer, lookahead, t);
             }
@@ -322,6 +318,7 @@ Token *Lexer_getNextToken(Lexer *lexer) {
 typedef struct {
     Arena *arena;
     Arena *type_arena;
+    SymbolTable *symbol_table;
     Lexer lexer;
 } Parser;
 
@@ -884,6 +881,8 @@ Node *Parser_expr(Parser *parser) {
 Node *Parser_statement(Parser *parser);
 
 Node *Parser_block(Parser *parser) {
+    SymbolTable_pushScope(parser->symbol_table);
+    
     Node *node = Parser_statement(parser);
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
@@ -899,6 +898,8 @@ Node *Parser_block(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
+    SymbolTable_popScope(parser->symbol_table);
+    
     parser->lexer.peek = parser->lexer.pos;
     
     return node;
@@ -911,6 +912,8 @@ Declaration *Parser_struct(Parser *parser, Type *type) {
     
     Token *token = Lexer_peekNextToken(&parser->lexer);
     String *type_name = NULL;
+    
+    SymbolTable_pushScope(parser->symbol_table); // NOTE(mdizdar): this shouldn't be done for anonymous structs/unions that are within other structures
     
     if (token->type == TOKEN_IDENT) {
         Parser_eat(parser, token, TOKEN_IDENT);
@@ -942,6 +945,9 @@ Declaration *Parser_struct(Parser *parser, Type *type) {
     } else {
         error(parser->lexer.cur_line, "bruh"); // NOTE(mdizdar): idk what to tell this dude tbh
     }
+    
+    SymbolTable_popScope(parser->symbol_table);
+    
     Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
     declaration->type = type;
     if (type_name) {
@@ -1112,14 +1118,14 @@ Declaration *Parser_declaration(Parser *parser) {
     if (token->type != TOKEN_IDENT) Parser_error(parser, token, TOKEN_IDENT);
     Parser_eat(parser, token, TOKEN_IDENT);
     
-    SymbolTableEntry *entry = SymbolTable_find(parser->lexer.symbol_table, &token->name);
-    if (entry->type != NULL) Parser_duplicateError(parser, entry);
+    SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, &token->name);
+    if (entry != NULL) Parser_duplicateError(parser, entry);
+    
+    SymbolTable_add(parser->symbol_table, &token->name, type, parser->lexer.cur_line);
     
     Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
     declaration->type = type;
     declaration->name = token->name;
-    
-    entry->type = type;
     
     parser->lexer.peek = parser->lexer.pos;
     

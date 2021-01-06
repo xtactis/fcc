@@ -47,11 +47,7 @@ int main(int argc, char **argv) {
     puts(code);
     puts(CYAN "**TOKENS**" RESET);
     
-    SymbolTable st = {.resize_threshold = 0.7};
-    SymbolTable_init(&st, 10);
-    
     Lexer lexer = (Lexer){
-        .symbol_table = &st, 
         .code = { .data = code, .count = strlen(code) },
         .token_at = calloc(strlen(code)+5, sizeof(CachedToken)),
         .token_arena = Arena_init(4096),
@@ -68,12 +64,6 @@ int main(int argc, char **argv) {
         printf("%s\n", Token_toStr_long(s, *t));
     } while (t->type != TOKEN_ERROR);
     puts("");
-    for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
-        printf("%llu: ", i);
-        if (lexer.symbol_table->hash_table[i].name.count == 0) { printf("\n"); continue; }
-        SymbolTableEntry *entry = &lexer.symbol_table->hash_table[i];
-        printf("{ name: %s; type: UNKNOWN; def_line: %llu }\n", entry->name.data, entry->definition_line);
-    }
     
     puts(CYAN "***EXPR***" RESET);
     // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
@@ -82,12 +72,18 @@ int main(int argc, char **argv) {
         "struct foo {\n"
         "  signed const long * const volatile const x;\n"
         "  struct {\n"
-        "    void * const y;\n"
+        "    int y;\n"
         "  } w;\n"
         "  unsigned char *px;\n"
         "} z;\n"
+        "int zz;\n"
+        "for (zz = 0; zz < 5; ++z) {\n"
+        "  int tmp = z.x;\n"
+        "  z.x = z.w.y;\n"
+        "  z.w.y = tmp;\n"
+        "}\n"
         "z.x = 2+3*5%6*(1/4+3);\n"
-        "z.x += 2+3*(4-5)%(y?6+7:7*8);\n";
+        "zz = z.x += 2+3*(4-5)%(y?6+7:7*8);\n";
     "c1?++t1--:c2?t2++:f;\n";
     "&*p++.;\n";
     "foo(a, b, c, d)[2][3];\n";
@@ -95,11 +91,11 @@ int main(int argc, char **argv) {
     "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
     puts(expr);
     
+    SymbolTable st;
     SymbolTable_init(&st, 10);
     
     Parser parser = (Parser){
         .lexer = {
-            .symbol_table = &st, // doesn't use this yet though
             .code = { .data = expr, .count = strlen(expr) },
             .token_at = calloc(strlen(code)+5, sizeof(CachedToken)),
             .token_arena = Arena_init(4096),
@@ -107,6 +103,7 @@ int main(int argc, char **argv) {
             .peek = 0,
             .cur_line = 1,
         },
+        .symbol_table = &st,
         .arena = Arena_init(4096),
         .type_arena = Arena_init(4096)
 #pragma warning(suppress: 4221) 
@@ -115,10 +112,10 @@ int main(int argc, char **argv) {
     
     printAST(Parser_parse(&parser), 0);
     
-    for (u64 i = 0; i < lexer.symbol_table->capacity; ++i) {
+    for (u64 i = 0; i < parser.symbol_table->scope->capacity; ++i) {
         printf("%llu: ", i);
-        if (lexer.symbol_table->hash_table[i].name.count == 0) { printf("\n"); continue; }
-        SymbolTableEntry *entry = &lexer.symbol_table->hash_table[i];
+        if (parser.symbol_table->scope->hash_table[i].name.count == 0) { printf("\n"); continue; }
+        SymbolTableEntry *entry = &parser.symbol_table->scope->hash_table[i];
         if (entry->type) {
             printf("{ name: %s; type: %d; def_line: %llu }\n", entry->name.data, entry->type->basic_type, entry->definition_line);
         } else {

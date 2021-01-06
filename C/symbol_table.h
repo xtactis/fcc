@@ -7,7 +7,11 @@
 #include <stdlib.h>
 
 #include "../utils/common.h"
+#include "arena.h"
 #include "type.h"
+
+static const double resize_threshold = 0.7;
+static const u64 NEW_SCOPE_CAPACITY = 10;
 
 typedef struct {
     String name;
@@ -16,29 +20,54 @@ typedef struct {
     bool is_typename;
 } SymbolTableEntry;
 
-typedef struct {
+typedef struct Scope {
+    struct Scope *previous;
+    
     SymbolTableEntry *hash_table;
     u64 size;
     u64 capacity;
-    const double resize_threshold;
+} Scope;
+
+typedef struct {
+    Arena *scopes_arena;
+    Scope *scope;
 } SymbolTable;
 
-void SymbolTable_init(SymbolTable *st, u64 capacity) {
-    st->capacity = capacity;
-    st->size = 0;
-    st->hash_table = malloc(sizeof(SymbolTableEntry) * capacity); // use calloc instead?
-    for (u64 i = 0; i < st->capacity; ++i) {
-        st->hash_table[i].name.count = 0; // this will tell us whether the cell is occupied
+void Scope_init(Scope *scope, u64 capacity) {
+    scope->capacity = capacity;
+    scope->size = 0;
+    scope->hash_table = malloc(sizeof(SymbolTableEntry) * capacity); // use calloc instead?
+    scope->previous = NULL;
+    for (u64 i = 0; i < scope->capacity; ++i) {
+        scope->hash_table[i].name.count = 0; // this will tell us whether the cell is occupied
         // I know it's stupid, but it is what it is
     }
+}
+
+void SymbolTable_pushScope(SymbolTable *st) {
+    Scope *new_scope = Arena_alloc(st->scopes_arena, sizeof(Scope));
+    Scope_init(new_scope, NEW_SCOPE_CAPACITY);
+    new_scope->previous = st->scope;
+    st->scope = new_scope;
+}
+
+void SymbolTable_popScope(SymbolTable *st) {
+    // NOTE(mdizdar): we don't want to delete the reference to the scope because the data is used in other parts, such as the Declaration struct
+    st->scope = st->scope->previous;
+}
+
+void SymbolTable_init(SymbolTable *st, u64 capacity) {
+    st->scopes_arena = Arena_init(4096);
+    st->scope = Arena_alloc(st->scopes_arena, sizeof(Scope));
+    Scope_init(st->scope, capacity);
 }
 
 u64 SymbolTable_hash(const SymbolTable *st, const String *name) {
     u64 result = 0;
     u64 ppow = 1;
     for (u64 i = 0; i < name->count; ++i) {
-        result = (result + (name->data[i] - '0' + 1) * ppow) % st->capacity;
-        ppow = (ppow * 79) % st->capacity; // a small prime roughly the size of the alphabet [_a-zA-Z0-9]
+        result = (result + (name->data[i] - '0' + 1) * ppow) % st->scope->capacity;
+        ppow = (ppow * 79) % st->scope->capacity; // a small prime roughly the size of the alphabet [_a-zA-Z0-9]
     }
     return result;
 }
@@ -49,39 +78,39 @@ u64 SymbolTable_add_helper(SymbolTable *st, const String *name, Type *type, u64 
     
     u64 travel = 0;
     // NOTE(mdizdar): this is checking whether a hash is in use
-    while (st->hash_table[hash].name.count != 0) {
-        if (strcmp(st->hash_table[hash].name.data, name->data) == 0) {
+    while (st->scope->hash_table[hash].name.count != 0) {
+        if (strcmp(st->scope->hash_table[hash].name.data, name->data) == 0) {
             // it's already in the table
             return 0;
         }
-        hash = (hash+1)%st->capacity;
+        hash = (hash+1)%st->scope->capacity;
         ++travel;
     }
-    st->hash_table[hash] = (SymbolTableEntry){.type = type, .definition_line = definition_line, .name.count = name->count};
-    st->hash_table[hash].name.data = malloc(name->count);
-    strcpy(st->hash_table[hash].name.data, name->data);
+    st->scope->hash_table[hash] = (SymbolTableEntry){.type = type, .definition_line = definition_line, .name.count = name->count};
+    st->scope->hash_table[hash].name.data = malloc(name->count);
+    strcpy(st->scope->hash_table[hash].name.data, name->data);
     
-    ++st->size;
+    ++st->scope->size;
     
     return travel;
 }
 
 void SymbolTable_resize(SymbolTable *st) {
-    SymbolTableEntry *old_table = st->hash_table;
-    u64 old_capacity = st->capacity;
-    SymbolTable_init(st, st->capacity*2);
+    SymbolTableEntry *old_table = st->scope->hash_table;
+    u64 old_capacity = st->scope->capacity;
+    SymbolTable_init(st, st->scope->capacity*2);
     for (u64 i = 0; i < old_capacity; ++i) {
         if (old_table[i].name.count == 0) continue;
         SymbolTable_add_helper(st, &old_table[i].name, old_table[i].type, old_table[i].definition_line);
     }
-    free(old_table);
+    // free(old_table); // NOTE(mdizdar): freeing is expensive, for now we don't care
 }
 
 void SymbolTable_add(SymbolTable *st, const String *name, Type *type, u64 definition_line) {
     // assumes the table has been init-ed, if it hasn't it WILL explode
     const u64 travel = SymbolTable_add_helper(st, name, type, definition_line);
     
-    if ((travel > st->capacity/2) || (1.0 * st->size / st->capacity > st->resize_threshold)) {
+    if ((travel > st->scope->capacity/2) || (1.0 * st->scope->size / st->scope->capacity > resize_threshold)) {
         SymbolTable_resize(st);
     }
 }
@@ -91,17 +120,17 @@ SymbolTableEntry *SymbolTable_find(SymbolTable *st, const String *name) {
     
     u64 travel = 0;
     // check the hash exists
-    while (st->hash_table[hash].name.count != 0) {
+    while (st->scope->hash_table[hash].name.count != 0) {
         // check the hash is correct
-        if (strcmp(st->hash_table[hash].name.data, name->data) == 0) {
-            return st->hash_table + hash;
+        if (strcmp(st->scope->hash_table[hash].name.data, name->data) == 0) {
+            return st->scope->hash_table + hash;
         }
-        hash = (hash+1)%st->capacity;
+        hash = (hash+1)%st->scope->capacity;
         ++travel;
     }
     
     // NOTE(mdizdar): not sure if I want this here, but I'll include it for now
-    if (travel > st->capacity/2) {
+    if (travel > st->scope->capacity/2) {
         SymbolTable_resize(st);
     }
     

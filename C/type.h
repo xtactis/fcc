@@ -3,6 +3,8 @@
 #ifndef TYPE_H
 #define TYPE_H
 
+#include "arena.h"
+
 // NOTE(mdizdar): who's gonna need more than 8*64 pointers for real tho
 static const u64 BITSET_SIZE = 8LL;
 typedef u64 Bitset[8]; // cl is stupid
@@ -56,6 +58,7 @@ typedef struct {
 
 typedef struct {
     DynArray members;
+    //SymbolTable member_table;
 } StructType;
 
 typedef struct {
