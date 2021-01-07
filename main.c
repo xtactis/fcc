@@ -69,22 +69,25 @@ int main(int argc, char **argv) {
     // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
     char *expr;
     expr = 
-        "struct foo {\n"
-        "  signed const long * const volatile const x;\n"
-        "  struct {\n"
-        "    int y;\n"
-        "  } w;\n"
-        "  unsigned char *px;\n"
-        "} z;\n"
-        "int zz;\n"
-        "for (zz = 0; zz < 5; ++z) {\n"
-        "  int tmp = z.x;\n"
-        "  z.x = z.w.y;\n"
-        "  z.w.y = tmp;\n"
-        "}\n"
-        "z.x = 2+3*5%6*(1/4+3);\n"
-        "zz = z.x += 2+3*(4-5)%(y?6+7:7*8);\n";
-    "c1?++t1--:c2?t2++:f;\n";
+        "{\n"
+        "  struct foo {\n"
+        "    signed const long * const volatile const x;\n"
+        "    struct {\n"
+        "      int y;\n"
+        "    } w;\n"
+        "    unsigned char *px;\n"
+        "  } z;\n"
+        "  int zz;\n"
+        "  for (zz = 0; zz < 5; ++zz) {\n"
+        "    int tmp;\n"
+        "    tmp = z.x;\n"
+        "    z.x = z.w.y;\n"
+        "    z.w.y = tmp;\n"
+        "  }\n"
+        "}\n";
+    "  z.x = 2+3*5%6*(1/4+3);\n"
+        "  zz = z.x += 2+3*(4-5)%(y?6+7:7*8);\n"
+        "c1?++t1--:c2?t2++:f;\n";
     "&*p++.;\n";
     "foo(a, b, c, d)[2][3];\n";
     ";;;\n";
@@ -123,9 +126,8 @@ int main(int argc, char **argv) {
         }
     }
     
-    
-    /*
-    u64 N = 1000000, len = strlen(expr);
+    u64 loc = 16; // update manually cause you're lazy
+    u64 N = 1000000/loc, len = strlen(expr);
     char *long_code = malloc(N*len+25);
     for (u64 i = 0; i < N; ++i) {
         strcpy(long_code+i*len, expr);
@@ -134,7 +136,6 @@ int main(int argc, char **argv) {
     
     parser = (Parser){
         .lexer = {
-            .symbol_table = &st, // doesn't use this yet though
             .code = { .data = long_code, .count = N*len },
             .token_at = calloc(N*len+5, sizeof(CachedToken)),
             .token_arena = Arena_init(4096),
@@ -142,6 +143,7 @@ int main(int argc, char **argv) {
             .peek = 0,
             .cur_line = 1,
         },
+        .symbol_table = &st, // doesn't use this yet though
         .arena = Arena_init(4096),
         .type_arena = Arena_init(4096)
 #pragma warning(suppress: 4221) 
@@ -153,10 +155,10 @@ int main(int argc, char **argv) {
     Parser_parse(&parser);
     
     clock_t end = clock();
+    printf("Lines of code: %llu\n", N * loc);
+    printf("Time: ~%lf seconds\n", (double)(end-begin) / CLOCKS_PER_SEC);
+    printf("Memory: %llu bytes (%.2lf MB)\n", parser.arena->total_capacity, 1.*parser.arena->total_capacity/1024/1024);
     
-    printf("~Time taken for %llu expr: %lf\n", N, (double)(end-begin) / CLOCKS_PER_SEC);
-    printf("Memory: %llu\n", parser.arena->total_capacity);
-    */
     /*
     puts(CYAN "****AST***" RESET);
     AST ast;

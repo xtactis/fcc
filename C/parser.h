@@ -30,7 +30,7 @@ typedef struct {
     Arena *token_arena;
     
     u64 cur_line;
-    u64 line;
+    u64 prev_line;
     u64 pos;
     u64 peek;
 } Lexer;
@@ -61,12 +61,24 @@ inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
     //printf("peek %llu / %llu\n", lexer->peek, lexer->code.count);
     if (t != NULL && t->type != TOKEN_ERROR) {
         //printf("%p\n", lexer->token_at[lexer->peek]);
-        lexer->token_at[lexer->peek].token = t;
-        lexer->token_at[lexer->peek].lookahead = lookahead;
-        lexer->token_at[lexer->peek].cur_line = lexer->line;
+        for (u64 i = lexer->peek; i < lookahead; ++i) {
+            lexer->token_at[i].token = t;
+            lexer->token_at[i].lookahead = lookahead;
+            lexer->token_at[i].cur_line = lexer->cur_line;
+        }
     }
     lexer->peek = lookahead;
     return t;
+}
+
+inline void Lexer_resetPeek(Lexer *lexer) {
+    lexer->peek = lexer->pos;
+    lexer->cur_line = lexer->prev_line;
+}
+
+inline void Lexer_confirmPeek(Lexer *lexer) {
+    lexer->pos = lexer->peek;
+    lexer->prev_line = lexer->cur_line;
 }
 
 // finds the next token and returns it
@@ -106,7 +118,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
             case UNKNOWN: {
                 if (isspace(c)) {
                     if (c == '\n') {
-                        lexer->cur_line = ++lexer->line;
+                        ++lexer->cur_line;
                     }
                     ++lexer->peek;
                     continue;
@@ -303,7 +315,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
 
 // consumes peeked tokens
 void Lexer_eat(Lexer *lexer) {
-    lexer->pos = lexer->peek;
+    Lexer_confirmPeek(lexer);
 }
 
 // finds and consumes the next token, then returns it
@@ -432,7 +444,7 @@ Node *Parser_operand(Parser *parser) {
         Parser_eat(parser, token, ')');
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -477,7 +489,7 @@ Node *Parser_postfix(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -524,7 +536,7 @@ Node *Parser_prefix(Parser *parser) {
         node = Parser_postfix(parser);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -553,7 +565,7 @@ Node *Parser_muls(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos; // NOTE(mdizdar): maybe make a Lexer_reset() for this
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -579,7 +591,7 @@ Node *Parser_sums(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -605,7 +617,7 @@ Node *Parser_bitshift(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -636,7 +648,7 @@ Node *Parser_rel_op(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -662,7 +674,7 @@ Node *Parser_rel_eq(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -684,7 +696,7 @@ Node *Parser_bit_and(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -706,7 +718,7 @@ Node *Parser_bit_xor(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -728,7 +740,7 @@ Node *Parser_bit_or(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -750,7 +762,7 @@ Node *Parser_log_and(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -772,7 +784,7 @@ Node *Parser_log_or(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -796,7 +808,7 @@ Node *Parser_ternary(Parser *parser) {
         node = tmp;
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -845,7 +857,7 @@ Node *Parser_assignment(Parser *parser) {
         node = tmp;
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -869,7 +881,7 @@ Node *Parser_comma(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -886,9 +898,7 @@ Node *Parser_block(Parser *parser) {
     Node *node = Parser_statement(parser);
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    while (token->type == ';') {
-        Parser_eat(parser, token, ';');
-        
+    while (token->type != '}') {
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = token;
@@ -900,7 +910,7 @@ Node *Parser_block(Parser *parser) {
     
     SymbolTable_popScope(parser->symbol_table);
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -931,7 +941,7 @@ Declaration *Parser_struct(Parser *parser, Type *type) {
         Parser_eat(parser, token, '{');
         token = Lexer_peekNextToken(&parser->lexer);
         while (token->type != '}') {
-            parser->lexer.peek = parser->lexer.pos; // reset peek
+            Lexer_resetPeek(&parser->lexer);
             Declaration *member = Parser_declaration(parser);
             if (member) {
                 DynArray_add(&type->struct_type->members, member);
@@ -959,13 +969,13 @@ Declaration *Parser_struct(Parser *parser, Type *type) {
     return declaration;
 }
 
-Declaration *Parser_declaration(Parser *parser) {
+Declaration *Parser_declaration(Parser *parser, Type *) {
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
     if (!((token->type > TOKEN_TYPE && token->type < TOKEN_MODIFIER) ||
           (token->type > TOKEN_MODIFIER && token->type < TOKEN_OPERATOR) ||
           token->type == TOKEN_STRUCT)) {
-        parser->lexer.peek = parser->lexer.pos;
+        Lexer_resetPeek(&parser->lexer);
         return NULL;
     }
     
@@ -1127,15 +1137,18 @@ Declaration *Parser_declaration(Parser *parser) {
     declaration->type = type;
     declaration->name = token->name;
     
-    parser->lexer.peek = parser->lexer.pos;
+    token = Lexer_peekNextToken(&parser->lexer);
+    Parser_eat(parser, token, ';');
     
-    Type_print(type, 0);
+    Lexer_resetPeek(&parser->lexer);
+    
+    //Type_print(type, 0);
     
     return declaration;
 }
 
 Node *Parser_statement(Parser *parser) {
-    Parser_declaration(parser);
+    while (Parser_declaration(parser));
     
     Node *node = Arena_alloc(parser->arena, sizeof(Node));
     
@@ -1150,34 +1163,16 @@ Node *Parser_statement(Parser *parser) {
         Node *cond = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ')');
-        token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
         node->right = NULL;
         
-        Node *block;
-        if (token->type == '{') {
-            Parser_eat(parser, token, '{');
-            block = Parser_block(parser);
-            token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, token, '}');
-        } else {
-            block = Parser_statement(parser);
-        }
-        node->left = block;
+        node->left = Parser_statement(parser);
         
         token = Lexer_peekNextToken(&parser->lexer);
         if (token->type == TOKEN_ELSE) {
             Parser_eat(parser, token, TOKEN_ELSE);
-            if (token->type == '{') {
-                Parser_eat(parser, token, '{');
-                block = Parser_block(parser);
-                token = Lexer_peekNextToken(&parser->lexer);
-                Parser_eat(parser, token, '}');
-            } else {
-                block = Parser_statement(parser);
-            }
-            node->right = block;
+            node->right = Parser_statement(parser);
         }
     } else if (token->type == TOKEN_WHILE) {
         Parser_eat(parser, token, TOKEN_WHILE);
@@ -1189,21 +1184,11 @@ Node *Parser_statement(Parser *parser) {
         Node *cond = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ')');
-        token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
         node->right = NULL;
         
-        Node *block;
-        if (token->type == '{') {
-            Parser_eat(parser, token, '{');
-            block = Parser_block(parser);
-            token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, token, '}');
-        } else {
-            block = Parser_statement(parser);
-        }
-        node->left = block;
+        node->left = Parser_statement(parser);
     } else if (token->type == TOKEN_FOR) {
         Parser_eat(parser, token, TOKEN_FOR);
         
@@ -1220,7 +1205,6 @@ Node *Parser_statement(Parser *parser) {
         Node *iter = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ')');
-        token = Lexer_peekNextToken(&parser->lexer);
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->cond  = cond;
@@ -1232,33 +1216,15 @@ Node *Parser_statement(Parser *parser) {
         node->cond = tmp;
         node->right = NULL;
         
-        Node *block;
-        if (token->type == '{') {
-            Parser_eat(parser, token, '{');
-            block = Parser_block(parser);
-            token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, token, '}');
-        } else {
-            block = Parser_statement(parser);
-        }
-        node->left = block;
+        node->left = Parser_statement(parser);
     } else if (token->type == TOKEN_DO) {
         Parser_eat(parser, token, TOKEN_DO);
         
         node->token = token;
         
         token = Lexer_peekNextToken(&parser->lexer);
-        Node *block;
-        if (token->type == '{') {
-            Parser_eat(parser, token, '{');
-            block = Parser_block(parser);
-            token = Lexer_peekNextToken(&parser->lexer);
-            Parser_eat(parser, token, '}');
-        } else {
-            block = Parser_statement(parser);
-        }
         
-        node->left = block;
+        node->left = Parser_statement(parser);
         
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, TOKEN_WHILE);
@@ -1269,16 +1235,21 @@ Node *Parser_statement(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ')');
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, token, ';');
-        token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
+    } else if (token->type == '{') {
+        Parser_eat(parser, token, '{');
+        node = Parser_block(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, token, '}');
     } else {
         // we aren't using the node we allocated up there, but since our arena doesn't support freeing memory at the moment, we won't free it here
         node = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, token, ';');
     }
     
-    parser->lexer.peek = parser->lexer.pos;
+    Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
@@ -1288,9 +1259,6 @@ Node *Parser_parse(Parser *parser) {
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
     while (token->type != TOKEN_ERROR) {
-        if (token->type == ';') {
-            Parser_eat(parser, token, ';');
-        }
         parser->lexer.peek = parser->lexer.pos;
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;

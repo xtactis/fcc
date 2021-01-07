@@ -73,7 +73,7 @@ typedef struct {
 
 typedef struct {
     Type *return_type;
-    Type **parameters;
+    DynArray parameters;
     u64 parameter_count;
 } FunctionType;
 
