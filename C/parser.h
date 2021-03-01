@@ -14,7 +14,8 @@
 
 #define parse_error error("Parse error!")
 
-// TODO(mdizdar): add caching of already lexed tokens
+//#define Arena_alloc(x, y) malloc((y))
+
 // TODO(mdizdar): handle escaped characters
 
 typedef struct {
@@ -91,20 +92,22 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
     }
     enum State {
         UNKNOWN = 0,
-        IDENT   = 1, // [_a-zA-Z][_a-zA-Z0-9]*
-        DECINT  = 2, // [1-9][0-9]* | 0
-        OCTINT  = 3, // 0[0-9]*
-        HEXINT  = 4, // 0(x|X)[a-fA-F0-9]+
-        FLOAT   = 5, // [0-9]+\.[0-9]* // TODO(mdizdar): add scientific notation (pain in the ass)
-        OP      = 6, // ++ | -- | >= | == | <= | || | && | ^= | != | += | -= | *= | /= | %= | |= | &= | << | >> | <<= | >>= | ->
-        CHAR    = 7, // '.'
-        STRING  = 8, // ".*"
+        IDENT,      // [_a-zA-Z][_a-zA-Z0-9]*
+        DECINT,     // [1-9][0-9]* | 0
+        OCTINT,     // 0[0-9]*
+        HEXINT,     // 0(x|X)[a-fA-F0-9]+
+        INTSUF,     // *nothing*, L, l, U, u, LL, ll, LLU, ULL, LLu, uLL, llu, ull, llU, Ull
+        FLOAT,      // [0-9]+\.[0-9]* // TODO(mdizdar): add scientific notation (pain in the ass)
+        OP,         // ++ | -- | >= | == | <= | || | && | ^= | != | += | -= | *= | /= | %= | |= | &= | << | >> | <<= | >>= | ->
+        CHAR,       // '.'
+        STRING,     // ".*"
     } state  = UNKNOWN;
     
     bool was_zero       = false;
     bool escaped        = false;
     bool was_escaped    = false;
     u64 integer_value   = 0;
+    u64 long_count      = 0;
     double double_value = 0;
     double dec_digit    = 1;
     
@@ -169,7 +172,6 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                         integer_value *= 10;
                         integer_value += c - '0';
                     } else if (isalpha(c)) {
-                        // TODO(mdizdar): 'L' and 'LL' at the end are allowed though
                         error(lexer->cur_line, "Parse error: Unexpected alpha character");
                     } else if (c == '.') {
                         double_value = (double)integer_value;
@@ -270,7 +272,32 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
             case CHAR: {
                 if (escaped) {
                     escaped = false;
-                    was_escaped = true;
+                    ++escaped_count;
+                    if (c == '\'') {
+                        continue;
+                    } else if (c == '"') {
+                        continue;
+                    } else if (c == '?') {
+                        continue;
+                    } else if (c == '\\') {
+                        continue;
+                    } else if (c == 'a') {
+                        lexer->code.data[lookahead] = 0x07;
+                    } else if (c == 'b') {
+                        lexer->code.data[lookahead] = 0x08;
+                    } else if (c == 'f') {
+                        lexer->code.data[lookahead] = 0x0c;
+                    } else if (c == 'n') {
+                        lexer->code.data[lookahead] = 0x0a;
+                    } else if (c == 'r') {
+                        lexer->code.data[lookahead] = 0x0d;
+                    } else if (c == 't') {
+                        lexer->code.data[lookahead] = 0x09;
+                    } else if (c == 'v') {
+                        lexer->code.data[lookahead] = 0x0b;
+                    } else {
+                        error(lexer->cur_line, "Error: escape sequence not recognized");
+                    }
                     continue;
                 }
                 if (c == '\\') {
@@ -278,8 +305,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                     continue;
                 }
                 if (c == '\'') {
-                    u64 count = lookahead - lexer->peek - 1;
-                    if (was_escaped) --count;
+                    u64 count = lookahead - lexer->peek - 1 - escaped_count;
                     if (count > 1) {
                         error(lexer->cur_line, "Error: character literals can't be longer than 1 character.");
                     }
@@ -291,6 +317,32 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
             case STRING: {
                 if (escaped) {
                     escaped = false;
+                    ++escaped_count;
+                    if (c == '\'') {
+                        continue;
+                    } else if (c == '"') {
+                        continue;
+                    } else if (c == '?') {
+                        continue;
+                    } else if (c == '\\') {
+                        continue;
+                    } else if (c == 'a') {
+                        lexer->code.data[lookahead] = 0x07;
+                    } else if (c == 'b') {
+                        lexer->code.data[lookahead] = 0x08;
+                    } else if (c == 'f') {
+                        lexer->code.data[lookahead] = 0x0c;
+                    } else if (c == 'n') {
+                        lexer->code.data[lookahead] = 0x0a;
+                    } else if (c == 'r') {
+                        lexer->code.data[lookahead] = 0x0d;
+                    } else if (c == 't') {
+                        lexer->code.data[lookahead] = 0x09;
+                    } else if (c == 'v') {
+                        lexer->code.data[lookahead] = 0x0b;
+                    } else {
+                        error(lexer->cur_line, "Error: escape sequence not recognized");
+                    }
                     continue;
                 }
                 if (c == '\\') {
@@ -298,10 +350,13 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                     continue;
                 }
                 if (c == '"') {
-                    u64 count = lookahead - lexer->peek - 1;
+                    u64 count = lookahead - lexer->peek - 1 - escaped_count;;
                     char *str = Arena_alloc(lexer->token_arena, count+1);
                     str[count] = 0;
-                    strncpy(str, lexer->code.data + lexer->peek + 1, count);
+                    for (u64 i = lexer->peek+1, j = 0; i < lookahead; ++i) {
+                        if (lexer->code.data[i] == '\\' && lexer->code.data[i-1] != '\\') continue;
+                        str[j++] = lexer->code.data[i];
+                    }
                     t->type = TOKEN_STRING_LITERAL;
                     t->string_value = (String){.data = str, .count = count};
                     return Lexer_returnToken(lexer, lookahead+1, t);
@@ -969,7 +1024,32 @@ Declaration *Parser_struct(Parser *parser, Type *type) {
     return declaration;
 }
 
-Declaration *Parser_declaration(Parser *parser, Type *) {
+Declaration *Parser_function(Parser *parser, Type *type) {
+    Token *token = Lexer_peekNextToken(&parser->lexer);
+    if (token->type != '(') {
+        Lexer_resetPeek(&parser->lexer);
+        return NULL;
+    }
+    
+    Type *ftype = Arena_alloc(parser->type_arena, sizeof(Type));
+    ftype->is_function = true;
+    
+    type->is_function = true;
+    //String *type_name = NULL;
+    
+    
+    SymbolTable_pushScope(parser->symbol_table);
+    
+    // get parameter list
+    token = Lexer_peekNextToken(&parser->lexer);
+    while (token->type != ')') {
+        
+    }
+    
+    SymbolTable_popScope(parser->symbol_table);
+}
+
+Declaration *Parser_declaration(Parser *parser) {
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
     if (!((token->type > TOKEN_TYPE && token->type < TOKEN_MODIFIER) ||
@@ -1130,6 +1210,8 @@ Declaration *Parser_declaration(Parser *parser, Type *) {
     
     SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, &token->name);
     if (entry != NULL) Parser_duplicateError(parser, entry);
+    
+    //Parser_function(parser, type);
     
     SymbolTable_add(parser->symbol_table, &token->name, type, parser->lexer.cur_line);
     
