@@ -16,8 +16,6 @@
 
 //#define Arena_alloc(x, y) malloc((y))
 
-// TODO(mdizdar): handle escaped characters
-
 typedef struct {
     Token *token;
     u64 lookahead;
@@ -105,9 +103,9 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
     
     bool was_zero       = false;
     bool escaped        = false;
-    bool was_escaped    = false;
+    u64 escaped_count   = 0;
     u64 integer_value   = 0;
-    u64 long_count      = 0;
+    //u64 long_count      = 0;
     double double_value = 0;
     double dec_digit    = 1;
     
