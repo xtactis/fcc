@@ -99,6 +99,7 @@ typedef enum {
     TOKEN_FUNCTION_CALL  = 900,
     TOKEN_FOR_COND       = 901, // used in `for (<this bit>)`
     TOKEN_NEXT           = 902, // for chaining statements together
+    TOKEN_DECLARATION    = 903,
 }  TokenType;
 
 typedef struct {
@@ -249,6 +250,7 @@ typedef struct _Node {
     Token *token;
     struct _Node *left, *right;
     struct _Node *cond; // this is only used for ternary
+    
 } Node;
 
 #endif // TOKEN_H

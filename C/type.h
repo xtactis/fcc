@@ -46,6 +46,12 @@ DynArray *DynArray_add(DynArray *array, void *element) {
     return array;
 }
 
+inline void DynArray_construct(DynArray *array, u64 element_size) {
+    array->element_size = element_size;
+    array->capacity = 0;
+    array->count = 0;
+}
+
 struct _Type;
 struct u64_Type;
 struct bool_Type;
@@ -74,7 +80,7 @@ typedef struct {
 typedef struct {
     Type *return_type;
     DynArray parameters;
-    u64 parameter_count;
+    Node *block;
 } FunctionType;
 
 typedef enum {

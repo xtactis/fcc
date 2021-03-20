@@ -4,6 +4,9 @@
 
 #include "C/token.h"
 #include "C/parser.h"
+
+char *codefile = NULL;
+
 void printAST(Node *root, u64 indent) {
     if (root == NULL) return;
     for (u64 i = 0; i < indent; ++i) {
@@ -22,34 +25,43 @@ void printAST(Node *root, u64 indent) {
     printAST(root->right, indent+3);
 }
 
-// TODO(mdizdar): make it actually read from a file instead of this stupid hardcoded bs
-int main(int argc, char **argv) {
-    if (false) {
-        if (argc == 1) {
-            error(0, "No arguments provided");
+String read_file(char *filename) {
+    FILE *fp = fopen(filename, "rb");
+    String file_data;
+    fseek(fp, 0L, SEEK_END);
+    file_data.count = ftell(fp);
+    rewind(fp);
+    file_data.data = malloc((file_data.count+1) * sizeof(char));
+    fread(file_data.data, sizeof(char), file_data.count, fp);
+    fclose(fp);
+    return file_data;
+}
+
+void parse_args(int argc, char **argv) {
+    for (u64 i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-o") == 0) {
+            ++i;
+            // get output file
+        } else {
+            codefile = argv[i];;
         }
     }
+    if (codefile == NULL) {
+        error(0, "Error: No file!");
+    }
+}
+
+// TODO(mdizdar): make it actually read from a file instead of this stupid hardcoded bs
+int main(int argc, char **argv) {
+    parse_args(argc, argv);
+    String code = read_file(codefile);
     puts(CYAN "***CODE***" RESET);
-    char *code =
-        "typedef struct {                       \n"
-        "  int x;                               \n"
-        "  union {                              \n"
-        "    int int_val;                       \n"
-        "    double real_val;                   \n"
-        "  };                                   \n"
-        "} Struct;                              \n"
-        "                                       \n"
-        "int main() {                           \n"
-        "  char c = '\\n'                       \n"
-        "  const char * str = \"sdf fdfs sdsf\";\n"
-        "  return 42 + str[6] / c;              \n"
-        "}                                      \n";
-    puts(code);
+    puts(code.data);
     puts(CYAN "**TOKENS**" RESET);
     
     Lexer lexer = (Lexer){
-        .code = { .data = code, .count = strlen(code) },
-        .token_at = calloc(strlen(code)+5, sizeof(CachedToken)),
+        .code = code,
+        .token_at = calloc(code.count+5, sizeof(CachedToken)),
         .token_arena = Arena_init(4096),
         .pos = 0,
         .peek = 0,
@@ -63,44 +75,18 @@ int main(int argc, char **argv) {
         t = Lexer_peekNextToken(&lexer);
         printf("%s\n", Token_toStr_long(s, *t));
     } while (t->type != TOKEN_ERROR);
-    puts("");
     
-    puts(CYAN "***EXPR***" RESET);
-    // NOTE(mdizdar): make sure to add an extra new line at the end of the file or sth
-    char *expr;
-    expr = 
-        "{\n"
-        "  struct foo {\n"
-        "    signed const long * const volatile const x;\n"
-        "    struct {\n"
-        "      int y;\n"
-        "    } w;\n"
-        "    unsigned char *px;\n"
-        "  } z;\n"
-        "  int zz;\n"
-        "  for (zz = 0; zz < 5; ++zz) {\n"
-        "    int tmp;\n"
-        "    tmp = z.x;\n"
-        "    z.x = z.w.y;\n"
-        "    z.w.y = tmp;\n"
-        "  }\n"
-        "}\n";
-    "  z.x = 2+3*5%6*(1/4+3);\n"
-        "  zz = z.x += 2+3*(4-5)%(y?6+7:7*8);\n"
-        "c1?++t1--:c2?t2++:f;\n";
-    "&*p++.;\n";
-    "foo(a, b, c, d)[2][3];\n";
-    ";;;\n";
-    "if (x == y) {\n  for (i = 0; i < n; ++i)\n    printf(\"%d\", i);\n}\n";
-    puts(expr);
+    puts(CYAN "\n***AST***" RESET);
     
     SymbolTable st;
     SymbolTable_init(&st, 10);
     
+    clock_t begin = clock();
+    
     Parser parser = (Parser){
         .lexer = {
-            .code = { .data = expr, .count = strlen(expr) },
-            .token_at = calloc(strlen(code)+5, sizeof(CachedToken)),
+            .code = code,
+            .token_at = calloc(code.count+5, sizeof(CachedToken)),
             .token_arena = Arena_init(4096),
             .pos = 0,
             .peek = 0,
@@ -113,7 +99,13 @@ int main(int argc, char **argv) {
     };
     // NOTE(mdizdar): this is just so it doesn't scream about initializing .symbol_table with the address of a variable that's on the stack
     
-    printAST(Parser_parse(&parser), 0);
+    Node *AST = Parser_parse(&parser);
+    
+    clock_t end = clock();
+    
+    printAST(AST, 0);
+    
+    puts(CYAN "\n***SYMBOL TABLE***" RESET);
     
     for (u64 i = 0; i < parser.symbol_table->scope->capacity; ++i) {
         printf("%llu: ", i);
@@ -126,36 +118,9 @@ int main(int argc, char **argv) {
         }
     }
     
-    u64 loc = 16; // update manually cause you're lazy
-    u64 N = 1000000/loc, len = strlen(expr);
-    char *long_code = malloc(N*len+25);
-    for (u64 i = 0; i < N; ++i) {
-        strcpy(long_code+i*len, expr);
-    }
-    long_code[N*len] = 0;
+    puts(CYAN "\n***STATS***" RESET);
     
-    parser = (Parser){
-        .lexer = {
-            .code = { .data = long_code, .count = N*len },
-            .token_at = calloc(N*len+5, sizeof(CachedToken)),
-            .token_arena = Arena_init(4096),
-            .pos = 0,
-            .peek = 0,
-            .cur_line = 1,
-        },
-        .symbol_table = &st, // doesn't use this yet though
-        .arena = Arena_init(4096),
-        .type_arena = Arena_init(4096)
-#pragma warning(suppress: 4221) 
-    };
-    // NOTE(mdizdar): this is just so it doesn't scream about initializing .symbol_table with the address of a variable that's on the stack
-    
-    clock_t begin = clock();
-    
-    Parser_parse(&parser);
-    
-    clock_t end = clock();
-    printf("Lines of code: %llu\n", N * loc);
+    printf("Lines of code: %llu\n", parser.lexer.cur_line);
     printf("Time: ~%lf seconds\n", (double)(end-begin) / CLOCKS_PER_SEC);
     printf("Memory: %llu bytes (%.2lf MB)\n", parser.arena->total_capacity, 1.*parser.arena->total_capacity/1024/1024);
     

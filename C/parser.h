@@ -70,6 +70,14 @@ inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
     return t;
 }
 
+inline Token *Lexer_currentToken(Lexer *lexer) {
+    return lexer->token_at[lexer->pos - 1].token;
+}
+
+inline Token *Lexer_currentPeekedToken(Lexer *lexer) {
+    return lexer->token_at[lexer->peek - 1].token;
+}
+
 inline void Lexer_resetPeek(Lexer *lexer) {
     lexer->peek = lexer->pos;
     lexer->cur_line = lexer->prev_line;
@@ -256,7 +264,6 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                         }
                         return Lexer_returnToken(lexer, lookahead+1, t);
                     } else {
-                        
                         if (prev == '<') {
                             t->type = TOKEN_BITSHIFT_LEFT;
                         } else {
@@ -437,6 +444,8 @@ inline void Parser_eat(Parser *parser, Token *token, TokenType token_type) {
     }
 }
 
+//#define Parser_eat(parser, token, type) { printf("%s: %u\n", __FILE__, __LINE__); Parser_eat((parser), (token), (type)); }
+
 Node *Parser_operand(Parser *parser) {
     // factor ::= ident | literal | '(' expr ')'
     
@@ -527,7 +536,7 @@ Node *Parser_postfix(Parser *parser) {
         } else if (token->type == '(') {
             Parser_eat(parser, token, '(');
             // NOTE(mdizdar): the commas are treated differently here
-            right = Parser_expr(parser); 
+            right = Parser_expr(parser);
             token = Lexer_peekNextToken(&parser->lexer);
             Parser_eat(parser, token, ')');
             token->type = TOKEN_FUNCTION_CALL;
@@ -847,7 +856,7 @@ Node *Parser_ternary(Parser *parser) {
     
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
-    if(token->type == '?') {
+    if (token->type == '?') {
         Parser_eat(parser, token, '?');
         Node *ternary_true = Parser_expr(parser);
         Token *colon = Lexer_peekNextToken(&parser->lexer);
@@ -945,11 +954,12 @@ Node *Parser_expr(Parser *parser) {
 
 Node *Parser_statement(Parser *parser);
 
-Node *Parser_block(Parser *parser) {
-    SymbolTable_pushScope(parser->symbol_table);
+Node *Parser_functionBlock(Parser *parser) {
+    Token *token = Lexer_peekNextToken(&parser->lexer);
+    Parser_eat(parser, token, '{');
     
     Node *node = Parser_statement(parser);
-    Token *token = Lexer_peekNextToken(&parser->lexer);
+    token = Lexer_peekNextToken(&parser->lexer);
     
     while (token->type != '}') {
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
@@ -961,22 +971,31 @@ Node *Parser_block(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
-    SymbolTable_popScope(parser->symbol_table);
+    Parser_eat(parser, token, '}');
     
     Lexer_resetPeek(&parser->lexer);
     
     return node;
 }
 
-Declaration *Parser_declaration(Parser *parser);
+Node *Parser_block(Parser *parser) {
+    SymbolTable_pushScope(parser->symbol_table);
+    
+    Node *node = Parser_functionBlock(parser);
+    
+    SymbolTable_popScope(parser->symbol_table);
+    
+    return node;
+}
 
-Declaration *Parser_struct(Parser *parser, Type *type) {
-    type->is_struct = true;
+Declaration *Parser_declaration(Parser *parser, bool can_be_static);
+
+Declaration *Parser_struct(Parser *parser, Type **type) {
+    Type *_type = *type;
+    _type->is_struct = true;
     
     Token *token = Lexer_peekNextToken(&parser->lexer);
     String *type_name = NULL;
-    
-    SymbolTable_pushScope(parser->symbol_table); // NOTE(mdizdar): this shouldn't be done for anonymous structs/unions that are within other structures
     
     if (token->type == TOKEN_IDENT) {
         Parser_eat(parser, token, TOKEN_IDENT);
@@ -984,20 +1003,21 @@ Declaration *Parser_struct(Parser *parser, Type *type) {
         token = Lexer_peekNextToken(&parser->lexer);
     }
     if (token->type == '{') {
-        type->struct_type = Arena_alloc(parser->type_arena, sizeof(StructType));
+        Parser_eat(parser, token, '{');
+        
+        SymbolTable_pushScope(parser->symbol_table); // NOTE(mdizdar): this shouldn't be done for anonymous structs/unions that are within other structures
+        
+        _type->struct_type = Arena_alloc(parser->type_arena, sizeof(StructType));
         
         //type->struct_type->members.data         = NULL;
-        type->struct_type->members.element_size = sizeof(Declaration);
-        type->struct_type->members.capacity     = 0;
-        type->struct_type->members.count        = 0;
+        DynArray_construct(&_type->struct_type->members, sizeof(Declaration));
         
-        Parser_eat(parser, token, '{');
         token = Lexer_peekNextToken(&parser->lexer);
         while (token->type != '}') {
             Lexer_resetPeek(&parser->lexer);
-            Declaration *member = Parser_declaration(parser);
+            Declaration *member = Parser_declaration(parser, false);
             if (member) {
-                DynArray_add(&type->struct_type->members, member);
+                DynArray_add(&_type->struct_type->members, member);
             }
             token = Lexer_peekNextToken(&parser->lexer);
             while (token->type == ';') {
@@ -1005,49 +1025,105 @@ Declaration *Parser_struct(Parser *parser, Type *type) {
                 token = Lexer_peekNextToken(&parser->lexer);
             }
         }
+        SymbolTable_popScope(parser->symbol_table);
+    } else if (token->type == TOKEN_IDENT) {
+        Lexer_resetPeek(&parser->lexer);
+        type = &SymbolTable_find(parser->symbol_table, type_name)->type;
+        return NULL;
     } else {
         error(parser->lexer.cur_line, "bruh"); // NOTE(mdizdar): idk what to tell this dude tbh
     }
     
-    SymbolTable_popScope(parser->symbol_table);
-    
     Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
-    declaration->type = type;
+    declaration->type = _type;
     if (type_name) {
         declaration->name = *type_name;
+        SymbolTable_add(parser->symbol_table, type_name, _type, parser->lexer.cur_line);
     } else {
-        declaration->name.data  = "";
+        declaration->name.data = "";
         declaration->name.count = 0;
     }
     return declaration;
 }
 
-Declaration *Parser_function(Parser *parser, Type *type) {
+Type *Parser_function(Parser *parser, Type *type) {
     Token *token = Lexer_peekNextToken(&parser->lexer);
     if (token->type != '(') {
         Lexer_resetPeek(&parser->lexer);
         return NULL;
     }
+    Parser_eat(parser, token, '('); // uhh
     
     Type *ftype = Arena_alloc(parser->type_arena, sizeof(Type));
     ftype->is_function = true;
-    
-    type->is_function = true;
-    //String *type_name = NULL;
-    
+    ftype->function_type = Arena_alloc(parser->type_arena, sizeof(FunctionType));
+    DynArray_construct(&ftype->function_type->parameters, sizeof(Declaration));
+    ftype->function_type->return_type = type;
     
     SymbolTable_pushScope(parser->symbol_table);
     
     // get parameter list
     token = Lexer_peekNextToken(&parser->lexer);
     while (token->type != ')') {
-        
+        Lexer_resetPeek(&parser->lexer);
+        Declaration *decl = Parser_declaration(parser, false);
+        DynArray_add(&ftype->function_type->parameters, decl);
+        token = Lexer_peekNextToken(&parser->lexer);
+        if (token->type == ',') {
+            Parser_eat(parser, token, ',');
+            token = Lexer_peekNextToken(&parser->lexer);
+        }
     }
+    Parser_eat(parser, token, ')');
+    
+    ftype->function_type->block = Parser_functionBlock(parser);
     
     SymbolTable_popScope(parser->symbol_table);
+    
+    Lexer_resetPeek(&parser->lexer);
+    
+    return ftype;
 }
 
-Declaration *Parser_declaration(Parser *parser) {
+inline Type *Parser_cvp(Parser *parser, Type *type) {
+    // TODO(mdizdar): this doesn't yet take into account function pointers
+    
+    Token *token = Lexer_currentPeekedToken(&parser->lexer);
+    
+    Type *new_type = Arena_alloc(parser->type_arena, sizeof(Type));;
+    memcpy(new_type, type, sizeof(Type));
+    
+    while (token->type == '*') {
+        Parser_eat(parser, token, '*');
+        ++new_type->pointer_count;
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        
+        while (token->type == TOKEN_CONST ||
+               token->type == TOKEN_VOLATILE /*||
+   token->type == TOKEN_RESTRICT*/) {
+            Parser_eat(parser, token, token->type); // uhh
+            
+            switch (token->type) {
+                case TOKEN_CONST: {
+                    Bitset_set(new_type->is_const, new_type->pointer_count);
+                    break;
+                }
+                case TOKEN_VOLATILE: {
+                    Bitset_set(new_type->is_volatile, new_type->pointer_count);
+                    break;
+                }
+                // TODO(mdizdar): case TOKEN_RESTRICT: Bitset_set(new_type->is_restrict, new_type->pointer_count); break;
+            }
+            
+            token = Lexer_peekNextToken(&parser->lexer);
+        }
+    }
+    
+    return new_type;
+}
+
+Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
     if (!((token->type > TOKEN_TYPE && token->type < TOKEN_MODIFIER) ||
@@ -1059,15 +1135,15 @@ Declaration *Parser_declaration(Parser *parser) {
     
     Type *type = Arena_alloc(parser->type_arena, sizeof(Type));
     
-    type->is_static   = false;
-    type->is_struct   = false;
-    type->is_union    = false;
-    type->is_typedef  = false;
-    type->is_array    = false;
+    type->is_static = false;
+    type->is_struct = false;
+    type->is_union = false;
+    type->is_typedef = false;
+    type->is_array = false;
     type->is_function = false;
     type->pointer_count = 0;
-    for (int i = 0; i < sizeof(type->is_const)/sizeof(*type->is_const); ++i) {
-        type->is_const[i]    = 0;
+    for (int i = 0; i < sizeof(type->is_const) / sizeof(*type->is_const); ++i) {
+        type->is_const[i] = 0;
         type->is_volatile[i] = 0;
         type->is_restrict[i] = 0;
     }
@@ -1080,7 +1156,7 @@ Declaration *Parser_declaration(Parser *parser) {
     
     while ((token->type > TOKEN_TYPE && token->type < TOKEN_MODIFIER) ||
            (token->type > TOKEN_MODIFIER && token->type < TOKEN_OPERATOR) ||
-           token->type == TOKEN_STRUCT) { 
+           token->type == TOKEN_STRUCT) {
         Parser_eat(parser, token, token->type); // uhh
         
         switch (token->type) {
@@ -1105,6 +1181,9 @@ Declaration *Parser_declaration(Parser *parser) {
                 break;
             }
             case TOKEN_STATIC: {
+                if (!can_be_static) {
+                    error(parser->lexer.cur_line, "Error: cannot specify static storage in this context");
+                }
                 type->is_static = 1;
                 break;
             }
@@ -1131,7 +1210,7 @@ Declaration *Parser_declaration(Parser *parser) {
                 break;
             }
             case TOKEN_STRUCT: {
-                Parser_struct(parser, type);
+                Parser_struct(parser, &type);
                 break;
             }
             case TOKEN_LONG: {
@@ -1152,7 +1231,9 @@ Declaration *Parser_declaration(Parser *parser) {
                 }
                 break;
             }
-            // TODO(mdizdar): case TOKEN_AUTO:     error(parser->lexer.cur_line, "Please don't use auto");
+            case TOKEN_AUTO: {
+                warning(parser->lexer.cur_line, "auto does nothing, it never has done anything and it never will.");
+            }
         }
         token = Lexer_peekNextToken(&parser->lexer);
     }
@@ -1176,49 +1257,40 @@ Declaration *Parser_declaration(Parser *parser) {
         else if (is_unsigned) type->basic_type = BASIC_UCHAR;
     }
     
-    while (token->type == '*') {
-        Parser_eat(parser, token, '*');
-        ++type->pointer_count;
-        
-        token = Lexer_peekNextToken(&parser->lexer);
-        
-        while (token->type == TOKEN_CONST ||
-               token->type == TOKEN_VOLATILE /*||
- token->type == TOKEN_RESTRICT*/) { 
-            Parser_eat(parser, token, token->type); // uhh
-            
-            switch (token->type) {
-                case TOKEN_CONST: {
-                    Bitset_set(type->is_const, type->pointer_count);
-                    break;
-                }
-                case TOKEN_VOLATILE: {
-                    Bitset_set(type->is_volatile, type->pointer_count);
-                    break;
-                }
-                // TODO(mdizdar): case TOKEN_RESTRICT: Bitset_set(type->is_restrict, type->pointer_count); break;
-            }
-            
-            token = Lexer_peekNextToken(&parser->lexer);
-        }
-    }
+    Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
     
-    if (token->type != TOKEN_IDENT) Parser_error(parser, token, TOKEN_IDENT);
+    declaration->type = Parser_cvp(parser, type);
+    
+    token = Lexer_currentPeekedToken(&parser->lexer);
+    
     Parser_eat(parser, token, TOKEN_IDENT);
     
     SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, &token->name);
     if (entry != NULL) Parser_duplicateError(parser, entry);
     
-    //Parser_function(parser, type);
+    u64 fline = parser->lexer.cur_line;
+    Type *ftype = Parser_function(parser, declaration->type);
+    
+    if (ftype) {
+        SymbolTable_add(parser->symbol_table, &token->name, ftype, fline);
+        declaration->type = ftype;
+        declaration->name = token->name;
+        return declaration;
+    } /*else {
+// TODO(mdizdar): I don't yet know how I'll handle multiple declarations on one line,
+I'll figure that out when I do the second pass on the parser
+
+token = Lexer_peekNextToken(&parser->lexer);
+while (token->type == ',') {
+            Parser_cvp(parser, base_type);
+        }
+    }
+*/
     
     SymbolTable_add(parser->symbol_table, &token->name, type, parser->lexer.cur_line);
     
-    Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
     declaration->type = type;
     declaration->name = token->name;
-    
-    token = Lexer_peekNextToken(&parser->lexer);
-    Parser_eat(parser, token, ';');
     
     Lexer_resetPeek(&parser->lexer);
     
@@ -1228,11 +1300,21 @@ Declaration *Parser_declaration(Parser *parser) {
 }
 
 Node *Parser_statement(Parser *parser) {
-    while (Parser_declaration(parser));
+    Declaration *decl = Parser_declaration(parser, true);
+    if(decl) {
+        Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
+        tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
+        tmp->token->type = TOKEN_DECLARATION;
+        tmp->token->name = decl->name;
+        tmp->left = NULL;
+        tmp->right = NULL;
+        return tmp;
+    }
     
     Node *node = Arena_alloc(parser->arena, sizeof(Node));
     
     Token *token = Lexer_peekNextToken(&parser->lexer);
+    
     if (token->type == TOKEN_IF) {
         Parser_eat(parser, token, TOKEN_IF);
         
@@ -1287,8 +1369,8 @@ Node *Parser_statement(Parser *parser) {
         Parser_eat(parser, token, ')');
         
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
-        tmp->cond  = cond;
-        tmp->left  = init;
+        tmp->cond = cond;
+        tmp->left = init;
         tmp->right = iter;
         tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
         tmp->token->type = TOKEN_FOR_COND;
@@ -1317,6 +1399,26 @@ Node *Parser_statement(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
         
         node->cond = cond;
+    } else if (token->type == TOKEN_RETURN) {
+        Parser_eat(parser, token, TOKEN_RETURN);
+        
+        node->token = token;
+        token = Lexer_peekNextToken(&parser->lexer);
+        node->left = Parser_expr(parser);
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, token, ';');
+    } else if (token->type == TOKEN_CONTINUE) {
+        Parser_eat(parser, token, TOKEN_CONTINUE);
+        
+        node->token = token;
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, token, ';');
+    } else if (token->type == TOKEN_BREAK) {
+        Parser_eat(parser, token, TOKEN_BREAK);
+        
+        node->token = token;
+        token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, token, ';');
     } else if (token->type == '{') {
         Parser_eat(parser, token, '{');
         node = Parser_block(parser);
@@ -1334,8 +1436,19 @@ Node *Parser_statement(Parser *parser) {
     return node;
 }
 
+Node *Parser_topLevel(Parser *parser) {
+    Declaration *decl = Parser_declaration(parser, true);
+    Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
+    tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
+    tmp->token->type = TOKEN_DECLARATION;
+    tmp->token->name = decl->name;
+    tmp->left = NULL;
+    tmp->right = NULL;
+    return tmp;
+}
+
 Node *Parser_parse(Parser *parser) {
-    Node *node = Parser_statement(parser);
+    Node *node = Parser_topLevel(parser);
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
     while (token->type != TOKEN_ERROR) {
@@ -1344,7 +1457,7 @@ Node *Parser_parse(Parser *parser) {
         tmp->left = node;
         tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
         tmp->token->type = TOKEN_NEXT;
-        tmp->right = Parser_statement(parser);
+        tmp->right = Parser_topLevel(parser);
         node = tmp;
         token = Lexer_peekNextToken(&parser->lexer);
     }

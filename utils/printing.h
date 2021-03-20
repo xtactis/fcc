@@ -23,7 +23,7 @@ _Noreturn void error(u64 lineno, const char* fmt, ...) {
     
     fputs(RED, stderr);
     if (lineno > 0) {
-        fprintf(stderr, "[Line %llu] ", lineno);
+        fprintf(stderr, "[Line %llu] ERROR ", lineno);
     }
     vfprintf(stderr, fmt, args);
     fputs(RESET "\n", stderr);
@@ -32,8 +32,18 @@ _Noreturn void error(u64 lineno, const char* fmt, ...) {
     exit(1);
 }
 
-void warning(const char *s) {
-    printf(YELLOW "WARNING: %s\n" RESET, s);
+void warning(u64 lineno, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    
+    fputs(YELLOW, stderr);
+    if (lineno > 0) {
+        fprintf(stderr, "[Line %llu] WARNING ", lineno);
+    }
+    vfprintf(stderr, fmt, args);
+    fputs(RESET "\n", stderr);
+    
+    va_end(args);
 }
 
 #endif // PRINTING_H
