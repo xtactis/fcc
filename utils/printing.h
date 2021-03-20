@@ -1,8 +1,11 @@
 #ifndef PRINTING_H
 #define PRINTING_H
 
-#include <cstdio>
-#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+#include "types.h"
 
 #define RED     "\x1B[31m"
 #define GREEN   "\x1B[32m"
@@ -12,17 +15,35 @@
 #define CYAN    "\x1B[36m"
 #define WHITE   "\x1B[37m"
 #define RESET   "\x1B[0m"
-#define NOT_IMPL error("Not implemented!");
+#define NOT_IMPL error(0, "Not implemented!");
 
-void error(const char* s) {
-    fputs(RED "ERROR: ", stderr);
-    fputs(s, stderr);
+_Noreturn void error(u64 lineno, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    
+    fputs(RED, stderr);
+    if (lineno > 0) {
+        fprintf(stderr, "[Line %llu] ERROR ", lineno);
+    }
+    vfprintf(stderr, fmt, args);
     fputs(RESET "\n", stderr);
+    
+    va_end(args);
     exit(1);
 }
 
-void warning(const char *s) {
-    printf(YELLOW "WARNING: %s\n" RESET, s);
+void warning(u64 lineno, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    
+    fputs(YELLOW, stderr);
+    if (lineno > 0) {
+        fprintf(stderr, "[Line %llu] WARNING ", lineno);
+    }
+    vfprintf(stderr, fmt, args);
+    fputs(RESET "\n", stderr);
+    
+    va_end(args);
 }
 
 #endif // PRINTING_H

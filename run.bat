@@ -1,3 +1,3 @@
 @echo off
-call build.bat
-fcc.exe
+
+call .\bin\fcc.exe %1

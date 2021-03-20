@@ -3,7 +3,17 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#include <cstdint>
+#include <stdint.h>
+#include <stddef.h>
+
+#define false 0
+#define true 1
+
+#define bool uint_fast8_t
+#define b8   uint8_t
+#define b16  uint16_t
+#define b32  uint32_t
+#define b64  uint64_t
 
 #define s8  int8_t
 #define s16 int16_t
