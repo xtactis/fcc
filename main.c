@@ -16,8 +16,10 @@ void printAST(Node *root, u64 indent) {
             putchar(' ');
         }
     }
-    char s[100];
-    printf("%s\n", Token_toStr(s, *root->token));
+    {
+        char s[100];
+        printf("%s\n", Token_toStr(s, *root->token));
+    }
     if (root->token->type == '?' || root->token->type == TOKEN_FOR || root->token->type == TOKEN_FOR_COND || root->token->type == TOKEN_IF || root->token->type == TOKEN_WHILE || root->token->type == TOKEN_DO) {
         printAST(root->cond, indent+3);
     }
