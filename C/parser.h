@@ -1530,19 +1530,26 @@ inline void add_named_label(DynArray *generated_IR, String *label_name) {
     DynArray_add(generated_IR, &ir);
 }
 
+IR *move_to_temp(IRVariable x) {
+    IR *ir = malloc(sizeof(IR));
+    ir->result.type = OT_TEMPORARY;
+    ir->result.temporary_id = ++temporary_index;
+    ir->operands[0] = x;
+    ir->instruction = (Op)'=';
+    return ir;
+}
+
 // NOTE(mdizdar): returns the id of the result variable 
 IRVariable walk_AST(Node *AST, DynArray *generated_IR, SymbolTable *st) {
+    if (AST->token->type == TOKEN_INT_LITERAL) {
+        IRVariable var;
+        var.type = OT_INTEGER;
+        var.integer_value = AST->token->integer_value;
+        return var;
+    }
+    
     IR *ir = malloc(sizeof(IR));
     switch ((int)AST->token->type) {
-        case TOKEN_INT_LITERAL: {
-            ir->result.type = OT_TEMPORARY;
-            ir->result.temporary_id = ++temporary_index;
-            ir->operands[0].type = OT_INTEGER;
-            ir->operands[0].integer_value = AST->token->integer_value;
-            ir->instruction = (Op)'=';
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
         case '+': case '-':
         case '*': case '/': case '%':
         case '^': case '&': case '|':
@@ -1631,8 +1638,12 @@ IRVariable walk_AST(Node *AST, DynArray *generated_IR, SymbolTable *st) {
             DynArray_add(generated_IR, &ir);
             
             // if false
-            walk_AST(AST->right, generated_IR, st);
+            IRVariable Fres = walk_AST(AST->right, generated_IR, st);
             IR *F = ((IR **)generated_IR->data)[generated_IR->count-1];
+            if (Fres.type != OT_TEMPORARY) {
+                F = move_to_temp(Fres);
+                DynArray_add(generated_IR, &F);
+            }
             
             IR *ir2 = malloc(sizeof(IR));
             ir2->instruction = OP_JUMP;
@@ -1646,10 +1657,13 @@ IRVariable walk_AST(Node *AST, DynArray *generated_IR, SymbolTable *st) {
             ir->operands[1].label_index = add_label(generated_IR); // after F
             
             // if true
-            walk_AST(AST->left, generated_IR, st);
+            IRVariable Tres = walk_AST(AST->left, generated_IR, st);
             IR *T = ((IR **)generated_IR->data)[generated_IR->count-1];
+            if (Tres.type != OT_TEMPORARY) {
+                T = move_to_temp(Tres);
+                DynArray_add(generated_IR, &T);
+            }
             
-            // NOTE(mdizdar): assuming the results of both the true and the false branch are always a temporary variable. this isn't necessarily true because we could have an assignment in one of the branches and the result should be a real variable. that case should be handled by injecting a temporary variable to hold the value(s).
             F->result.temporary_id = T->result.temporary_id;
             
             ir2->operands[0].label_index = add_label(generated_IR); // after T

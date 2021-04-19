@@ -36,6 +36,7 @@ typedef enum {
     OT_FLOAT = 4,
     OT_TEMPORARY = 5,
     OT_LABEL = 6,
+    OT_VALUE = 7,
 } OperandType;
 
 typedef struct {
