@@ -96,6 +96,15 @@ typedef enum {
     TOKEN_BIT_L_ASSIGN   = 821,
     TOKEN_BIT_R_ASSIGN   = 822,
     
+    TOKEN_PREINC         = 823,
+    TOKEN_PREDEC         = 824,
+    TOKEN_POSTINC        = 825,
+    TOKEN_POSTDEC        = 826,
+    TOKEN_DEREF          = 827,
+    TOKEN_ADDRESS        = 828,
+    TOKEN_PLUS           = 829,
+    TOKEN_MINUS          = 830,
+    
     TOKEN_FUNCTION_CALL  = 900,
     TOKEN_FOR_COND       = 901, // used in `for (<this bit>)`
     TOKEN_NEXT           = 902, // for chaining statements together

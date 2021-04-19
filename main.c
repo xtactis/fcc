@@ -5,6 +5,8 @@
 #include "C/token.h"
 #include "C/parser.h"
 
+#include "IR/IR.h"
+
 char *codefile = NULL;
 
 void printAST(Node *root, u64 indent) {
@@ -36,6 +38,7 @@ String read_file(char *filename) {
     file_data.data = malloc((file_data.count+1) * sizeof(char));
     fread(file_data.data, sizeof(char), file_data.count, fp);
     fclose(fp);
+    file_data.data[file_data.count] = 0;
     return file_data;
 }
 
@@ -59,8 +62,37 @@ int main(int argc, char **argv) {
     String code = read_file(codefile);
     puts(CYAN "***CODE***" RESET);
     puts(code.data);
-    puts(CYAN "**TOKENS**" RESET);
+    SymbolTable st;
+    SymbolTable_init(&st, 10);
     
+    Parser parser = (Parser){
+        .lexer = {
+            .code = code,
+            .token_at = calloc(code.count+5, sizeof(CachedToken)),
+            .token_arena = Arena_init(4096),
+            .pos = 0,
+            .peek = 0,
+            .cur_line = 1,
+        },
+        .symbol_table = &st,
+        .arena = Arena_init(4096),
+        .type_arena = Arena_init(4096)
+#pragma warning(suppress: 4221) 
+    };
+    
+    Node *AST = Parser_expr(&parser);
+    
+    DynArray generated_IR;
+    generated_IR.element_size = sizeof(IR*);
+    puts(CYAN "***AST***" RESET);
+    printAST(AST, 0);
+    
+    puts(CYAN "****IR****" RESET);
+    walk_AST(AST, &generated_IR, &st);
+    IR_print(generated_IR.data, generated_IR.count);
+    
+    /*
+puts(CYAN "**TOKENS**" RESET);
     Lexer lexer = (Lexer){
         .code = code,
         .token_at = calloc(code.count+5, sizeof(CachedToken)),
@@ -125,17 +157,6 @@ int main(int argc, char **argv) {
     printf("Lines of code: %llu\n", parser.lexer.cur_line);
     printf("Time: ~%lf seconds\n", (double)(end-begin) / CLOCKS_PER_SEC);
     printf("Memory: %llu bytes (%.2lf MB)\n", parser.arena->total_capacity, 1.*parser.arena->total_capacity/1024/1024);
-    
-    /*
-    puts(CYAN "****AST***" RESET);
-    AST ast;
-    parse(tokens, ast);
-    puts("");
-    validate(ast);
-    puts(CYAN "****IR*****" RESET);
-    const std::vector<IR> ir = generateIR(ast);
-    for (const auto &e: ir) {
-        e.print();
-    }*/
+    */
     return 0;
 }

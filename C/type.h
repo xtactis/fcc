@@ -46,6 +46,12 @@ DynArray *DynArray_add(DynArray *array, void *element) {
     return array;
 }
 
+// NOTE(mdizdar): this doesn't work for some reason, figure it out bitch
+void *DynArray_at(DynArray *array, u64 index) {
+    assert(index < array->count);
+    return (void *)((u8 *)array->data + index*array->element_size);
+}
+
 inline void DynArray_construct(DynArray *array, u64 element_size) {
     array->element_size = element_size;
     array->capacity = 0;
@@ -80,7 +86,7 @@ typedef struct {
 typedef struct {
     Type *return_type;
     DynArray parameters;
-    Node *block;
+    Node *block; // TODO(mdizdar): this doesn't seem to be happy?
 } FunctionType;
 
 typedef enum {

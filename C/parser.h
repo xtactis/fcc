@@ -12,6 +12,8 @@
 #include "arena.h"
 #include "type.h"
 
+#include "../IR/IR.h"
+
 #define parse_error error("Parse error!")
 
 //#define Arena_alloc(x, y) malloc((y))
@@ -520,10 +522,12 @@ Node *Parser_postfix(Parser *parser) {
         Node *right = NULL;
         if (token->type == TOKEN_INC) {
             Parser_eat(parser, token, TOKEN_INC);
+            token->type = TOKEN_POSTINC;
         } else if (token->type == TOKEN_DEC) {
             Parser_eat(parser, token, TOKEN_DEC);
+            token->type = TOKEN_POSTDEC;
         } else if (token->type == TOKEN_ARROW) {
-            Parser_eat(parser, token, TOKEN_DEC);
+            Parser_eat(parser, token, TOKEN_ARROW);
             right = Parser_operand(parser);
         } else if (token->type == '.') {
             Parser_eat(parser, token, '.');
@@ -568,24 +572,30 @@ Node *Parser_prefix(Parser *parser) {
         token->type == '~' || token->type == '*' || token->type == '&') {
         if (token->type == TOKEN_INC) {
             Parser_eat(parser, token, TOKEN_INC);
+            token->type = TOKEN_PREINC;
         } else if (token->type == TOKEN_DEC) {
             Parser_eat(parser, token, TOKEN_DEC);
+            token->type = TOKEN_PREDEC;
         } else if (token->type == TOKEN_SIZEOF) {
             Parser_eat(parser, token, TOKEN_SIZEOF);
         } else if (token->type == TOKEN_ALIGNOF) {
             Parser_eat(parser, token, TOKEN_ALIGNOF);
         } else if (token->type == '+') {
             Parser_eat(parser, token, '+');
+            token->type = TOKEN_PLUS;
         } else if (token->type == '-') {
             Parser_eat(parser, token, '-');
+            token->type = TOKEN_MINUS;
         } else if (token->type == '!') {
             Parser_eat(parser, token, '!');
         } else if (token->type == '~') {
             Parser_eat(parser, token, '~');
         } else if (token->type == '*') {
             Parser_eat(parser, token, '*');
+            token->type = TOKEN_DEREF;
         } else if (token->type == '&') {
             Parser_eat(parser, token, '&');
+            token->type = TOKEN_ADDRESS;
         }
         
         node = Arena_alloc(parser->arena, sizeof(Node));
@@ -1463,6 +1473,192 @@ Node *Parser_parse(Parser *parser) {
     }
     
     return node;
+}
+
+static inline bool Token_is_value(Token *token) {
+    return token->type == TOKEN_IDENT || (token->type >= TOKEN_LITERAL && token->type < TOKEN_KEYWORD);
+}
+
+static inline Op Token_comp_assign_to_Op(TokenType type) {
+    switch ((int)type) {
+        case TOKEN_ADD_ASSIGN: case TOKEN_PREINC: case TOKEN_POSTINC: return (Op)'+';
+        case TOKEN_SUB_ASSIGN: case TOKEN_PREDEC: case TOKEN_POSTDEC: return (Op)'-';
+        case TOKEN_MUL_ASSIGN:    return (Op)'*';
+        case TOKEN_DIV_ASSIGN:    return (Op)'/';
+        case TOKEN_MOD_ASSIGN:    return (Op)'%';
+        case TOKEN_OR_ASSIGN:     return (Op)'|';
+        case TOKEN_AND_ASSIGN:    return (Op)'&';
+        case TOKEN_XOR_ASSIGN:    return (Op)'^';
+        case TOKEN_BITNOT_ASSIGN: return (Op)'~';
+        case TOKEN_BIT_L_ASSIGN:  return OP_BITSHIFT_LEFT;
+        case TOKEN_BIT_R_ASSIGN:  return OP_BITSHIFT_RIGHT;
+        default: error(0, "look at dis dood (%llu)", type);
+    }
+}
+
+static inline Op Token_unary_to_Op(TokenType type) {
+    switch ((int)type) {
+        case TOKEN_DEREF:   return OP_DEREF;
+        case TOKEN_ADDRESS: return OP_ADDRESS;
+        case '~':           return (Op)'~';
+        case '!':           return (Op)'!';
+        case TOKEN_PLUS:    return OP_PLUS;
+        case TOKEN_MINUS:   return OP_MINUS;
+        default: error(0, "look at dis dood (%llu)", type);
+    }
+}
+
+static u64 temporary_index = 0;
+static u64 label_index     = 0;
+
+inline u64 add_label(DynArray *generated_IR) {
+    IR *ir = malloc(sizeof(IR));
+    ir->instruction = OP_LABEL;
+    ir->operands[0].type = OT_LABEL;
+    ir->operands[0].named = false;
+    ir->operands[0].label_index = label_index++;
+    DynArray_add(generated_IR, &ir);
+    return label_index-1;
+}
+
+inline void add_named_label(DynArray *generated_IR, String *label_name) {
+    IR *ir = malloc(sizeof(IR));
+    ir->instruction = OP_LABEL;
+    ir->operands[0].type = OT_LABEL;
+    ir->operands[0].named = true;
+    ir->operands[0].label_name = *label_name;
+    DynArray_add(generated_IR, &ir);
+}
+
+// NOTE(mdizdar): returns the id of the result variable 
+IRVariable walk_AST(Node *AST, DynArray *generated_IR, SymbolTable *st) {
+    IR *ir = malloc(sizeof(IR));
+    switch ((int)AST->token->type) {
+        case TOKEN_INT_LITERAL: {
+            ir->result.type = OT_TEMPORARY;
+            ir->result.temporary_id = ++temporary_index;
+            ir->operands[0].type = OT_INTEGER;
+            ir->operands[0].integer_value = AST->token->integer_value;
+            ir->instruction = (Op)'=';
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case '+': case '-':
+        case '*': case '/': case '%':
+        case '^': case '&': case '|':
+        case '<': case '>': 
+        case TOKEN_NOT_EQ: case TOKEN_EQUALS: 
+        case TOKEN_LESS_EQ: case TOKEN_GREATER_EQ:
+        case TOKEN_LOGICAL_OR: case TOKEN_LOGICAL_AND:
+        case TOKEN_BITSHIFT_LEFT: case TOKEN_BITSHIFT_RIGHT: {
+            // TODO(mdizdar): add checks for calculations on literals that can be done at compile time
+            ir->instruction = (Op)AST->token->type;
+            ir->result.type = OT_TEMPORARY;
+            ir->result.temporary_id = temporary_index++;
+            ir->operands[0] = walk_AST(AST->left, generated_IR, st);
+            ir->operands[1] = walk_AST(AST->right, generated_IR, st);
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case '=': {
+            ir->instruction = (Op)AST->token->type;
+            ir->result = walk_AST(AST->left, generated_IR, st);
+            ir->operands[0] = walk_AST(AST->right, generated_IR, st);
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case TOKEN_ADD_ASSIGN: case TOKEN_SUB_ASSIGN:
+        case TOKEN_MUL_ASSIGN: case TOKEN_DIV_ASSIGN: case TOKEN_MOD_ASSIGN:
+        case TOKEN_OR_ASSIGN: case TOKEN_AND_ASSIGN: case TOKEN_XOR_ASSIGN:
+        case TOKEN_BIT_L_ASSIGN: case TOKEN_BIT_R_ASSIGN: {
+            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
+            ir->result = walk_AST(AST->left, generated_IR, st);
+            ir->operands[0] = ir->result;
+            ir->operands[1] = walk_AST(AST->right, generated_IR, st);
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case TOKEN_BITNOT_ASSIGN: {
+            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
+            ir->result = walk_AST(AST->left, generated_IR, st);
+            ir->operands[0] = ir->result;
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case TOKEN_PREINC: case TOKEN_PREDEC: {
+            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
+            ir->result = walk_AST(AST->left, generated_IR, st);
+            ir->operands[0] = ir->result;
+            ir->operands[1].type = OT_INTEGER;
+            ir->operands[1].integer_value = 1ULL;
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case TOKEN_POSTINC: case TOKEN_POSTDEC: {
+            IR *ir2 = malloc(sizeof(IR));
+            ir2->instruction = (Op)'=';
+            ir2->result.type = OT_TEMPORARY;
+            ir2->result.temporary_id = temporary_index++;
+            ir2->operands[0] = walk_AST(AST->left, generated_IR, st);
+            DynArray_add(generated_IR, ir2);
+            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
+            ir->result      = ir2->operands[0];
+            ir->operands[0] = ir2->operands[0];
+            ir->operands[1].type = OT_INTEGER;
+            ir->operands[1].integer_value = 1ULL;
+            DynArray_add(generated_IR, &ir);
+            ir = ir2; // this is done so we can return the original value as are the semantics of post inc/dec
+            break;
+        }
+        case TOKEN_DEREF: case TOKEN_ADDRESS: 
+        case '~': case '!': 
+        case TOKEN_PLUS: case TOKEN_MINUS: {
+            ir->instruction = Token_unary_to_Op(AST->token->type);
+            ir->result.type = OT_TEMPORARY;
+            ir->result.temporary_id = temporary_index++;
+            ir->operands[0] = walk_AST(AST->left, generated_IR, st);
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case '?': {
+            // condition
+            ir->instruction = OP_IF_JUMP;
+            ir->result.type = OT_NONE;
+            ir->operands[0] = walk_AST(AST->cond, generated_IR, st);
+            ir->operands[1].type = OT_LABEL;
+            ir->operands[1].named = false;
+            
+            DynArray_add(generated_IR, &ir);
+            
+            // if false
+            walk_AST(AST->right, generated_IR, st);
+            IR *F = ((IR **)generated_IR->data)[generated_IR->count-1];
+            
+            IR *ir2 = malloc(sizeof(IR));
+            ir2->instruction = OP_JUMP;
+            ir2->result.type = OT_NONE;
+            ir2->operands[0].type = OT_LABEL;
+            ir2->operands[0].named = false;
+            
+            DynArray_add(generated_IR, &ir2);
+            
+            // NOTE(mdizdar): assuming the dynarray stores pointers so modifying through this variable will modify the one stored in the dynarray
+            ir->operands[1].label_index = add_label(generated_IR); // after F
+            
+            // if true
+            walk_AST(AST->left, generated_IR, st);
+            IR *T = ((IR **)generated_IR->data)[generated_IR->count-1];
+            
+            // NOTE(mdizdar): assuming the results of both the true and the false branch are always a temporary variable. this isn't necessarily true because we could have an assignment in one of the branches and the result should be a real variable. that case should be handled by injecting a temporary variable to hold the value(s).
+            F->result.temporary_id = T->result.temporary_id;
+            
+            ir2->operands[0].label_index = add_label(generated_IR); // after T
+            
+            ir = T;
+            break;
+        }
+    }
+    return ir->result;
 }
 
 #endif // PARSER_H
