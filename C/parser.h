@@ -974,7 +974,8 @@ Node *Parser_functionBlock(Parser *parser) {
     while (token->type != '}') {
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
-        tmp->token = token;
+        tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
+        tmp->token->type = TOKEN_NEXT;
         tmp->right = Parser_statement(parser);
         node = tmp;
         
@@ -1311,7 +1312,7 @@ while (token->type == ',') {
 
 Node *Parser_statement(Parser *parser) {
     Declaration *decl = Parser_declaration(parser, true);
-    if(decl) {
+    if (decl) {
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
         tmp->token->type = TOKEN_DECLARATION;
@@ -1413,7 +1414,7 @@ Node *Parser_statement(Parser *parser) {
         Parser_eat(parser, token, TOKEN_RETURN);
         
         node->token = token;
-        token = Lexer_peekNextToken(&parser->lexer);
+        //token = Lexer_peekNextToken(&parser->lexer);
         node->left = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ';');
@@ -1430,12 +1431,11 @@ Node *Parser_statement(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ';');
     } else if (token->type == '{') {
-        Parser_eat(parser, token, '{');
         node = Parser_block(parser);
         token = Lexer_peekNextToken(&parser->lexer);
-        Parser_eat(parser, token, '}');
     } else {
         // we aren't using the node we allocated up there, but since our arena doesn't support freeing memory at the moment, we won't free it here
+        Lexer_resetPeek(&parser->lexer);
         node = Parser_expr(parser);
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ';');
@@ -1541,6 +1541,14 @@ IR *move_to_temp(IRVariable x) {
 
 // NOTE(mdizdar): returns the id of the result variable 
 IRVariable walk_AST(Node *AST, DynArray *generated_IR, SymbolTable *st) {
+    if (AST->token->type == TOKEN_DECLARATION) {
+        SymbolTableEntry *entry = SymbolTable_find(st, &AST->token->name);
+        assert(entry != NULL);
+        if (entry->type->is_function) {
+            add_named_label(generated_IR, &entry->name);
+            return walk_AST(entry->type->function_type->block, generated_IR, st);
+        }
+    }
     if (AST->token->type == TOKEN_INT_LITERAL) {
         IRVariable var;
         var.type = OT_INTEGER;
@@ -1670,6 +1678,22 @@ IRVariable walk_AST(Node *AST, DynArray *generated_IR, SymbolTable *st) {
             
             ir = T;
             break;
+        }
+        case TOKEN_RETURN: {
+            ir->instruction = OP_RETURN;
+            ir->operands[0] = walk_AST(AST->left, generated_IR, st); 
+            ir->result = ir->operands[0];
+            //printf("%p\n", ir);
+            DynArray_add(generated_IR, &ir);
+            break;
+        }
+        case TOKEN_NEXT: {
+            free(ir); // yikes
+            walk_AST(AST->left, generated_IR, st);
+            return walk_AST(AST->right, generated_IR, st);
+        }
+        default: {
+            error(0, "uh oh sister %d\n", AST->token->type);
         }
     }
     return ir->result;

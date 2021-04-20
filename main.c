@@ -9,7 +9,7 @@
 
 char *codefile = NULL;
 
-void printAST(Node *root, u64 indent) {
+void printAST(Node *root, u64 indent, SymbolTable *st) {
     if (root == NULL) return;
     for (u64 i = 0; i < indent; ++i) {
         if (i % 3 == 0) {
@@ -23,10 +23,17 @@ void printAST(Node *root, u64 indent) {
         printf("%s\n", Token_toStr(s, *root->token));
     }
     if (root->token->type == '?' || root->token->type == TOKEN_FOR || root->token->type == TOKEN_FOR_COND || root->token->type == TOKEN_IF || root->token->type == TOKEN_WHILE || root->token->type == TOKEN_DO) {
-        printAST(root->cond, indent+3);
+        printAST(root->cond, indent+3, st);
     }
-    printAST(root->left, indent+3);
-    printAST(root->right, indent+3);
+    if (root->token->type == TOKEN_DECLARATION) {
+        SymbolTableEntry *entry = SymbolTable_find(st, &root->token->name);
+        assert(entry != NULL);
+        if (entry->type->is_function) {
+            printAST(entry->type->function_type->block, indent+3, st);
+        }
+    }
+    printAST(root->left, indent+3, st);
+    printAST(root->right, indent+3, st);
 }
 
 String read_file(char *filename) {
@@ -80,12 +87,21 @@ int main(int argc, char **argv) {
 #pragma warning(suppress: 4221) 
     };
     
-    Node *AST = Parser_expr(&parser);
+    Node *AST = Parser_parse(&parser);
     
     DynArray generated_IR;
     generated_IR.element_size = sizeof(IR*);
+    {
+        IR *main_call = malloc(sizeof(IR));
+        main_call->instruction = OP_CALL;
+        main_call->operands[0].type = OT_LABEL;
+        main_call->operands[0].named = true;
+        main_call->operands[0].label_name.data = "main";
+        main_call->operands[0].label_name.count = 5;
+        DynArray_add(&generated_IR, &main_call);
+    }
     puts(CYAN "***AST***" RESET);
-    printAST(AST, 0);
+    printAST(AST, 0, &st);
     
     puts(CYAN "****IR****" RESET);
     walk_AST(AST, &generated_IR, &st);

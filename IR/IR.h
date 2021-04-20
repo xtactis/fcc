@@ -159,7 +159,10 @@ break;                                                         \
                 break;
             }
             case OP_RETURN: {
-                printf("return\n");
+                {
+                    char s[20];
+                    printf("return %s\n", IRVariable_toStr(&ir[i]->operands[0], s));
+                }
                 break;
             }
             case OP_CALL: {
