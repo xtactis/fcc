@@ -2,14 +2,15 @@
 
 #include "utils/common.h"
 
-#include "C/token.h"
 #include "C/parser.h"
+#include "C/token.h"
+#include "C/ir_gen.h"
 
 #include "IR/IR.h"
 
 char *codefile = NULL;
 
-void printAST(Node *root, u64 indent, SymbolTable *st) {
+void printAST(Node *root, u64 indent, const Scope *current_scope) {
     if (root == NULL) return;
     for (u64 i = 0; i < indent; ++i) {
         if (i % 3 == 0) {
@@ -18,22 +19,25 @@ void printAST(Node *root, u64 indent, SymbolTable *st) {
             putchar(' ');
         }
     }
+    if (root->scope != NULL) {
+        current_scope = root->scope;
+    }
     {
         char s[100];
         printf("%s\n", Token_toStr(s, *root->token));
     }
     if (root->token->type == '?' || root->token->type == TOKEN_FOR || root->token->type == TOKEN_FOR_COND || root->token->type == TOKEN_IF || root->token->type == TOKEN_WHILE || root->token->type == TOKEN_DO) {
-        printAST(root->cond, indent+3, st);
+        printAST(root->cond, indent+3, current_scope);
     }
     if (root->token->type == TOKEN_DECLARATION) {
-        SymbolTableEntry *entry = SymbolTable_find(st, &root->token->name);
+        SymbolTableEntry *entry = root->token->entry;
         assert(entry != NULL);
         if (entry->type->is_function) {
-            printAST(entry->type->function_type->block, indent+3, st);
+            printAST(entry->type->function_type->block, indent+3, current_scope);
         }
     }
-    printAST(root->left, indent+3, st);
-    printAST(root->right, indent+3, st);
+    printAST(root->left, indent+3, current_scope);
+    printAST(root->right, indent+3, current_scope);
 }
 
 String read_file(char *filename) {
@@ -91,6 +95,7 @@ int main(int argc, char **argv) {
     
     DynArray generated_IR;
     generated_IR.element_size = sizeof(IR*);
+    generated_IR.capacity = 0;
     {
         IR *main_call = malloc(sizeof(IR));
         main_call->instruction = OP_CALL;
@@ -101,10 +106,12 @@ int main(int argc, char **argv) {
         DynArray_add(&generated_IR, &main_call);
     }
     puts(CYAN "***AST***" RESET);
-    printAST(AST, 0, &st);
+    printAST(AST, 0, st.scope);
     
     puts(CYAN "****IR****" RESET);
-    walk_AST(AST, &generated_IR, &st);
+    LoopContext loop_context;
+    loop_context.in_loop = false;
+    IR_generate(AST, &generated_IR, st.scope, &loop_context);
     IR_print(generated_IR.data, generated_IR.count);
     
     /*

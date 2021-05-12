@@ -8,15 +8,19 @@
 
 #include "../utils/common.h"
 #include "arena.h"
-#include "type.h"
+
+// NOTE(mdizdar): forward declarations because of cyclic imports
+struct _Type;
+typedef struct _Type Type;
 
 static const double resize_threshold = 0.7;
 static const u64 NEW_SCOPE_CAPACITY = 10;
 
-typedef struct {
+typedef struct SymbolTableEntry {
     String name;
     Type *type;
     u64 definition_line;
+    u64 temporary_id; // NOTE(mdizdar): this is used in IR generation to keep track
     bool is_typename;
 } SymbolTableEntry;
 
@@ -62,14 +66,18 @@ void SymbolTable_init(SymbolTable *st, u64 capacity) {
     Scope_init(st->scope, capacity);
 }
 
-u64 SymbolTable_hash(const SymbolTable *st, const String *name) {
+u64 Scope_hash(const Scope *scope, const String *name) {
     u64 result = 0;
     u64 ppow = 1;
     for (u64 i = 0; i < name->count; ++i) {
-        result = (result + (name->data[i] - '0' + 1) * ppow) % st->scope->capacity;
-        ppow = (ppow * 79) % st->scope->capacity; // a small prime roughly the size of the alphabet [_a-zA-Z0-9]
+        result = (result + (name->data[i] - '0' + 1) * ppow) % scope->capacity;
+        ppow = (ppow * 79) % scope->capacity; // a small prime roughly the size of the alphabet [_a-zA-Z0-9]
     }
     return result;
+}
+
+u64 SymbolTable_hash(const SymbolTable *st, const String *name) {
+    return Scope_hash(st->scope, name);
 }
 
 // returns how much we had to travel to find a vacant cell
@@ -115,26 +123,29 @@ void SymbolTable_add(SymbolTable *st, const String *name, Type *type, u64 defini
     }
 }
 
-SymbolTableEntry *SymbolTable_find(SymbolTable *st, const String *name) {
-    u64 hash = SymbolTable_hash(st, name);
+SymbolTableEntry *Scope_find(const Scope *scope, const String *name) {
+    u64 hash = Scope_hash(scope, name);
     
     u64 travel = 0;
     // check the hash exists
-    while (st->scope->hash_table[hash].name.count != 0) {
+    while (scope->hash_table[hash].name.count != 0) {
         // check the hash is correct
-        if (strcmp(st->scope->hash_table[hash].name.data, name->data) == 0) {
-            return st->scope->hash_table + hash;
+        if (strcmp(scope->hash_table[hash].name.data, name->data) == 0) {
+            return scope->hash_table + hash;
         }
-        hash = (hash+1)%st->scope->capacity;
+        hash = (hash+1)%scope->capacity;
         ++travel;
     }
     
-    // NOTE(mdizdar): not sure if I want this here, but I'll include it for now
-    if (travel > st->scope->capacity/2) {
-        SymbolTable_resize(st);
+    if (scope->previous != NULL) {
+        return Scope_find(scope->previous, name);
     }
     
     return NULL;
+}
+
+SymbolTableEntry *SymbolTable_find(const SymbolTable *st, const String *name) {
+    return Scope_find(st->scope, name);
 }
 
 SymbolTableEntry *SymbolTable_find_cstr(SymbolTable *st, char *name) {

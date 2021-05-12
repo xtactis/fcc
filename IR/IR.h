@@ -8,15 +8,15 @@ typedef enum {
     OP_ERROR = 256,
     
     OP_JUMP     = 300,
-    OP_IF_JUMP = 301,
-    OP_IF_ELSE = 302,
-    OP_CALL    = 303,
-    OP_RETURN  = 304,
-    OP_DEREF   = 305,
-    OP_ADDRESS = 306,
-    OP_PLUS    = 307,
-    OP_MINUS   = 308,
-    OP_LABEL   = 309,
+    OP_IF_JUMP  = 301,
+    OP_IFN_JUMP = 302,
+    OP_CALL     = 303,
+    OP_RETURN   = 304,
+    OP_DEREF    = 305,
+    OP_ADDRESS  = 306,
+    OP_PLUS     = 307,
+    OP_MINUS    = 308,
+    OP_LABEL    = 309,
     
     OP_NOT_EQ         = 806,
     OP_EQUALS         = 810,
@@ -40,12 +40,9 @@ typedef enum {
 } OperandType;
 
 typedef struct {
+    OperandType type;
     union {
-        struct variable {
-            SymbolTableEntry *decl; // maybe?
-            u64 id;
-        };
-        u64 temporary_id;
+        u64 temporary_id; // TODO(mdizdar): find a way to know which variable coincides with which temporary
         u64 integer_value;
         double double_value;
         float float_value;
@@ -57,11 +54,11 @@ typedef struct {
             bool named;
         };
     };
-    OperandType type;
+    uintptr_t entry;
 } IRVariable;
 
 typedef struct {
-    IRVariable result; // TODO(mdizdar): figure out how to store variables...
+    IRVariable result;
     IRVariable operands[2];
     
     Op instruction;
@@ -69,10 +66,6 @@ typedef struct {
 
 const char *IRVariable_toStr(IRVariable * const var, char *s) {
     switch (var->type) {
-        case OT_VARIABLE: {
-            s = var->decl->name.data;
-            break;
-        }
         case OT_INTEGER: {
             sprintf(s, "%llu", var->integer_value);
             break;
@@ -158,6 +151,17 @@ break;                                                         \
                 }
                 break;
             }
+            case OP_IFN_JUMP: {
+                {
+                    char s[20];
+                    printf("if not %s ", IRVariable_toStr(&ir[i]->operands[0], s));
+                }
+                {
+                    char s[20];
+                    printf("goto %s\n", IRVariable_toStr(&ir[i]->operands[1], s));
+                }
+                break;
+            }
             case OP_RETURN: {
                 {
                     char s[20];
@@ -178,7 +182,8 @@ break;                                                         \
             case OP_ADDRESS:    ONE_OPERAND_OP("&");
             case '*': case '/': case '%':
             case '|': case '&': case '^':
-            case '+': case '-':     TWO_OPERAND_OP(" %c ", ir[i]->instruction);
+            case '+': case '-':
+            case '<': case '>':     TWO_OPERAND_OP(" %c ", ir[i]->instruction);
             case OP_NOT_EQ:         TWO_OPERAND_OP(" != ");
             case OP_EQUALS:         TWO_OPERAND_OP(" == ");
             case OP_LESS_EQ:        TWO_OPERAND_OP(" <= ");

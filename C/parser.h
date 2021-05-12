@@ -6,11 +6,11 @@
 #include <ctype.h>
 
 #include "../utils/common.h"
-#include "token.h"
-#include "reserved.h"
 #include "symbol_table.h"
-#include "arena.h"
+#include "token.h"
 #include "type.h"
+#include "reserved.h"
+#include "arena.h"
 
 #include "../IR/IR.h"
 
@@ -459,48 +459,60 @@ Node *Parser_operand(Parser *parser) {
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == TOKEN_INT_LITERAL) {
         Parser_eat(parser, token, TOKEN_INT_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == TOKEN_LONG_LITERAL) {
         Parser_eat(parser, token, TOKEN_LONG_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == TOKEN_LLONG_LITERAL) {
         Parser_eat(parser, token, TOKEN_LLONG_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == TOKEN_FLOAT_LITERAL) {
         Parser_eat(parser, token, TOKEN_FLOAT_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == TOKEN_DOUBLE_LITERAL) {
         Parser_eat(parser, token, TOKEN_DOUBLE_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == TOKEN_STRING_LITERAL) {
         Parser_eat(parser, token, TOKEN_STRING_LITERAL);
         node = Arena_alloc(parser->arena, sizeof(Node));
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == TOKEN_IDENT) {
         Parser_eat(parser, token, TOKEN_IDENT);
         node = Arena_alloc(parser->arena, sizeof(Node));
+        SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, &token->name);
+        if (entry) {
+            token->entry = entry;
+        }
         node->token = token;
         node->left = NULL;
         node->right = NULL;
+        node->scope = NULL;
     } else if (token->type == '(') {
         Parser_eat(parser, token, '(');
         node = Parser_expr(parser);
@@ -550,6 +562,7 @@ Node *Parser_postfix(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = right;
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -602,6 +615,7 @@ Node *Parser_prefix(Parser *parser) {
         node->left = Parser_prefix(parser);
         node->token = token;
         node->right = NULL;
+        node->scope = NULL;
     } else {
         parser->lexer.peek = parser->lexer.pos;
         
@@ -632,6 +646,7 @@ Node *Parser_muls(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_prefix(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -658,6 +673,7 @@ Node *Parser_sums(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_muls(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -684,6 +700,7 @@ Node *Parser_bitshift(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_sums(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -715,6 +732,7 @@ Node *Parser_rel_op(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bitshift(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -741,6 +759,7 @@ Node *Parser_rel_eq(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_rel_op(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -763,6 +782,7 @@ Node *Parser_bit_and(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_rel_eq(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -785,6 +805,7 @@ Node *Parser_bit_xor(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bit_and(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -807,6 +828,7 @@ Node *Parser_bit_or(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bit_xor(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -829,6 +851,7 @@ Node *Parser_log_and(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_bit_or(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -851,6 +874,7 @@ Node *Parser_log_or(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_log_and(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -877,6 +901,7 @@ Node *Parser_ternary(Parser *parser) {
         tmp->left = ternary_true;
         tmp->token = token;
         tmp->right = Parser_ternary(parser);
+        tmp->scope = NULL;
         node = tmp;
     }
     
@@ -926,6 +951,7 @@ Node *Parser_assignment(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_assignment(parser);
+        tmp->scope = NULL;
         node = tmp;
     }
     
@@ -948,6 +974,7 @@ Node *Parser_comma(Parser *parser) {
         tmp->left = node;
         tmp->token = token;
         tmp->right = Parser_assignment(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -972,11 +999,14 @@ Node *Parser_functionBlock(Parser *parser) {
     token = Lexer_peekNextToken(&parser->lexer);
     
     while (token->type != '}') {
+        Lexer_resetPeek(&parser->lexer);
+        
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->left = node;
         tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
         tmp->token->type = TOKEN_NEXT;
         tmp->right = Parser_statement(parser);
+        tmp->scope = NULL;
         node = tmp;
         
         token = Lexer_peekNextToken(&parser->lexer);
@@ -985,6 +1015,9 @@ Node *Parser_functionBlock(Parser *parser) {
     Parser_eat(parser, token, '}');
     
     Lexer_resetPeek(&parser->lexer);
+    
+    node->scope = parser->symbol_table->scope;
+    // TODO(mdizdar): this is wrong, the scope should be changed at the function declaration, or when opening a new block. i.e. in lines 1027 and when creating a function declaration node, but it should only refer to the scope within it, so I'm not sure how to handle that rn Sadge
     
     return node;
 }
@@ -1039,7 +1072,10 @@ Declaration *Parser_struct(Parser *parser, Type **type) {
         SymbolTable_popScope(parser->symbol_table);
     } else if (token->type == TOKEN_IDENT) {
         Lexer_resetPeek(&parser->lexer);
-        type = &SymbolTable_find(parser->symbol_table, type_name)->type;
+        SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, type_name);
+        token->entry = entry;
+        type = &entry->type;
+        
         return NULL;
     } else {
         error(parser->lexer.cur_line, "bruh"); // NOTE(mdizdar): idk what to tell this dude tbh
@@ -1136,7 +1172,6 @@ inline Type *Parser_cvp(Parser *parser, Type *type) {
 
 Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     Token *token = Lexer_peekNextToken(&parser->lexer);
-    
     if (!((token->type > TOKEN_TYPE && token->type < TOKEN_MODIFIER) ||
           (token->type > TOKEN_MODIFIER && token->type < TOKEN_OPERATOR) ||
           token->type == TOKEN_STRUCT)) {
@@ -1284,6 +1319,7 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     
     if (ftype) {
         SymbolTable_add(parser->symbol_table, &token->name, ftype, fline);
+        token->entry = SymbolTable_find(parser->symbol_table, &token->name);
         declaration->type = ftype;
         declaration->name = token->name;
         return declaration;
@@ -1299,6 +1335,8 @@ while (token->type == ',') {
 */
     
     SymbolTable_add(parser->symbol_table, &token->name, type, parser->lexer.cur_line);
+    
+    token->entry = SymbolTable_find(parser->symbol_table, &token->name);
     
     declaration->type = type;
     declaration->name = token->name;
@@ -1319,10 +1357,18 @@ Node *Parser_statement(Parser *parser) {
         tmp->token->name = decl->name;
         tmp->left = NULL;
         tmp->right = NULL;
+        tmp->scope = NULL;
+        
+        Token *token = Lexer_peekNextToken(&parser->lexer);
+        Parser_eat(parser, token, ';');
         return tmp;
     }
     
     Node *node = Arena_alloc(parser->arena, sizeof(Node));
+    node->scope = NULL;
+    node->left = NULL;
+    node->right = NULL;
+    node->cond = NULL;
     
     Token *token = Lexer_peekNextToken(&parser->lexer);
     
@@ -1383,6 +1429,7 @@ Node *Parser_statement(Parser *parser) {
         tmp->cond = cond;
         tmp->left = init;
         tmp->right = iter;
+        tmp->scope = NULL;
         tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
         tmp->token->type = TOKEN_FOR_COND;
         
@@ -1431,8 +1478,8 @@ Node *Parser_statement(Parser *parser) {
         token = Lexer_peekNextToken(&parser->lexer);
         Parser_eat(parser, token, ';');
     } else if (token->type == '{') {
+        Lexer_resetPeek(&parser->lexer);
         node = Parser_block(parser);
-        token = Lexer_peekNextToken(&parser->lexer);
     } else {
         // we aren't using the node we allocated up there, but since our arena doesn't support freeing memory at the moment, we won't free it here
         Lexer_resetPeek(&parser->lexer);
@@ -1454,6 +1501,7 @@ Node *Parser_topLevel(Parser *parser) {
     tmp->token->name = decl->name;
     tmp->left = NULL;
     tmp->right = NULL;
+    tmp->scope = NULL;
     return tmp;
 }
 
@@ -1468,235 +1516,12 @@ Node *Parser_parse(Parser *parser) {
         tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
         tmp->token->type = TOKEN_NEXT;
         tmp->right = Parser_topLevel(parser);
+        tmp->scope = NULL;
         node = tmp;
         token = Lexer_peekNextToken(&parser->lexer);
     }
     
     return node;
-}
-
-static inline bool Token_is_value(Token *token) {
-    return token->type == TOKEN_IDENT || (token->type >= TOKEN_LITERAL && token->type < TOKEN_KEYWORD);
-}
-
-static inline Op Token_comp_assign_to_Op(TokenType type) {
-    switch ((int)type) {
-        case TOKEN_ADD_ASSIGN: case TOKEN_PREINC: case TOKEN_POSTINC: return (Op)'+';
-        case TOKEN_SUB_ASSIGN: case TOKEN_PREDEC: case TOKEN_POSTDEC: return (Op)'-';
-        case TOKEN_MUL_ASSIGN:    return (Op)'*';
-        case TOKEN_DIV_ASSIGN:    return (Op)'/';
-        case TOKEN_MOD_ASSIGN:    return (Op)'%';
-        case TOKEN_OR_ASSIGN:     return (Op)'|';
-        case TOKEN_AND_ASSIGN:    return (Op)'&';
-        case TOKEN_XOR_ASSIGN:    return (Op)'^';
-        case TOKEN_BITNOT_ASSIGN: return (Op)'~';
-        case TOKEN_BIT_L_ASSIGN:  return OP_BITSHIFT_LEFT;
-        case TOKEN_BIT_R_ASSIGN:  return OP_BITSHIFT_RIGHT;
-        default: error(0, "look at dis dood (%llu)", type);
-    }
-}
-
-static inline Op Token_unary_to_Op(TokenType type) {
-    switch ((int)type) {
-        case TOKEN_DEREF:   return OP_DEREF;
-        case TOKEN_ADDRESS: return OP_ADDRESS;
-        case '~':           return (Op)'~';
-        case '!':           return (Op)'!';
-        case TOKEN_PLUS:    return OP_PLUS;
-        case TOKEN_MINUS:   return OP_MINUS;
-        default: error(0, "look at dis dood (%llu)", type);
-    }
-}
-
-static u64 temporary_index = 0;
-static u64 label_index     = 0;
-
-inline u64 add_label(DynArray *generated_IR) {
-    IR *ir = malloc(sizeof(IR));
-    ir->instruction = OP_LABEL;
-    ir->operands[0].type = OT_LABEL;
-    ir->operands[0].named = false;
-    ir->operands[0].label_index = label_index++;
-    DynArray_add(generated_IR, &ir);
-    return label_index-1;
-}
-
-inline void add_named_label(DynArray *generated_IR, String *label_name) {
-    IR *ir = malloc(sizeof(IR));
-    ir->instruction = OP_LABEL;
-    ir->operands[0].type = OT_LABEL;
-    ir->operands[0].named = true;
-    ir->operands[0].label_name = *label_name;
-    DynArray_add(generated_IR, &ir);
-}
-
-IR *move_to_temp(IRVariable x) {
-    IR *ir = malloc(sizeof(IR));
-    ir->result.type = OT_TEMPORARY;
-    ir->result.temporary_id = ++temporary_index;
-    ir->operands[0] = x;
-    ir->instruction = (Op)'=';
-    return ir;
-}
-
-// NOTE(mdizdar): returns the id of the result variable 
-IRVariable walk_AST(Node *AST, DynArray *generated_IR, SymbolTable *st) {
-    if (AST->token->type == TOKEN_DECLARATION) {
-        SymbolTableEntry *entry = SymbolTable_find(st, &AST->token->name);
-        assert(entry != NULL);
-        if (entry->type->is_function) {
-            add_named_label(generated_IR, &entry->name);
-            return walk_AST(entry->type->function_type->block, generated_IR, st);
-        }
-    }
-    if (AST->token->type == TOKEN_INT_LITERAL) {
-        IRVariable var;
-        var.type = OT_INTEGER;
-        var.integer_value = AST->token->integer_value;
-        return var;
-    }
-    
-    IR *ir = malloc(sizeof(IR));
-    switch ((int)AST->token->type) {
-        case '+': case '-':
-        case '*': case '/': case '%':
-        case '^': case '&': case '|':
-        case '<': case '>': 
-        case TOKEN_NOT_EQ: case TOKEN_EQUALS: 
-        case TOKEN_LESS_EQ: case TOKEN_GREATER_EQ:
-        case TOKEN_LOGICAL_OR: case TOKEN_LOGICAL_AND:
-        case TOKEN_BITSHIFT_LEFT: case TOKEN_BITSHIFT_RIGHT: {
-            // TODO(mdizdar): add checks for calculations on literals that can be done at compile time
-            ir->instruction = (Op)AST->token->type;
-            ir->result.type = OT_TEMPORARY;
-            ir->result.temporary_id = temporary_index++;
-            ir->operands[0] = walk_AST(AST->left, generated_IR, st);
-            ir->operands[1] = walk_AST(AST->right, generated_IR, st);
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
-        case '=': {
-            ir->instruction = (Op)AST->token->type;
-            ir->result = walk_AST(AST->left, generated_IR, st);
-            ir->operands[0] = walk_AST(AST->right, generated_IR, st);
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
-        case TOKEN_ADD_ASSIGN: case TOKEN_SUB_ASSIGN:
-        case TOKEN_MUL_ASSIGN: case TOKEN_DIV_ASSIGN: case TOKEN_MOD_ASSIGN:
-        case TOKEN_OR_ASSIGN: case TOKEN_AND_ASSIGN: case TOKEN_XOR_ASSIGN:
-        case TOKEN_BIT_L_ASSIGN: case TOKEN_BIT_R_ASSIGN: {
-            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
-            ir->result = walk_AST(AST->left, generated_IR, st);
-            ir->operands[0] = ir->result;
-            ir->operands[1] = walk_AST(AST->right, generated_IR, st);
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
-        case TOKEN_BITNOT_ASSIGN: {
-            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
-            ir->result = walk_AST(AST->left, generated_IR, st);
-            ir->operands[0] = ir->result;
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
-        case TOKEN_PREINC: case TOKEN_PREDEC: {
-            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
-            ir->result = walk_AST(AST->left, generated_IR, st);
-            ir->operands[0] = ir->result;
-            ir->operands[1].type = OT_INTEGER;
-            ir->operands[1].integer_value = 1ULL;
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
-        case TOKEN_POSTINC: case TOKEN_POSTDEC: {
-            IR *ir2 = malloc(sizeof(IR));
-            ir2->instruction = (Op)'=';
-            ir2->result.type = OT_TEMPORARY;
-            ir2->result.temporary_id = temporary_index++;
-            ir2->operands[0] = walk_AST(AST->left, generated_IR, st);
-            DynArray_add(generated_IR, ir2);
-            ir->instruction = Token_comp_assign_to_Op(AST->token->type);
-            ir->result      = ir2->operands[0];
-            ir->operands[0] = ir2->operands[0];
-            ir->operands[1].type = OT_INTEGER;
-            ir->operands[1].integer_value = 1ULL;
-            DynArray_add(generated_IR, &ir);
-            ir = ir2; // this is done so we can return the original value as are the semantics of post inc/dec
-            break;
-        }
-        case TOKEN_DEREF: case TOKEN_ADDRESS: 
-        case '~': case '!': 
-        case TOKEN_PLUS: case TOKEN_MINUS: {
-            ir->instruction = Token_unary_to_Op(AST->token->type);
-            ir->result.type = OT_TEMPORARY;
-            ir->result.temporary_id = temporary_index++;
-            ir->operands[0] = walk_AST(AST->left, generated_IR, st);
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
-        case '?': {
-            // condition
-            ir->instruction = OP_IF_JUMP;
-            ir->result.type = OT_NONE;
-            ir->operands[0] = walk_AST(AST->cond, generated_IR, st);
-            ir->operands[1].type = OT_LABEL;
-            ir->operands[1].named = false;
-            
-            DynArray_add(generated_IR, &ir);
-            
-            // if false
-            IRVariable Fres = walk_AST(AST->right, generated_IR, st);
-            IR *F = ((IR **)generated_IR->data)[generated_IR->count-1];
-            if (Fres.type != OT_TEMPORARY) {
-                F = move_to_temp(Fres);
-                DynArray_add(generated_IR, &F);
-            }
-            
-            IR *ir2 = malloc(sizeof(IR));
-            ir2->instruction = OP_JUMP;
-            ir2->result.type = OT_NONE;
-            ir2->operands[0].type = OT_LABEL;
-            ir2->operands[0].named = false;
-            
-            DynArray_add(generated_IR, &ir2);
-            
-            // NOTE(mdizdar): assuming the dynarray stores pointers so modifying through this variable will modify the one stored in the dynarray
-            ir->operands[1].label_index = add_label(generated_IR); // after F
-            
-            // if true
-            IRVariable Tres = walk_AST(AST->left, generated_IR, st);
-            IR *T = ((IR **)generated_IR->data)[generated_IR->count-1];
-            if (Tres.type != OT_TEMPORARY) {
-                T = move_to_temp(Tres);
-                DynArray_add(generated_IR, &T);
-            }
-            
-            F->result.temporary_id = T->result.temporary_id;
-            
-            ir2->operands[0].label_index = add_label(generated_IR); // after T
-            
-            ir = T;
-            break;
-        }
-        case TOKEN_RETURN: {
-            ir->instruction = OP_RETURN;
-            ir->operands[0] = walk_AST(AST->left, generated_IR, st); 
-            ir->result = ir->operands[0];
-            //printf("%p\n", ir);
-            DynArray_add(generated_IR, &ir);
-            break;
-        }
-        case TOKEN_NEXT: {
-            free(ir); // yikes
-            walk_AST(AST->left, generated_IR, st);
-            return walk_AST(AST->right, generated_IR, st);
-        }
-        default: {
-            error(0, "uh oh sister %d\n", AST->token->type);
-        }
-    }
-    return ir->result;
 }
 
 #endif // PARSER_H

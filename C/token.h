@@ -3,6 +3,7 @@
 
 #include "../utils/common.h"
 #include "reserved.h" 
+#include "symbol_table.h"
 
 typedef enum {
     // single character Tokens will just be their ascii value
@@ -109,11 +110,12 @@ typedef enum {
     TOKEN_FOR_COND       = 901, // used in `for (<this bit>)`
     TOKEN_NEXT           = 902, // for chaining statements together
     TOKEN_DECLARATION    = 903,
-}  TokenType;
+} TokenType;
 
 typedef struct {
     union {
         String name;
+        SymbolTableEntry *entry;
         u64 integer_value;
         float float_value;
         double double_value;
@@ -232,7 +234,7 @@ char *Token_toStr(char *s, Token t) {
                 break;
             }
             case TOKEN_IDENT: {
-                sprintf(s, "ident %s (%d)", t.name.data, t.type);
+                sprintf(s, "ident %s (%d)", t.entry->name.data, t.type);
                 break;
             }
             case TOKEN_FUNCTION_CALL: {
@@ -260,6 +262,7 @@ typedef struct _Node {
     struct _Node *left, *right;
     struct _Node *cond; // this is only used for ternary
     
+    const Scope *scope; // NOTE(mdizdar): usually NULL, except on nodes that change the scope
 } Node;
 
 #endif // TOKEN_H
