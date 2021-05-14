@@ -4,6 +4,7 @@
 
 #include "C/parser.h"
 #include "C/token.h"
+//#include "C/type_check.h"
 #include "C/ir_gen.h"
 
 #include "IR/IR.h"
@@ -109,6 +110,7 @@ int main(int argc, char **argv) {
     printAST(AST, 0, st.scope);
     
     puts(CYAN "****IR****" RESET);
+    //type_check(AST);
     LoopContext loop_context;
     loop_context.in_loop = false;
     IR_generate(AST, &generated_IR, st.scope, &loop_context);

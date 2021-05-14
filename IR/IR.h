@@ -26,6 +26,8 @@ typedef enum {
     OP_LOGICAL_AND    = 814,
     OP_BITSHIFT_LEFT  = 819,
     OP_BITSHIFT_RIGHT = 820,
+    
+    OP_PRELUDE = 900,
 } Op;
 
 typedef enum {

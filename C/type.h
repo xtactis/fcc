@@ -84,9 +84,10 @@ typedef struct {
 } ArrayType;
 
 typedef struct {
+    u64 size_of;
     Type *return_type;
     DynArray parameters;
-    Node *block; // TODO(mdizdar): this doesn't seem to be happy?
+    Node *block;
 } FunctionType;
 
 typedef enum {
@@ -233,5 +234,27 @@ void Type_print(Type *type, u64 indent) {
     }
     puts("");
 }
+
+//~ some globals to keep the cost of type-making lower
+
+// TODO(mdizdar): these should be set in main (because MSVC doesn't have struct literals, since it's 1993) so these common types can be reused
+Type *TYPE_VOID;
+Type *TYPE_CHAR;
+
+Type *TYPE_SCHAR;
+Type *TYPE_SSHORT;
+Type *TYPE_SINT;
+Type *TYPE_SLONG;
+Type *TYPE_SLLONG;
+
+Type *TYPE_FLOAT;
+Type *TYPE_DOUBLE;
+Type *TYPE_LDOUBLE;
+
+Type *TYPE_UCHAR;
+Type *TYPE_USHORT;
+Type *TYPE_UINT;
+Type *TYPE_ULONG;
+Type *TYPE_ULLONG;
 
 #endif //TYPE_H

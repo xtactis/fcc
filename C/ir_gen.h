@@ -105,6 +105,11 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
         assert(AST->token->entry != NULL);
         if (AST->token->entry->type->is_function) {
             add_named_label(generated_IR, &AST->token->entry->name);
+            IR *ir = malloc(sizeof(IR));
+            ir->instruction = OP_PRELUDE;
+            ir->operands[0].type = OT_INTEGER;
+            ir->operands[0].integer_value = AST->token->entry->type->function_type->size_of;
+            ir->result.type = OT_NONE;
             return IR_generate(AST->token->entry->type->function_type->block, generated_IR, current_scope, context);
         } else {
             IRVariable var;
@@ -120,6 +125,16 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
         IRVariable var;
         var.type = OT_INTEGER;
         var.integer_value = AST->token->integer_value;
+        return var;
+    } else if (AST->token->type == TOKEN_FLOAT_LITERAL) {
+        IRVariable var;
+        var.type = OT_FLOAT;
+        var.float_value = AST->token->float_value;
+        return var;
+    } else if (AST->token->type == TOKEN_DOUBLE_LITERAL) {
+        IRVariable var;
+        var.type = OT_DOUBLE;
+        var.double_value = AST->token->double_value;
         return var;
     } else if (AST->token->type == TOKEN_IDENT) {
         IRVariable var;

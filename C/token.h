@@ -4,6 +4,7 @@
 #include "../utils/common.h"
 #include "reserved.h" 
 #include "symbol_table.h"
+#include "type.h"
 
 typedef enum {
     // single character Tokens will just be their ascii value
@@ -123,6 +124,8 @@ typedef struct {
     };
     
     u64 lookahead;
+    u64 line;
+    
     TokenType type;
 } Token;
 
@@ -263,6 +266,7 @@ typedef struct _Node {
     struct _Node *cond; // this is only used for ternary
     
     const Scope *scope; // NOTE(mdizdar): usually NULL, except on nodes that change the scope
+    const Type *type;
 } Node;
 
 #endif // TOKEN_H
