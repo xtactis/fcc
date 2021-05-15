@@ -8,6 +8,8 @@
 #include "token.h"
 #include "type.h"
 
+#define internal_error internal_error(__FILE__, __LINE__)
+
 static inline Type *type_of(Node *AST) {
     return AST->type;
 }
@@ -89,12 +91,15 @@ bool is_lvalue(Node *node) {
     return true;
 }
 
-bool types_are_equal(Type *t1, Type *t2) {
-    // TODO(mdizdar): implement me!
+bool is_signed(Type *type) {
+    if (type->pointer_count) return false;
+    if (type->is_struct || type->is_union || type->is_array || type->function) internal_error;
+    if (type->is_typedef) return is_signed(type->typedef_type);
+    if (type->basic_type >= BASIC_UCHAR) return false;
     return true;
 }
 
-bool signedness(Type *t1) {
+bool types_are_equal(Type *t1, Type *t2) {
     // TODO(mdizdar): implement me!
     return true;
 }
@@ -388,8 +393,8 @@ u64 type_check(Node *AST, Type *return_type) {
             if (!is_scalar(right)) {
                 error(AST->right->token->line, "can't compare non-scalar types");
             }
-            if (signedness(left) != signednes(right)) {
-                warning(AST->token->line, "comparison between two values of different signedness");
+            if (is_signed(left) != signednes(right)) {
+                warning(AST->token->line, "comparison between two values of different is_signed");
             }
             
             coerce(left, right);
