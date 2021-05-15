@@ -22,9 +22,10 @@ u64 *size_of_type(Type *type) {
         return 2;
     } else if (type->is_struct) {
         u64 size = 0;
-        // TODO(mdizdar): technically incorrect because of alignment padding, but let's pretend it isn't for now
         for (u64 i = 0; i < type->struct_type->members->count; ++i) {
-            size += size_of_type(((Type **)type->struct_type->members->data)[i]);
+            u64 cur = size_of_type(((Type **)type->struct_type->members->data)[i]);
+            size += cur;
+            size += size%min(cur, 8);
         }
         return size;
     } else if (type->is_union) {
@@ -39,6 +40,7 @@ u64 *size_of_type(Type *type) {
         return type->array_type->size * size_of_type(type->array_type->element);
     } else if (type->is_function) {
         // should never happen
+        internal_error(__FILE__, __LINE__);
     } else { // it's a basic type
         switch (type->basic_type) {
             case BASIC_CHAR:
@@ -403,7 +405,9 @@ u64 type_check(Node *AST, Type *return_type) {
             AST->type->basic_type = BASIC_INT;
         }
         case TOKEN_ADD_ASSIGN:
-        case TOKEN_SUB_ASSIGN:
+        case TOKEN_SUB_ASSIGN: {
+            
+        }
         case TOKEN_MUL_ASSIGN:
         case TOKEN_DIV_ASSIGN:
         case TOKEN_MOD_ASSIGN:
