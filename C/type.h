@@ -74,8 +74,7 @@ typedef struct {
 } StructType;
 
 typedef struct {
-    Type **members;
-    u64 member_count;
+    DynArray members;
 } UnionType;
 
 typedef struct {

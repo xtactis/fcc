@@ -4,7 +4,7 @@
 
 #include "C/parser.h"
 #include "C/token.h"
-//#include "C/type_check.h"
+#include "C/type_check.h"
 #include "C/ir_gen.h"
 
 #include "IR/IR.h"

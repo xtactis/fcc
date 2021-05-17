@@ -69,6 +69,7 @@ inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
         }
     }
     lexer->peek = lookahead;
+    t->line = lexer->cur_line;
     return t;
 }
 

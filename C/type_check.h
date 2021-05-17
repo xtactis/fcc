@@ -14,26 +14,22 @@ static inline Type *type_of(Node *AST) {
     return AST->type;
 }
 
-u64 max(u64 a, u64 b) {
-    return a > b ? a : b;
-}
-
 // NOTE(mdizdar): in a real compiler this should depend on the target machine, but since we're targetting exactly one machine... 
-u64 *size_of_type(Type *type) {
+u64 size_of_type(Type *type) {
     if (type->pointer_count) {
         return 2;
     } else if (type->is_struct) {
         u64 size = 0;
-        for (u64 i = 0; i < type->struct_type->members->count; ++i) {
-            u64 cur = size_of_type(((Type **)type->struct_type->members->data)[i]);
+        for (u64 i = 0; i < type->struct_type->members.count; ++i) {
+            u64 cur = size_of_type(((Declaration *)type->struct_type->members.data)[i].type);
             size += cur;
             size += size%min(cur, 8);
         }
         return size;
     } else if (type->is_union) {
         u64 size = 0;
-        for (u64 i = 0; i < type->struct_type->members->count; ++i) {
-            max(size, size_of_type(((Type **)type->struct_type->members->data)[i]));
+        for (u64 i = 0; i < type->struct_type->members.count; ++i) {
+            max(size, size_of_type(((Declaration *)type->struct_type->members.data)[i].type));
         }
         return size;
     } else if (type->is_typedef) {
@@ -42,7 +38,7 @@ u64 *size_of_type(Type *type) {
         return type->array_type->size * size_of_type(type->array_type->element);
     } else if (type->is_function) {
         // should never happen
-        internal_error(__FILE__, __LINE__);
+        internal_error;
     } else { // it's a basic type
         switch (type->basic_type) {
             case BASIC_CHAR:
@@ -71,9 +67,53 @@ bool is_pointer(Type *type) {
     return false;
 }
 
+bool is_void_pointer(Type *type) {
+    // TODO(mdizdar): implement me!
+    return true;
+}
+
+void do_deref(Type *type) {
+    if (type->pointer_count) {
+        --type->pointer_count;
+        return;
+    }
+    if (type->is_typedef) do_deref(type->typedef_type);
+}
+
+bool is_array(Type *type) {
+    if (type->is_array) return true;
+    if (type->is_typedef) return is_array(type->typedef_type);
+    return false;
+}
+
+Type *get_array(Type *type) {
+    if (type->is_typedef) return get_array(type->typedef_type);
+    return type;
+}
+
+bool is_struct(Type *type) {
+    // TODO(mdizdar): implement me!
+    return true;
+}
+
+Type *get_struct(Type *type) {
+    // TODO(mdizdar): implement me!
+    return type;
+}
+
+bool is_union(Type *type) {
+    // TODO(mdizdar): implement me!
+    return true;
+}
+
+Type *get_union(Type *type) {
+    // TODO(mdizdar): implement me!
+    return type;
+}
+
 bool is_scalar(Type *type) {
     if (type->pointer_count) return true;
-    if (type->is_struct || type->is_union || type->is_array || type->function) return false;
+    if (type->is_struct || type->is_union || type->is_array || type->is_function) return false;
     if (type->is_typedef) return is_scalar(type->typedef_type);
     if (type->basic_type == BASIC_VOID) return false;
     return true;
@@ -81,21 +121,33 @@ bool is_scalar(Type *type) {
 
 bool is_integer(Type *type) {
     if (type->pointer_count) return false;
-    if (type->is_struct || type->is_union || type->is_array || type->function) return false;
+    if (type->is_struct || type->is_union || type->is_array || type->is_function) return false;
     if (type->is_typedef) return is_integer(type->typedef_type);
     return !(type->basic_type == BASIC_FLOAT || type->basic_type == BASIC_DOUBLE || type->basic_type == BASIC_LDOUBLE);
 }
 
-bool is_lvalue(Node *node) {
-    // TODO(mdizdar): implement me!
-    return true;
+bool is_lvalue(Node *node) { // NOTE(mdizdar): should be good?
+    if (node->token->type == '[') return true;
+    if (node->token->type == '.') return true;
+    if (node->token->type == TOKEN_ARROW) return true;
+    
+    Type *type = node->type;
+    while (!type->pointer_count && type->is_typedef) {
+        type = type->typedef_type;
+    }
+    return type->pointer_count != 0;
 }
 
 bool is_signed(Type *type) {
     if (type->pointer_count) return false;
-    if (type->is_struct || type->is_union || type->is_array || type->function) internal_error;
+    if (type->is_struct || type->is_union || type->is_array || type->is_function) internal_error;
     if (type->is_typedef) return is_signed(type->typedef_type);
     if (type->basic_type >= BASIC_UCHAR) return false;
+    return true;
+}
+
+bool signedness(Type *type) {
+    // TODO(mdizdar): implement me!
     return true;
 }
 
@@ -115,17 +167,17 @@ Type *coerce(Type *t1, Type *t2) {
 
 u64 type_check(Node *AST, Type *return_type);
 
-void type_check_params(Node *AST, Type **params, u64 param_count) {
+void type_check_params(Node *AST, Declaration **params, u64 param_count) {
     if (param_count == 1) {
         type_check(AST, NULL);
-        if (!types_are_equal(params[0], type_of(AST))) {
+        if (!types_are_equal(params[0]->type, type_of(AST))) {
             error(AST->token->line, "type of parameter %llu doesn't match expected type", param_count);
         }
         return;
     }
     // NOTE(mdizdar): return_type can be NULL because it doesn't matter here
     type_check(AST->right, NULL);
-    if (!types_are_equal(params[--param_count], type_of(AST->right))) {
+    if (!types_are_equal(params[--param_count]->type, type_of(AST->right))) {
         error(AST->right->token->line, "type of parameter %llu doesn't match expected type", param_count);
     }
     type_check_params(AST->left, params, param_count);
@@ -138,7 +190,7 @@ u64 type_check(Node *AST, Type *return_type) {
     }
     u64 size_of = 0;
     AST->type = NULL;
-    switch (AST->token->type) {
+    switch ((int)AST->token->type) {
         case TOKEN_DECLARATION: {
             SymbolTableEntry *entry = AST->token->entry;
             assert(entry != NULL);
@@ -150,51 +202,51 @@ u64 type_check(Node *AST, Type *return_type) {
             break;
         }
         case TOKEN_IF: {
-            type_check(AST->cond);
+            type_check(AST->cond, return_type);
             if (is_scalar(type_of(AST->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
-            size_of += type_check(AST->left);
+            size_of += type_check(AST->left, return_type);
             if (AST->right) {
-                size_of += type_check(AST->right);
+                size_of += type_check(AST->right, return_type);
             }
             break;
         }
         case TOKEN_WHILE: {
-            type_check(AST->cond);
+            type_check(AST->cond, return_type);
             if (is_scalar(type_of(AST->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
-            size_of += type_check(AST->left);
+            size_of += type_check(AST->left, return_type);
             break;
         }
         case TOKEN_FOR: {
             Node *init_cond_iter = AST->cond;
-            type_check(init_cond_iter->left);
-            type_check(init_cond_iter->cond);
-            type_check(init_cond_iter->right);
+            type_check(init_cond_iter->left, return_type);
+            type_check(init_cond_iter->cond, return_type);
+            type_check(init_cond_iter->right, return_type);
             if (is_scalar(type_of(init_cond_iter->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
-            size_of += type_check(AST->left);
+            size_of += type_check(AST->left, return_type);
             break;
         }
         case TOKEN_RETURN: {
-            type_check(AST->left);
+            type_check(AST->left, return_type);
             if (!types_are_equal(return_type, type_of(AST->left))) {
                 error(AST->token->line, "return type and returned type not equal or coercible");
             }
             break;
         }
         case TOKEN_NEXT: {
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             break;
         }
         case TOKEN_FUNCTION_CALL: {
             SymbolTableEntry *entry = AST->token->entry;
             assert(entry != NULL);
-            type_check_params(AST->right, &entry->type->function_type->parameters.data, entry->type->function_type->parameters.count);
+            type_check_params(AST->right, &(Declaration *)entry->type->function_type->parameters.data, entry->type->function_type->parameters.count);
             AST->type = entry->type->function_type->return_type;
             break;
         }
@@ -204,12 +256,12 @@ u64 type_check(Node *AST, Type *return_type) {
             break;
         }
         case '?': {
-            type_check(AST->cond);
+            type_check(AST->cond, return_type);
             if (is_scalar(type_of(AST->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             if (!types_are_equal(type_of(AST->left), type_of(AST->right))) {
                 error(AST->left->token->line, "the types bro, they're not good.");
             }
@@ -217,50 +269,222 @@ u64 type_check(Node *AST, Type *return_type) {
             break;
         }
         case '[': {
-            type_check(AST->right);
-            // TODO(mdizdar): 
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
+            Type *left = type_of(AST->left);
+            Type *right = type_of(AST->right);
+            
+            if (!is_integer(right)) {
+                error(AST->right->token->line, "array index is a non integral type");
+            }
+            if (is_array(left)) {
+                left = get_array(left);
+                AST->type = left->array_type->element;
+            } else if (is_pointer(left)) {
+                AST->type = malloc(sizeof(Type));
+                
+            } else {
+                error(AST->left->token->line, "only pointers and arrays are indexable");
+            }
             break;
         }
-        case '->': {
-            type_check(AST->left);
-            type_check(AST->right); // NOTE(mdizdar): what does it mean to type check the right side here? I don't think this should be done
-            // TODO(mdizdar): 
+        case TOKEN_ARROW: {
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            if (AST->right->token->type != TOKEN_IDENT) {
+                error(AST->right->token->line, "right hand side of -> operator must be a member variable of the struct pointed to by the left hand side");
+            }
+            while (!left->pointer_count && left->is_typedef) {
+                left = left->typedef_type;
+            }
+            if (left->pointer_count != 1) {
+                error(AST->left->token->line, "left hand side of -> operator must be a pointer to a struct or union type");
+            }
+            // NOTE(mdizdar): we want to get the base type of left here, but doing that is hard when there's a pointer in the way
+            --left->pointer_count;
+            if (is_struct(left)) {
+                left = get_struct(left);
+                bool is_member = false;
+                for (u64 i = 0; i < left->struct_type->members.count; ++i) {
+                    if (!strcmp(AST->right->token->name.data, ((Declaration *)left->struct_type->members.data)[i].name.data)) {
+                        is_member = true;
+                        AST->type = ((Declaration *)left->union_type->members.data)[i].type;
+                        break;
+                    }
+                }
+                if (!is_member) {
+                    error(AST->right->token->line, "right hand side of -> operator must be a member variable of the struct pointed to by the left hand side");
+                }
+            } else if (is_union(left)) {
+                left = get_union(left);
+                bool is_member = false;
+                for (u64 i = 0; i < left->union_type->members.count; ++i) {
+                    if (!strcmp(AST->right->token->name.data, ((Declaration *)left->union_type->members.data)[i].name.data)) {
+                        is_member = true;
+                        AST->type = ((Declaration *)left->union_type->members.data)[i].type;
+                        break;
+                    }
+                }
+                if (!is_member) {
+                    error(AST->right->token->line, "right hand side of -> operator must be a member variable of the struct pointed to by the left hand side");
+                }
+            } else {
+                error(AST->left->token->line, "left hand side of -> operator must be a pointer to a struct or union type");
+            }
+            ++left->pointer_count;
             break;
         }
         case '.': {
-            type_check(AST->left);
-            type_check(AST->right);
-            // TODO(mdizdar): 
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            if (AST->right->token->type != TOKEN_IDENT) {
+                error(AST->right->token->line, "right hand side of . operator must be a member variable of the struct on the left hand side");
+            }
+            while (!left->pointer_count && left->is_typedef) {
+                left = left->typedef_type;
+            }
+            if (left->pointer_count != 0) {
+                error(AST->left->token->line, "left hand side of . operator must be a struct or union type (did you mean to use `->`?)");
+            }
+            if (is_struct(left)) {
+                left = get_struct(left);
+                bool is_member = false;
+                for (u64 i = 0; i < left->struct_type->members.count; ++i) {
+                    if (!strcmp(AST->right->token->name.data, ((Declaration *)left->struct_type->members.data)[i].name.data)) {
+                        is_member = true;
+                        AST->type = ((Declaration *)left->union_type->members.data)[i].type;
+                        break;
+                    }
+                }
+                if (!is_member) {
+                    error(AST->right->token->line, "right hand side of . operator must be a member variable of the struct on the left hand side");
+                }
+            } else if (is_union(left)) {
+                left = get_union(left);
+                bool is_member = false;
+                for (u64 i = 0; i < left->union_type->members.count; ++i) {
+                    if (!strcmp(AST->right->token->name.data, ((Declaration *)left->union_type->members.data)[i].name.data)) {
+                        is_member = true;
+                        AST->type = ((Declaration *)left->union_type->members.data)[i].type;
+                        break;
+                    }
+                }
+                if (!is_member) {
+                    error(AST->right->token->line, "right hand side of . operator must be a member variable of the struct on the left hand side");
+                }
+            } else {
+                error(AST->left->token->line, "left hand side of . operator must be a struct or union type");
+            }
             break;
         }
-        case '!':
-        case '~':
+        case '!': {
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            
+            if (!is_scalar(left)) {
+                error(AST->token->line, "wrong argument to unary operator, should be scalar");
+            }
+            
+            // NOTE(mdizdar): the type is just a bool so we set it to any basic integral type
+            AST->type = malloc(sizeof(Type));
+            AST->type->is_function = false;
+            AST->type->is_static = false;
+            AST->type->is_struct = false;
+            AST->type->is_union = false;
+            AST->type->is_typedef = false;
+            AST->type->is_array = false;
+            AST->type->is_function = false;
+            AST->type->basic_type = BASIC_UINT;
+            break;
+        }
+        case '~': {
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            
+            if (!is_integer(left)) {
+                error(AST->token->line, "wrong argument to unary operator, should be an integral type");
+            }
+            
+            AST->type = left;
+            break;
+        }
         case TOKEN_PLUS:
         case TOKEN_MINUS: {
-            type_check(AST->left);
-            // TODO(mdizdar): 
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            
+            if (!is_scalar(left) || is_pointer(left)) {
+                error(AST->token->line, "wrong argument to unary operator, should be scalar and not a pointer");
+            }
+            
+            AST->type = left;
             break;
         }
         case TOKEN_PREINC:
         case TOKEN_PREDEC: {
-            type_check(AST->left);
-            // TODO(mdizdar): 
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            if (!is_integer(left) && !is_pointer(left)) {
+                error(AST->token->line, "invalid expression: trying to increment a non integer or (non-void) pointer");
+            }
+            if (!is_lvalue(AST->left)) {
+                error(AST->token->line, "can't increment/decrement a non lvalue");
+            }
+            if (is_void_pointer(left)) {
+                error(AST->left->token->line, "can't do pointer arithmetic on void pointers");
+            }
+            AST->type = left;
+            break;
         }
         case TOKEN_POSTINC:
         case TOKEN_POSTDEC: {
-            type_check(AST->right);
-            // TODO(mdizdar): 
+            type_check(AST->right, return_type);
+            Type *right = type_of(AST->right);
+            if (!is_integer(right) && !is_pointer(right)) {
+                error(AST->token->line, "trying to increment a non integer or (non-void) pointer is invalid");
+            }
+            if (!is_lvalue(AST->right)) {
+                error(AST->token->line, "can't increment/decrement a non lvalue");
+            }
+            if (is_void_pointer(right)) {
+                error(AST->right->token->line, "can't do pointer arithmetic on void pointers");
+            }
+            AST->type = right;
             break;
         }
-        case TOKEN_DEREF:
+        case TOKEN_DEREF: {
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            
+            if (!is_pointer(left)) {
+                error(AST->token->line, "cannot dereference a non-pointer");
+            }
+            if (is_void_pointer(left)) {
+                error(AST->token->line, "you do not want to know what happens when you dereference a void pointer so I stopped you");
+            }
+            
+            AST->type = malloc(sizeof(Type));
+            memcpy(AST->type, left, sizeof(Type));
+            do_deref(AST->type);
+            
+            break;
+        }
         case TOKEN_ADDRESS: {
-            type_check(AST->left);
-            // TODO(mdizdar): 
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            
+            if (!is_lvalue(AST->left)) {
+                error(AST->token->line, "can't take the address of a non lvalue");
+            }
+            AST->type = malloc(sizeof(Type));
+            memcpy(AST->type, left, sizeof(Type));
+            ++AST->type->pointer_count;
+            
             break;
         }
         case '+': { // NOTE(mdizdar): one can be a pointer
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             Type *left = type_of(AST->left);
             Type *right = type_of(AST->right);
             
@@ -272,9 +496,12 @@ u64 type_check(Node *AST, Type *return_type) {
             }
             
             if (is_pointer(left)) {
+                if (is_void_pointer(left)) {
+                    error(AST->token->line, "can't perform pointer arithmetic on void pointer");
+                }
                 if (!is_pointer(right)) {
                     if (!is_integer(right)) {
-                        error(AST->right->token->line, "");
+                        error(AST->right->token->line, "can't perform summation on a pointer and a non integral type");
                     }
                     AST->type = left;
                 } else {
@@ -289,8 +516,8 @@ u64 type_check(Node *AST, Type *return_type) {
         }
         case '-': {
             // NOTE(mdizdar): can be pointer - scalar (returns pointer), but not scalar - pointer
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             Type *left = type_of(AST->left);
             Type *right = type_of(AST->right);
             
@@ -302,12 +529,18 @@ u64 type_check(Node *AST, Type *return_type) {
             }
             
             if (is_pointer(left)) {
+                if (is_void_pointer(left)) {
+                    error(AST->token->line, "can't perform pointer arithmetic on void pointer");
+                }
                 if (!is_pointer(right)) {
                     if (!is_integer(right)) {
-                        error(AST->right->token->line, "");
+                        error(AST->right->token->line, "can't perform summation on a pointer and a non integral type");
                     }
                     AST->type = left;
                 } else {
+                    if (is_void_pointer(right)) {
+                        error(AST->token->line, "can't perform pointer arithmetic on void pointer");
+                    }
                     AST->type = malloc(sizeof(Type));
                     AST->type->is_function = false;
                     AST->type->is_static = false;
@@ -327,8 +560,8 @@ u64 type_check(Node *AST, Type *return_type) {
         }
         case TOKEN_LOGICAL_OR:
         case TOKEN_LOGICAL_AND: { // NOTE(mdizdar): can be pointers, return type scalar (int)
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             Type *left = type_of(AST->left);
             Type *right = type_of(AST->right);
             
@@ -347,7 +580,7 @@ u64 type_check(Node *AST, Type *return_type) {
             AST->type->is_typedef = false;
             AST->type->is_array = false;
             AST->type->is_function = false;
-            AST->type->basic_type = BASIC_INT;
+            AST->type->basic_type = BASIC_UINT;
             break;
         }
         case '*':
@@ -358,8 +591,8 @@ u64 type_check(Node *AST, Type *return_type) {
         case '^':
         case TOKEN_BITSHIFT_LEFT:
         case TOKEN_BITSHIFT_RIGHT: { // NOTE(mdizdar): can't be pointers, return type scalar
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             Type *left = type_of(AST->left);
             Type *right = type_of(AST->right);
             if (is_pointer(left)) {
@@ -383,8 +616,8 @@ u64 type_check(Node *AST, Type *return_type) {
         case '<':
         case TOKEN_LESS_EQ:
         case TOKEN_GREATER_EQ: {
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             Type *left = type_of(AST->left);
             Type *right = type_of(AST->right);
             if (!is_scalar(left)) {
@@ -393,7 +626,7 @@ u64 type_check(Node *AST, Type *return_type) {
             if (!is_scalar(right)) {
                 error(AST->right->token->line, "can't compare non-scalar types");
             }
-            if (is_signed(left) != signednes(right)) {
+            if (is_signed(left) != signedness(right)) {
                 warning(AST->token->line, "comparison between two values of different is_signed");
             }
             
@@ -407,11 +640,39 @@ u64 type_check(Node *AST, Type *return_type) {
             AST->type->is_typedef = false;
             AST->type->is_array = false;
             AST->type->is_function = false;
-            AST->type->basic_type = BASIC_INT;
+            AST->type->basic_type = BASIC_UINT;
         }
         case TOKEN_ADD_ASSIGN:
         case TOKEN_SUB_ASSIGN: {
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
+            Type *left = type_of(AST->left);
+            Type *right = type_of(AST->right);
             
+            if (!is_scalar(left)) {
+                error(AST->left->token->line, "can't perform arithmetic on non-scalar types");
+            }
+            if (!is_scalar(right)) {
+                error(AST->right->token->line, "can't perform arithmetic on non-scalar types");
+            }
+            
+            if (is_pointer(left)) {
+                if (is_void_pointer(left)) {
+                    error(AST->token->line, "can't perform pointer arithmetic on void pointer");
+                }
+                if (!is_pointer(right)) {
+                    if (!is_integer(right)) {
+                        error(AST->right->token->line, "can't perform summation on a pointer and a non integral type");
+                    }
+                } else {
+                    error(AST->token->line, "pointer summation isn't a thing in this language (or any other for that matter)");
+                }
+            } else if (is_pointer(right)) {
+                error(AST->token->line, "adding a pointer to a scalar doesn't make sense");
+            }
+            coerce_to(right, left);
+            AST->type = left;
+            break;
         }
         case TOKEN_MUL_ASSIGN:
         case TOKEN_DIV_ASSIGN:
@@ -422,10 +683,16 @@ u64 type_check(Node *AST, Type *return_type) {
         case TOKEN_BITNOT_ASSIGN: // TODO(mdizdar): some of these can't be done with pointers
         case TOKEN_BIT_L_ASSIGN:
         case TOKEN_BIT_R_ASSIGN: {
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             Type *left = type_of(AST->left);
             Type *right = type_of(AST->right);
+            if (is_pointer(left)) {
+                error(AST->left->token->line, "you doing weird shit to pointers");
+            }
+            if (is_pointer(right)) {
+                error(AST->right->token->line, "you doing weird shit to pointers");
+            }
             if (!is_lvalue(AST->left)) {
                 error(AST->left->token->line, "left hand side of assignment needs to be an lvalue");
             }
@@ -440,8 +707,8 @@ u64 type_check(Node *AST, Type *return_type) {
             break;
         }
         case '=': {
-            type_check(AST->left);
-            type_check(AST->right);
+            type_check(AST->left, return_type);
+            type_check(AST->right, return_type);
             if (!is_lvalue(AST->left)) {
                 error(AST->left->token->line, "left hand side of assignment needs to be an lvalue");
             }
