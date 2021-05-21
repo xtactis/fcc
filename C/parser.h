@@ -1050,8 +1050,6 @@ Declaration *Parser_struct(Parser *parser, Type **type) {
     if (token->type == '{') {
         Parser_eat(parser, token, '{');
         
-        SymbolTable_pushScope(parser->symbol_table); // NOTE(mdizdar): this shouldn't be done for anonymous structs/unions that are within other structures
-        
         _type->struct_type = Arena_alloc(parser->type_arena, sizeof(StructType));
         
         //type->struct_type->members.data         = NULL;
@@ -1060,7 +1058,7 @@ Declaration *Parser_struct(Parser *parser, Type **type) {
         token = Lexer_peekNextToken(&parser->lexer);
         while (token->type != '}') {
             Lexer_resetPeek(&parser->lexer);
-            Declaration *member = Parser_declaration(parser, false);
+            Declaration *member = Parser_declaration(parser, false); // TODO(mdizdar): these shouldn't be adding anything to the symbol table
             if (member) {
                 DynArray_add(&_type->struct_type->members, member);
             }
@@ -1070,7 +1068,62 @@ Declaration *Parser_struct(Parser *parser, Type **type) {
                 token = Lexer_peekNextToken(&parser->lexer);
             }
         }
-        SymbolTable_popScope(parser->symbol_table);
+    } else if (token->type == TOKEN_IDENT) {
+        Lexer_resetPeek(&parser->lexer);
+        SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, type_name);
+        token->entry = entry;
+        type = &entry->type;
+        
+        return NULL;
+    } else {
+        error(parser->lexer.cur_line, "bruh"); // NOTE(mdizdar): idk what to tell this dude tbh
+    }
+    
+    Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
+    declaration->type = _type;
+    if (type_name) {
+        declaration->name = *type_name;
+        SymbolTable_add(parser->symbol_table, type_name, _type, parser->lexer.cur_line);
+    } else {
+        declaration->name.data = "";
+        declaration->name.count = 0;
+    }
+    return declaration;
+}
+
+Declaration *Parser_union(Parser *parser, Type **type) {
+    Type *_type = *type;
+    _type->is_union = true;
+    
+    Token *token = Lexer_peekNextToken(&parser->lexer);
+    String *type_name = NULL;
+    
+    if (token->type == TOKEN_IDENT) {
+        Parser_eat(parser, token, TOKEN_IDENT);
+        type_name = &token->name;
+        token = Lexer_peekNextToken(&parser->lexer);
+    }
+    if (token->type == '{') {
+        Parser_eat(parser, token, '{');
+        
+        _type->union_type = Arena_alloc(parser->type_arena, sizeof(StructType));
+        
+        //type->union_type->members.data         = NULL;
+        DynArray_construct(&_type->struct_type->members, sizeof(Declaration));
+        
+        token = Lexer_peekNextToken(&parser->lexer);
+        while (token->type != '}') {
+            Lexer_resetPeek(&parser->lexer);
+            Declaration *member = Parser_declaration(parser, false); // TODO(mdizdar): these shouldn't be adding anything to the symbol table
+            if (member) {
+                DynArray_add(&_type->struct_type->members, member);
+            }
+            token = Lexer_peekNextToken(&parser->lexer);
+            while (token->type == ';') {
+                Parser_eat(parser, token, ';');
+                token = Lexer_peekNextToken(&parser->lexer);
+            }
+        }
     } else if (token->type == TOKEN_IDENT) {
         Lexer_resetPeek(&parser->lexer);
         SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, type_name);
@@ -1258,6 +1311,10 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
             }
             case TOKEN_STRUCT: {
                 Parser_struct(parser, &type);
+                break;
+            }
+            case TOKEN_UNION: {
+                Parser_union(parser, &type);
                 break;
             }
             case TOKEN_LONG: {

@@ -63,13 +63,18 @@ u64 size_of_type(Type *type) {
 
 bool is_pointer(Type *type) {
     if (type->pointer_count) return true;
+    if (type->is_array) return true;
     if (type->is_typedef) return is_pointer(type->typedef_type);
     return false;
 }
 
 bool is_void_pointer(Type *type) {
-    // TODO(mdizdar): implement me!
-    return true;
+    bool pointer = false;
+    while (type->is_typedef) {
+        pointer = pointer || type->pointer_count;
+        type = type->typedef_type;
+    }
+    return type->basic_type == BASIC_VOID && pointer;
 }
 
 void do_deref(Type *type) {
@@ -81,33 +86,29 @@ void do_deref(Type *type) {
 }
 
 bool is_array(Type *type) {
+    if (type->pointer_count) return false;
     if (type->is_array) return true;
     if (type->is_typedef) return is_array(type->typedef_type);
     return false;
 }
 
-Type *get_array(Type *type) {
-    if (type->is_typedef) return get_array(type->typedef_type);
-    return type;
-}
-
 bool is_struct(Type *type) {
-    // TODO(mdizdar): implement me!
-    return true;
-}
-
-Type *get_struct(Type *type) {
-    // TODO(mdizdar): implement me!
-    return type;
+    if (type->pointer_count) return false;
+    if (type->is_struct) return true;
+    if (type->is_typedef) return is_struct(type->typedef_type);
+    return false;
 }
 
 bool is_union(Type *type) {
-    // TODO(mdizdar): implement me!
-    return true;
+    if (type->pointer_count) return false;
+    if (type->is_union) return true;
+    if (type->is_typedef) return is_union(type->typedef_type);
+    return false;
 }
 
-Type *get_union(Type *type) {
-    // TODO(mdizdar): implement me!
+Type *get_base_type(Type *type) {
+    if (type->pointer_count) warning(0, "not sure if I should be letting it slide that this is a pointer tbh");
+    if (type->is_typedef) return get_base_type(type->typedef_type);
     return type;
 }
 
@@ -146,23 +147,126 @@ bool is_signed(Type *type) {
     return true;
 }
 
-bool signedness(Type *type) {
-    // TODO(mdizdar): implement me!
-    return true;
+typedef enum Signedness {
+    NA = 0,
+    SIGNED = 1,
+    UNSIGNED = 2,
+} Signedness;
+
+Signedness signedness(Type *type) {
+    if (type->pointer_count) return UNSIGNED;
+    if (type->is_array || type->is_function) return UNSIGNED;
+    if (type->is_typedef) return signedness(type->typedef_type);
+    if (type->basic_type >= BASIC_UCHAR) return UNSIGNED;
+    if (type->basic_type >= BASIC_SCHAR && type->basic_type <= BASIC_SLLONG) return SIGNED;
+    return NA;
 }
 
-bool types_are_equal(Type *t1, Type *t2) {
-    // TODO(mdizdar): implement me!
-    return true;
+bool types_are_equal_or_coercible(Type *t1, Type *t2) {
+    bool p1 = is_pointer(t1);
+    bool p2 = is_pointer(t2);
+    Type *b1 = get_base_type(t1);
+    Type *b2 = get_base_type(t2);
+    if (p1 && p2) {
+        if (!types_are_equal_or_coercible(b1, b2)) {
+            warning(0, "performing operations on pointers with different base types is sus");
+        }
+        return true;
+    }
+    if (p1 || p2) {
+        if (p2) {
+            Type *tmp = b1;
+            b1 = b2;
+            b2 = tmp;
+            p1 ^= p2 ^= p1 ^= p2;
+        }
+        if (b2->is_struct || b2->is_union || b2->is_function) return false;
+        return b2->basic_type != BASIC_FLOAT && b2->basic_type != BASIC_DOUBLE && b2->basic_type != BASIC_LDOUBLE;
+    }
+    if ((b1->is_struct && b2->is_struct) || (b1->is_union && b2->is_union) || (b1->is_function && b2->is_function)) {
+        return b1 == b2; // actually comparing the pointers because I don't care if the structure itself is the same, it needs to be the exact same type
+    }
+    return true; // basic type I guess
 }
 
-// NOTE(mdizdar): coerces type t into type target and returns type target
-Type *coerce_to(Type *t, Type *target) {
-    // TODO(mdizdar): implement me!
-}
-
+// assumes scalar types (basic or pointer)
 Type *coerce(Type *t1, Type *t2) {
-    // TODO(mdizdar): implement me!
+    bool p1 = is_pointer(t1);
+    bool p2 = is_pointer(t2);
+    Type *b1 = get_base_type(t1);
+    Type *b2 = get_base_type(t2);
+    
+    if (p1 && p2) {
+        if (!types_are_equal_or_coercible(b1, b2)) {
+            Type *ret = malloc(sizeof(Type));
+            ret->is_static   = false;
+            ret->is_struct   = false;
+            ret->is_union    = false;
+            ret->is_typedef  = false;
+            ret->is_array    = false;
+            ret->is_function = false;
+            ret->basic_type  = BASIC_VOID;
+            ++ret->pointer_count;
+            return ret;
+        }
+        return t1;
+    }
+    if (p1) {
+        if (!is_integer(b2)) {
+            error(0, "a pointer and a double walk into a bar...");
+        }
+        return t1;
+    }
+    if (p2) {
+        if (!is_integer(b1)) {
+            error(0, "a pointer and a double walk into a bar...");
+        }
+        return t2;
+    }
+    
+    if (!is_integer(b1) && !is_integer(b2)) {
+        if (size_of_type(b1) > size_of_type(b2)) return t1;
+        else return t2;
+    }
+    if (!is_integer(b1)) {
+        return t1;
+    }
+    if (!is_integer(b2)) {
+        return t2;
+    }
+    u64 s1 = size_of_type(b1);
+    u64 s2 = size_of_type(b2);
+    
+#define RETURN_INT \
+Type *ret = malloc(sizeof(Type)); \
+ret->is_static   = false;         \
+ret->is_struct   = false;         \
+ret->is_union    = false;         \
+ret->is_typedef  = false;         \
+ret->is_array    = false;         \
+ret->is_function = false;         \
+ret->basic_type  = BASIC_SINT;    \
+return ret;
+    
+    if (s1 > s2) {
+        if (s1 < 2) {
+            RETURN_INT;
+        }
+        return t1;
+    }
+    if (s2 > s1) {
+        if (s2 < 2) {
+            RETURN_INT;
+        }
+        return t2;
+    }
+    if (s1 < 2) {
+        RETURN_INT;
+    }
+#undef RETURN_INT
+    // they're the same size, so if one is unsigned, I should return that one
+    if (b1->basic_type > b2->basic_type) return t1;
+    return t2;
 }
 
 u64 type_check(Node *AST, Type *return_type);
@@ -170,14 +274,14 @@ u64 type_check(Node *AST, Type *return_type);
 void type_check_params(Node *AST, Declaration **params, u64 param_count) {
     if (param_count == 1) {
         type_check(AST, NULL);
-        if (!types_are_equal(params[0]->type, type_of(AST))) {
+        if (!types_are_equal_or_coercible(params[0]->type, type_of(AST))) {
             error(AST->token->line, "type of parameter %llu doesn't match expected type", param_count);
         }
         return;
     }
     // NOTE(mdizdar): return_type can be NULL because it doesn't matter here
     type_check(AST->right, NULL);
-    if (!types_are_equal(params[--param_count]->type, type_of(AST->right))) {
+    if (!types_are_equal_or_coercible(params[--param_count]->type, type_of(AST->right))) {
         error(AST->right->token->line, "type of parameter %llu doesn't match expected type", param_count);
     }
     type_check_params(AST->left, params, param_count);
@@ -233,7 +337,7 @@ u64 type_check(Node *AST, Type *return_type) {
         }
         case TOKEN_RETURN: {
             type_check(AST->left, return_type);
-            if (!types_are_equal(return_type, type_of(AST->left))) {
+            if (!types_are_equal_or_coercible(return_type, type_of(AST->left))) {
                 error(AST->token->line, "return type and returned type not equal or coercible");
             }
             break;
@@ -262,7 +366,7 @@ u64 type_check(Node *AST, Type *return_type) {
             }
             type_check(AST->left, return_type);
             type_check(AST->right, return_type);
-            if (!types_are_equal(type_of(AST->left), type_of(AST->right))) {
+            if (!types_are_equal_or_coercible(type_of(AST->left), type_of(AST->right))) {
                 error(AST->left->token->line, "the types bro, they're not good.");
             }
             AST->type = coerce(type_of(AST->left), type_of(AST->right));
@@ -278,7 +382,7 @@ u64 type_check(Node *AST, Type *return_type) {
                 error(AST->right->token->line, "array index is a non integral type");
             }
             if (is_array(left)) {
-                left = get_array(left);
+                left = get_base_type(left);
                 AST->type = left->array_type->element;
             } else if (is_pointer(left)) {
                 AST->type = malloc(sizeof(Type));
@@ -303,7 +407,7 @@ u64 type_check(Node *AST, Type *return_type) {
             // NOTE(mdizdar): we want to get the base type of left here, but doing that is hard when there's a pointer in the way
             --left->pointer_count;
             if (is_struct(left)) {
-                left = get_struct(left);
+                left = get_base_type(left);
                 bool is_member = false;
                 for (u64 i = 0; i < left->struct_type->members.count; ++i) {
                     if (!strcmp(AST->right->token->name.data, ((Declaration *)left->struct_type->members.data)[i].name.data)) {
@@ -316,7 +420,7 @@ u64 type_check(Node *AST, Type *return_type) {
                     error(AST->right->token->line, "right hand side of -> operator must be a member variable of the struct pointed to by the left hand side");
                 }
             } else if (is_union(left)) {
-                left = get_union(left);
+                left = get_base_type(left);
                 bool is_member = false;
                 for (u64 i = 0; i < left->union_type->members.count; ++i) {
                     if (!strcmp(AST->right->token->name.data, ((Declaration *)left->union_type->members.data)[i].name.data)) {
@@ -347,7 +451,7 @@ u64 type_check(Node *AST, Type *return_type) {
                 error(AST->left->token->line, "left hand side of . operator must be a struct or union type (did you mean to use `->`?)");
             }
             if (is_struct(left)) {
-                left = get_struct(left);
+                left = get_base_type(left);
                 bool is_member = false;
                 for (u64 i = 0; i < left->struct_type->members.count; ++i) {
                     if (!strcmp(AST->right->token->name.data, ((Declaration *)left->struct_type->members.data)[i].name.data)) {
@@ -360,7 +464,7 @@ u64 type_check(Node *AST, Type *return_type) {
                     error(AST->right->token->line, "right hand side of . operator must be a member variable of the struct on the left hand side");
                 }
             } else if (is_union(left)) {
-                left = get_union(left);
+                left = get_base_type(left);
                 bool is_member = false;
                 for (u64 i = 0; i < left->union_type->members.count; ++i) {
                     if (!strcmp(AST->right->token->name.data, ((Declaration *)left->union_type->members.data)[i].name.data)) {
@@ -626,8 +730,8 @@ u64 type_check(Node *AST, Type *return_type) {
             if (!is_scalar(right)) {
                 error(AST->right->token->line, "can't compare non-scalar types");
             }
-            if (is_signed(left) != signedness(right)) {
-                warning(AST->token->line, "comparison between two values of different is_signed");
+            if (signedness(left) != signedness(right)) {
+                warning(AST->token->line, "comparison between two values of different signedness");
             }
             
             coerce(left, right);
@@ -670,7 +774,7 @@ u64 type_check(Node *AST, Type *return_type) {
             } else if (is_pointer(right)) {
                 error(AST->token->line, "adding a pointer to a scalar doesn't make sense");
             }
-            coerce_to(right, left);
+            coerce(left, right);
             AST->type = left;
             break;
         }
@@ -680,7 +784,7 @@ u64 type_check(Node *AST, Type *return_type) {
         case TOKEN_OR_ASSIGN:
         case TOKEN_AND_ASSIGN:
         case TOKEN_XOR_ASSIGN:
-        case TOKEN_BITNOT_ASSIGN: // TODO(mdizdar): some of these can't be done with pointers
+        case TOKEN_BITNOT_ASSIGN:
         case TOKEN_BIT_L_ASSIGN:
         case TOKEN_BIT_R_ASSIGN: {
             type_check(AST->left, return_type);
@@ -702,7 +806,7 @@ u64 type_check(Node *AST, Type *return_type) {
             if (!is_scalar(right)) {
                 error(AST->right->token->line, "can't perform arithmetic on non-scalar types");
             }
-            coerce_to(right, left);
+            coerce(left, right);
             AST->type = left;
             break;
         }
@@ -712,12 +816,13 @@ u64 type_check(Node *AST, Type *return_type) {
             if (!is_lvalue(AST->left)) {
                 error(AST->left->token->line, "left hand side of assignment needs to be an lvalue");
             }
-            if (!types_are_equal(type_of(AST->left), type_of(AST->right))) {
+            if (!types_are_equal_or_coercible(type_of(AST->left), type_of(AST->right))) {
                 error(AST->token->line, "you assigning some weird shit..");
             }
             AST->type = AST->left->type;
             break;
         }
+        default: internal_error;
     }
     
     return size_of;
