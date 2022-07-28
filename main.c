@@ -48,7 +48,9 @@ String read_file(char *filename) {
     file_data.count = ftell(fp);
     rewind(fp);
     file_data.data = malloc((file_data.count+1) * sizeof(char));
-    fread(file_data.data, sizeof(char), file_data.count, fp);
+    if (!fread(file_data.data, sizeof(char), file_data.count, fp)) {
+        error(0, "Error: couldn't read file or file empty!");
+    }
     fclose(fp);
     file_data.data[file_data.count] = 0;
     return file_data;
@@ -167,21 +169,21 @@ puts(CYAN "**TOKENS**" RESET);
     puts(CYAN "\n***SYMBOL TABLE***" RESET);
     
     for (u64 i = 0; i < parser.symbol_table->scope->capacity; ++i) {
-        printf("%llu: ", i);
+        printf("%lu: ", i);
         if (parser.symbol_table->scope->hash_table[i].name.count == 0) { printf("\n"); continue; }
         SymbolTableEntry *entry = &parser.symbol_table->scope->hash_table[i];
         if (entry->type) {
-            printf("{ name: %s; type: %d; def_line: %llu }\n", entry->name.data, entry->type->basic_type, entry->definition_line);
+            printf("{ name: %s; type: %d; def_line: %lu }\n", entry->name.data, entry->type->basic_type, entry->definition_line);
         } else {
-            printf("{ name: %s; type: UNKNOWN; def_line: %llu }\n", entry->name.data, entry->definition_line);
+            printf("{ name: %s; type: UNKNOWN; def_line: %lu }\n", entry->name.data, entry->definition_line);
         }
     }
     
     puts(CYAN "\n***STATS***" RESET);
     
-    printf("Lines of code: %llu\n", parser.lexer.cur_line);
+    printf("Lines of code: %lu\n", parser.lexer.cur_line);
     printf("Time: ~%lf seconds\n", (double)(end-begin) / CLOCKS_PER_SEC);
-    printf("Memory: %llu bytes (%.2lf MB)\n", parser.arena->total_capacity, 1.*parser.arena->total_capacity/1024/1024);
+    printf("Memory: %lu bytes (%.2lf MB)\n", parser.arena->total_capacity, 1.*parser.arena->total_capacity/1024/1024);
     */
     return 0;
 }

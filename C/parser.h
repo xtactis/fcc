@@ -58,8 +58,8 @@ TokenType checkKeyword(const char *name) {
     return TOKEN_IDENT;
 }
 
-inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
-    //printf("peek %llu / %llu\n", lexer->peek, lexer->code.count);
+static inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
+    //printf("peek %lu / %lu\n", lexer->peek, lexer->code.count);
     if (t != NULL && t->type != TOKEN_ERROR) {
         //printf("%p\n", lexer->token_at[lexer->peek]);
         for (u64 i = lexer->peek; i < lookahead; ++i) {
@@ -73,20 +73,20 @@ inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
     return t;
 }
 
-inline Token *Lexer_currentToken(Lexer *lexer) {
+static inline Token *Lexer_currentToken(Lexer *lexer) {
     return lexer->token_at[lexer->pos - 1].token;
 }
 
-inline Token *Lexer_currentPeekedToken(Lexer *lexer) {
+static inline Token *Lexer_currentPeekedToken(Lexer *lexer) {
     return lexer->token_at[lexer->peek - 1].token;
 }
 
-inline void Lexer_resetPeek(Lexer *lexer) {
+static inline void Lexer_resetPeek(Lexer *lexer) {
     lexer->peek = lexer->pos;
     lexer->cur_line = lexer->prev_line;
 }
 
-inline void Lexer_confirmPeek(Lexer *lexer) {
+static inline void Lexer_confirmPeek(Lexer *lexer) {
     lexer->pos = lexer->peek;
     lexer->prev_line = lexer->cur_line;
 }
@@ -125,7 +125,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
     
     for (u64 lookahead = lexer->peek; lookahead < lexer->code.count; ++lookahead) {
         char c = lexer->code.data[lookahead];
-        //printf("%llu %c\n", lookahead, c);
+        //printf("%lu %c\n", lookahead, c);
         switch (state) {
             case UNKNOWN: {
                 if (isspace(c)) {
@@ -423,11 +423,11 @@ _Noreturn void Parser_error(Parser *parser, Token *token, TokenType expected_typ
 }
 
 _Noreturn void Parser_duplicateError(Parser *parser, SymbolTableEntry *previous) {
-    error(parser->lexer.cur_line, "Error: redefinition of %s; previous definition on line %llu", previous->name.data, previous->definition_line);
+    error(parser->lexer.cur_line, "Error: redefinition of %s; previous definition on line %lu", previous->name.data, previous->definition_line);
 }
 
 _Noreturn void Parser_conflictingTypesError(Parser *parser, TokenType current, TokenType conflicting) {
-    error(parser->lexer.cur_line, "Error: can't combine type %llu with previously defined %llu", conflicting, current);
+    error(parser->lexer.cur_line, "Error: can't combine type %lu with previously defined %lu", conflicting, current);
 }
 
 _Noreturn void Parser_notATypeError(Parser *parser, u64 longs, u64 shorts, TokenType type) {
@@ -439,7 +439,7 @@ _Noreturn void Parser_notATypeError(Parser *parser, u64 longs, u64 shorts, Token
 // TODO(mdizdar): this is stupid, split everything into header and code files
 Node *Parser_expr(Parser *parser);
 
-inline void Parser_eat(Parser *parser, Token *token, TokenType token_type) {
+static inline void Parser_eat(Parser *parser, Token *token, TokenType token_type) {
     if (token->type == token_type) {
         Lexer_eat(&parser->lexer);
     } else {
@@ -1186,7 +1186,7 @@ Type *Parser_function(Parser *parser, Type *type) {
     return ftype;
 }
 
-inline Type *Parser_cvp(Parser *parser, Type *type) {
+static inline Type *Parser_cvp(Parser *parser, Type *type) {
     // TODO(mdizdar): this doesn't yet take into account function pointers
     
     Token *token = Lexer_currentPeekedToken(&parser->lexer);

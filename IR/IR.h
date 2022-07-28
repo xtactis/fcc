@@ -69,7 +69,7 @@ typedef struct {
 const char *IRVariable_toStr(IRVariable * const var, char *s) {
     switch (var->type) {
         case OT_INTEGER: {
-            sprintf(s, "%llu", var->integer_value);
+            sprintf(s, "%lu", var->integer_value);
             break;
         }
         case OT_DOUBLE: {
@@ -81,14 +81,14 @@ const char *IRVariable_toStr(IRVariable * const var, char *s) {
             break;
         }
         case OT_TEMPORARY: {
-            sprintf(s, "t%llu", var->temporary_id);
+            sprintf(s, "t%lu", var->temporary_id);
             break;
         }
         case OT_LABEL: {
             if (var->named) {
                 s = var->label_name.data;
             } else {
-                sprintf(s, "L%llu", var->label_index);
+                sprintf(s, "L%lu", var->label_index);
             }
             break;
         }
@@ -177,7 +177,7 @@ break;                                                         \
                 break;
             }
             case '~': case '!': ONE_OPERAND_OP("%c", ir[i]->instruction);
-            case '=':           ONE_OPERAND_OP("");
+            case '=':           ONE_OPERAND_OP(" "); // not sure if I want this to be a space
             case OP_PLUS:       ONE_OPERAND_OP("+");
             case OP_MINUS:      ONE_OPERAND_OP("-");
             case OP_DEREF:      ONE_OPERAND_OP("*");

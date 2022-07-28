@@ -275,14 +275,14 @@ void type_check_params(Node *AST, Declaration **params, u64 param_count) {
     if (param_count == 1) {
         type_check(AST, NULL);
         if (!types_are_equal_or_coercible(params[0]->type, type_of(AST))) {
-            error(AST->token->line, "type of parameter %llu doesn't match expected type", param_count);
+            error(AST->token->line, "type of parameter %lu doesn't match expected type", param_count);
         }
         return;
     }
     // NOTE(mdizdar): return_type can be NULL because it doesn't matter here
     type_check(AST->right, NULL);
     if (!types_are_equal_or_coercible(params[--param_count]->type, type_of(AST->right))) {
-        error(AST->right->token->line, "type of parameter %llu doesn't match expected type", param_count);
+        error(AST->right->token->line, "type of parameter %lu doesn't match expected type", param_count);
     }
     type_check_params(AST->left, params, param_count);
 }
@@ -350,7 +350,7 @@ u64 type_check(Node *AST, Type *return_type) {
         case TOKEN_FUNCTION_CALL: {
             SymbolTableEntry *entry = AST->token->entry;
             assert(entry != NULL);
-            type_check_params(AST->right, &(Declaration *)entry->type->function_type->parameters.data, entry->type->function_type->parameters.count);
+            type_check_params(AST->right, (Declaration **)&entry->type->function_type->parameters.data, entry->type->function_type->parameters.count);
             AST->type = entry->type->function_type->return_type;
             break;
         }

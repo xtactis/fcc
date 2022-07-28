@@ -35,7 +35,7 @@ static inline Op Token_comp_assign_to_Op(TokenType type) {
         case TOKEN_BITNOT_ASSIGN: return (Op)'~';
         case TOKEN_BIT_L_ASSIGN:  return OP_BITSHIFT_LEFT;
         case TOKEN_BIT_R_ASSIGN:  return OP_BITSHIFT_RIGHT;
-        default: error(0, "look at dis dood (%llu)", type);
+        default: error(0, "look at dis dood (%lu)", type);
     }
 }
 
@@ -47,14 +47,14 @@ static inline Op Token_unary_to_Op(TokenType type) {
         case '!':           return (Op)'!';
         case TOKEN_PLUS:    return OP_PLUS;
         case TOKEN_MINUS:   return OP_MINUS;
-        default: error(0, "look at dis dood (%llu)", type);
+        default: error(0, "look at dis dood (%lu)", type);
     }
 }
 
 static u64 temporary_index = 0;
 static u64 label_index     = 0;
 
-inline u64 add_specific_label(DynArray *generated_IR, u64 index) {
+static inline u64 add_specific_label(DynArray *generated_IR, u64 index) {
     IR *ir = malloc(sizeof(IR));
     ir->instruction = OP_LABEL;
     ir->operands[0].type = OT_LABEL;
@@ -64,7 +64,7 @@ inline u64 add_specific_label(DynArray *generated_IR, u64 index) {
     return index;
 }
 
-inline u64 add_label(DynArray *generated_IR) {
+static inline u64 add_label(DynArray *generated_IR) {
     IR *ir = malloc(sizeof(IR));
     ir->instruction = OP_LABEL;
     ir->operands[0].type = OT_LABEL;
@@ -74,7 +74,7 @@ inline u64 add_label(DynArray *generated_IR) {
     return label_index-1;
 }
 
-inline void add_named_label(DynArray *generated_IR, String *label_name) {
+static inline void add_named_label(DynArray *generated_IR, String *label_name) {
     IR *ir = malloc(sizeof(IR));
     ir->instruction = OP_LABEL;
     ir->operands[0].type = OT_LABEL;
