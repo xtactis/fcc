@@ -1156,7 +1156,13 @@ Type *Parser_function(Parser *parser, Type *type) {
     Parser_eat(parser, token, '('); // uhh
     
     Type *ftype = Arena_alloc(parser->type_arena, sizeof(Type));
+    ftype->is_static = false;
+    ftype->is_struct = false;
+    ftype->is_union = false;
+    ftype->is_typedef = false;
+    ftype->is_array = false;
     ftype->is_function = true;
+    ftype->pointer_count = 0;
     ftype->function_type = Arena_alloc(parser->type_arena, sizeof(FunctionType));
     DynArray_construct(&ftype->function_type->parameters, sizeof(Declaration));
     ftype->function_type->return_type = type;
@@ -1364,6 +1370,7 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     Declaration *declaration = Arena_alloc(parser->type_arena, sizeof(Declaration));
     
     declaration->type = Parser_cvp(parser, type);
+    type = declaration->type;
     
     token = Lexer_currentPeekedToken(&parser->lexer);
     
@@ -1373,11 +1380,15 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     if (entry != NULL) Parser_duplicateError(parser, entry);
     
     u64 fline = parser->lexer.cur_line;
+    SymbolTable_add(parser->symbol_table, &token->name, type, fline);
+    
     Type *ftype = Parser_function(parser, declaration->type);
     
     if (ftype) {
-        SymbolTable_add(parser->symbol_table, &token->name, ftype, fline);
-        token->entry = SymbolTable_find(parser->symbol_table, &token->name);
+        SymbolTableEntry *fentry = SymbolTable_find(parser->symbol_table, &token->name);
+        // NOTE(mdizdar): no check because we JUST added it
+        fentry->type = ftype;
+        token->entry = fentry;
         declaration->type = ftype;
         declaration->name = token->name;
         return declaration;
@@ -1394,7 +1405,7 @@ while (token->type == ',') {
     
     SymbolTable_add(parser->symbol_table, &token->name, type, parser->lexer.cur_line);
     
-    token->entry = SymbolTable_find(parser->symbol_table, &token->name);
+    //token->entry = SymbolTable_find(parser->symbol_table, &token->name);
     
     declaration->type = type;
     declaration->name = token->name;
@@ -1412,7 +1423,7 @@ Node *Parser_statement(Parser *parser) {
         Node *tmp = Arena_alloc(parser->arena, sizeof(Node));
         tmp->token = Arena_alloc(parser->lexer.token_arena, sizeof(Token));
         tmp->token->type = TOKEN_DECLARATION;
-        tmp->token->name = decl->name;
+        tmp->token->entry = SymbolTable_find(parser->symbol_table, &decl->name);
         tmp->left = NULL;
         tmp->right = NULL;
         tmp->scope = NULL;

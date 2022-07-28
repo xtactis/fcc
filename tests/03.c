@@ -1,11 +1,13 @@
-struct Foo {
-    int x;
-} Foo_const(int x) {
-    struct Foo f;
-    f.x = x;
-    return f;
+char foo() {
+    return 247;
 }
 
-int main(int argc, char **argv) {
+int main() {
+    char *ddra;
+    char *porta;
+    ddra = 58;
+    porta = 59;
+    *ddra = 255;
+    *porta = foo();
     return 0;
 }

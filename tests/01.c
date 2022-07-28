@@ -1,13 +1,14 @@
-typedef struct {
-    int x;
-    union {
-        int int_val;
-        double real_val;
-    };
-} Struct;
+char fib(char n) {
+    if (n < 2) return 1;
+    return fib(n-1) + fib(n-2);
+}
 
 int main() {
-    char c = '\n';
-    const char *str = "sdf fdfs sdsf";
-    return 42 + str[6] / c;
+    char *ddra;
+    char *porta;
+    ddra = 58;
+    porta = 59;
+    *ddra = 255;
+    *porta = ~fib(11);
+    return 0;
 }

@@ -99,6 +99,13 @@ bool is_struct(Type *type) {
     return false;
 }
 
+bool is_function(Type *type) {
+    if (type->pointer_count) return false;
+    if (type->is_function) return true;
+    if (type->is_typedef) return is_struct(type->typedef_type);
+    return false;
+}
+
 bool is_union(Type *type) {
     if (type->pointer_count) return false;
     if (type->is_union) return true;
@@ -107,7 +114,8 @@ bool is_union(Type *type) {
 }
 
 Type *get_base_type(Type *type) {
-    if (type->pointer_count) warning(0, "not sure if I should be letting it slide that this is a pointer tbh");
+    // TODO(mdizdar): uncomment this
+    //if (type->pointer_count) warning(0, "not sure if I should be letting it slide that this is a pointer tbh");
     if (type->is_typedef) return get_base_type(type->typedef_type);
     return type;
 }
@@ -130,7 +138,9 @@ bool is_integer(Type *type) {
 bool is_lvalue(Node *node) { // NOTE(mdizdar): should be good?
     if (node->token->type == '[') return true;
     if (node->token->type == '.') return true;
+    if (node->token->type == TOKEN_DEREF) return true;
     if (node->token->type == TOKEN_ARROW) return true;
+    if (node->token->type == TOKEN_IDENT) return true;
     
     Type *type = node->type;
     while (!type->pointer_count && type->is_typedef) {
@@ -145,6 +155,15 @@ bool is_signed(Type *type) {
     if (type->is_typedef) return is_signed(type->typedef_type);
     if (type->basic_type >= BASIC_UCHAR) return false;
     return true;
+}
+
+bool is_void(Type *type) {
+    while (type->is_typedef) {
+        if (type->pointer_count) return false;
+        type = type->typedef_type;
+    }
+    if (type->is_struct || type->is_union || type->is_array) return false;
+    return type->basic_type == BASIC_VOID;
 }
 
 typedef enum Signedness {
@@ -245,6 +264,7 @@ ret->is_union    = false;         \
 ret->is_typedef  = false;         \
 ret->is_array    = false;         \
 ret->is_function = false;         \
+ret->pointer_count = 0;           \
 ret->basic_type  = BASIC_SINT;    \
 return ret;
     
@@ -271,22 +291,29 @@ return ret;
 
 u64 type_check(Node *AST, Type *return_type);
 
-void type_check_params(Node *AST, Declaration **params, u64 param_count) {
+void type_check_params(Node *AST, Declaration *params, u64 param_count) {
     if (param_count == 1) {
+        if (AST->token->type == ',') {
+            error(AST->token->line, "too many arguments in function call");
+        }
         type_check(AST, NULL);
-        if (!types_are_equal_or_coercible(params[0]->type, type_of(AST))) {
+        if (!types_are_equal_or_coercible(params[0].type, type_of(AST))) {
             error(AST->token->line, "type of parameter %llu doesn't match expected type", param_count);
         }
         return;
     }
+    if (AST->token->type != ',') {
+        error(AST->token->line, "too few arguments in function call");
+    }
     // NOTE(mdizdar): return_type can be NULL because it doesn't matter here
     type_check(AST->right, NULL);
-    if (!types_are_equal_or_coercible(params[--param_count]->type, type_of(AST->right))) {
+    if (!types_are_equal_or_coercible(params[--param_count].type, type_of(AST->right))) {
         error(AST->right->token->line, "type of parameter %llu doesn't match expected type", param_count);
     }
     type_check_params(AST->left, params, param_count);
 }
 
+// NOTE(mdizdar): there are still tokens that I didn't cover because I can't be bothered
 u64 type_check(Node *AST, Type *return_type) {
     if (!AST) {
         warning(0, "I'm not sure we should ever be seeing this");
@@ -295,6 +322,52 @@ u64 type_check(Node *AST, Type *return_type) {
     u64 size_of = 0;
     AST->type = NULL;
     switch ((int)AST->token->type) {
+        case TOKEN_IDENT: {
+            SymbolTableEntry *entry = AST->token->entry;
+            assert(entry != NULL);
+            AST->type = entry->type;
+            break;
+        }
+#define MAKE_BASIC(x, y) \
+x = malloc(sizeof(Type));       \
+x->is_static   = false;         \
+x->is_struct   = false;         \
+x->is_union    = false;         \
+x->is_typedef  = false;         \
+x->is_array    = false;         \
+x->is_function = false;         \
+x->pointer_count = 0;           \
+x->basic_type  = y;
+        case TOKEN_CHAR_LITERAL: {
+            MAKE_BASIC(AST->type, BASIC_CHAR);
+            break;
+        }
+        case TOKEN_INT_LITERAL: {
+            MAKE_BASIC(AST->type, BASIC_SINT);
+            break;
+        }
+        case TOKEN_LONG_LITERAL: {
+            MAKE_BASIC(AST->type, BASIC_SLONG);
+            break;
+        }
+        case TOKEN_LLONG_LITERAL: {
+            MAKE_BASIC(AST->type, BASIC_SLLONG);
+            break;
+        }
+        case TOKEN_FLOAT_LITERAL: {
+            MAKE_BASIC(AST->type, BASIC_FLOAT);
+            break;
+        }
+        case TOKEN_DOUBLE_LITERAL: {
+            MAKE_BASIC(AST->type, BASIC_DOUBLE);
+            break;
+        }
+        case TOKEN_STRING_LITERAL: {
+            MAKE_BASIC(AST->type, BASIC_CHAR);
+            ++AST->type->pointer_count; // I think this is stupid but hmm
+            break;
+        }
+#undef MAKE_BASIC
         case TOKEN_DECLARATION: {
             SymbolTableEntry *entry = AST->token->entry;
             assert(entry != NULL);
@@ -307,7 +380,7 @@ u64 type_check(Node *AST, Type *return_type) {
         }
         case TOKEN_IF: {
             type_check(AST->cond, return_type);
-            if (is_scalar(type_of(AST->cond))) {
+            if (!is_scalar(type_of(AST->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
             size_of += type_check(AST->left, return_type);
@@ -318,7 +391,7 @@ u64 type_check(Node *AST, Type *return_type) {
         }
         case TOKEN_WHILE: {
             type_check(AST->cond, return_type);
-            if (is_scalar(type_of(AST->cond))) {
+            if (!is_scalar(type_of(AST->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
             size_of += type_check(AST->left, return_type);
@@ -329,16 +402,22 @@ u64 type_check(Node *AST, Type *return_type) {
             type_check(init_cond_iter->left, return_type);
             type_check(init_cond_iter->cond, return_type);
             type_check(init_cond_iter->right, return_type);
-            if (is_scalar(type_of(init_cond_iter->cond))) {
+            if (!is_scalar(type_of(init_cond_iter->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
             size_of += type_check(AST->left, return_type);
             break;
         }
         case TOKEN_RETURN: {
-            type_check(AST->left, return_type);
-            if (!types_are_equal_or_coercible(return_type, type_of(AST->left))) {
-                error(AST->token->line, "return type and returned type not equal or coercible");
+            if (AST->left == NULL) {
+                if (!is_void(return_type)) {
+                    error(AST->token->line, "a return statement in a function with a return type needs to have an argument");
+                }
+            } else {
+                type_check(AST->left, return_type);
+                if (!types_are_equal_or_coercible(return_type, type_of(AST->left))) {
+                    error(AST->token->line, "return type and returned type not equal or coercible");
+                }
             }
             break;
         }
@@ -348,10 +427,19 @@ u64 type_check(Node *AST, Type *return_type) {
             break;
         }
         case TOKEN_FUNCTION_CALL: {
-            SymbolTableEntry *entry = AST->token->entry;
-            assert(entry != NULL);
-            type_check_params(AST->right, &(Declaration *)entry->type->function_type->parameters.data, entry->type->function_type->parameters.count);
-            AST->type = entry->type->function_type->return_type;
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            if (!is_function(left)) {
+                error(AST->token->line, "can't call non-function objects");
+            }
+            if (AST->right == NULL) {
+                if (left->function_type->parameters.count != 0) {
+                    error(AST->token->line, "too few arguments in function call");
+                }
+            } else {
+                type_check_params(AST->right, left->function_type->parameters.data, left->function_type->parameters.count);
+            }
+            AST->type = left->function_type->return_type;
             break;
         }
         case TOKEN_BREAK:
@@ -542,18 +630,18 @@ u64 type_check(Node *AST, Type *return_type) {
         }
         case TOKEN_POSTINC:
         case TOKEN_POSTDEC: {
-            type_check(AST->right, return_type);
-            Type *right = type_of(AST->right);
-            if (!is_integer(right) && !is_pointer(right)) {
+            type_check(AST->left, return_type);
+            Type *left = type_of(AST->left);
+            if (!is_integer(left) && !is_pointer(left)) {
                 error(AST->token->line, "trying to increment a non integer or (non-void) pointer is invalid");
             }
-            if (!is_lvalue(AST->right)) {
+            if (!is_lvalue(AST->left)) {
                 error(AST->token->line, "can't increment/decrement a non lvalue");
             }
-            if (is_void_pointer(right)) {
+            if (is_void_pointer(left)) {
                 error(AST->right->token->line, "can't do pointer arithmetic on void pointers");
             }
-            AST->type = right;
+            AST->type = left;
             break;
         }
         case TOKEN_DEREF: {
@@ -734,8 +822,6 @@ u64 type_check(Node *AST, Type *return_type) {
                 warning(AST->token->line, "comparison between two values of different signedness");
             }
             
-            coerce(left, right);
-            
             AST->type = malloc(sizeof(Type));
             AST->type->is_function = false;
             AST->type->is_static = false;
@@ -745,6 +831,7 @@ u64 type_check(Node *AST, Type *return_type) {
             AST->type->is_array = false;
             AST->type->is_function = false;
             AST->type->basic_type = BASIC_UINT;
+            break;
         }
         case TOKEN_ADD_ASSIGN:
         case TOKEN_SUB_ASSIGN: {
@@ -774,7 +861,6 @@ u64 type_check(Node *AST, Type *return_type) {
             } else if (is_pointer(right)) {
                 error(AST->token->line, "adding a pointer to a scalar doesn't make sense");
             }
-            coerce(left, right);
             AST->type = left;
             break;
         }
@@ -806,7 +892,6 @@ u64 type_check(Node *AST, Type *return_type) {
             if (!is_scalar(right)) {
                 error(AST->right->token->line, "can't perform arithmetic on non-scalar types");
             }
-            coerce(left, right);
             AST->type = left;
             break;
         }
@@ -814,6 +899,7 @@ u64 type_check(Node *AST, Type *return_type) {
             type_check(AST->left, return_type);
             type_check(AST->right, return_type);
             if (!is_lvalue(AST->left)) {
+                Type_print(AST->left->type, 0);
                 error(AST->left->token->line, "left hand side of assignment needs to be an lvalue");
             }
             if (!types_are_equal_or_coercible(type_of(AST->left), type_of(AST->right))) {
@@ -822,7 +908,10 @@ u64 type_check(Node *AST, Type *return_type) {
             AST->type = AST->left->type;
             break;
         }
-        default: internal_error;
+        default: {
+            //warning(AST->token->line, "idk what %llu is", AST->token->type);
+            internal_error;
+        }
     }
     
     return size_of;

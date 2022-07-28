@@ -8,8 +8,12 @@
 #include "C/ir_gen.h"
 
 #include "IR/IR.h"
+#include "AVR/AVR.h"
+#include "IR2AVR/IR2AVR.h"
 
 char *codefile = NULL;
+char *outfile = NULL;
+bool silent = false;
 
 void printAST(Node *root, u64 indent, const Scope *current_scope) {
     if (root == NULL) return;
@@ -41,6 +45,105 @@ void printAST(Node *root, u64 indent, const Scope *current_scope) {
     printAST(root->right, indent+3, current_scope);
 }
 
+void saveAST_labels(Node *AST, const Scope *current_scope, FILE *fp, u64 id) {
+    if (AST == NULL) return;
+    if (AST->scope != NULL) {
+        current_scope = AST->scope;
+    }
+    if (AST->token->type != TOKEN_NEXT && AST->token->type != TOKEN_DECLARATION) {
+        // NOTE(mdizdar): this is here so it doesn't generate unnecessary nodes
+        char s[100];
+        fprintf(fp, "%llu[label=\"%s\"]\n", id, Token_toStr(s, *AST->token));
+    }
+    if (AST->token->type == '?' || AST->token->type == TOKEN_FOR || AST->token->type == TOKEN_FOR_COND || AST->token->type == TOKEN_IF || AST->token->type == TOKEN_WHILE || AST->token->type == TOKEN_DO) {
+        saveAST_labels(AST->cond, current_scope, fp, id+1024);
+        saveAST_labels(AST->left, current_scope, fp, 2*id+1);
+        saveAST_labels(AST->right, current_scope, fp, 2*id+2);
+    } else if (AST->token->type == TOKEN_DECLARATION) {
+        SymbolTableEntry *entry = AST->token->entry;
+        assert(entry != NULL);
+        if (entry->type->is_function) {
+            char s[100];
+            fprintf(fp, "%llu[label=\"%s\"]\n", id, Token_toStr(s, *AST->token));
+            saveAST_labels(entry->type->function_type->block, current_scope, fp, 2*id+1);
+        }
+    } else {
+        saveAST_labels(AST->left, current_scope, fp, 2*id+1);
+        saveAST_labels(AST->right, current_scope, fp, 2*id+2);
+    }
+}
+
+void saveAST_edges(Node *AST, const Scope *current_scope, FILE *fp, u64 id, u64 prev) {
+    if (AST == NULL) return;
+    if (AST->scope != NULL) {
+        current_scope = AST->scope;
+    }
+    if (AST->token->type == '?' || AST->token->type == TOKEN_FOR || AST->token->type == TOKEN_FOR_COND || AST->token->type == TOKEN_IF || AST->token->type == TOKEN_WHILE || AST->token->type == TOKEN_DO) {
+        fprintf(fp, "%llu->%llu\n", prev, id);
+        saveAST_edges(AST->left, current_scope, fp, 2*id+1, id);
+        saveAST_edges(AST->cond, current_scope, fp, id+1024, id);
+        saveAST_edges(AST->right, current_scope, fp, 2*id+2, id);
+    } else if (AST->token->type == TOKEN_NEXT) {
+        saveAST_edges(AST->left, current_scope, fp, 2*id+1, prev);
+        saveAST_edges(AST->right, current_scope, fp, 2*id+2, prev);
+    } else if (AST->token->type == TOKEN_DECLARATION) {
+        SymbolTableEntry *entry = AST->token->entry;
+        assert(entry != NULL);
+        if (entry->type->is_function) {
+            fprintf(fp, "%llu->%llu\n", prev, id);
+            saveAST_edges(entry->type->function_type->block, current_scope, fp, 2*id+1, id);
+        }
+    } else {
+        fprintf(fp, "%llu->%llu\n", prev, id);
+        saveAST_edges(AST->left, current_scope, fp, 2*id+1, id);
+        saveAST_edges(AST->right, current_scope, fp, 2*id+2, id);
+    }
+}
+
+void saveAST(Node *AST, const Scope *current_scope, char *filename) {
+    u64 len = strlen(filename);
+    char *of = malloc(sizeof(char) * len+15);
+    strcpy(of, filename);
+    strcat(of, "_AST.dot");
+    FILE *fp = fopen(of, "w");
+    fprintf(fp, "digraph G {\n");
+    fprintf(fp, "0[label=\"Program\"]\n");
+    saveAST_labels(AST, current_scope, fp, 1);
+    saveAST_edges(AST, current_scope, fp, 1, 0);
+    fprintf(fp, "}");
+    fclose(fp);
+}
+
+void saveCFG(DynArray *ir, char *filename) {
+    u64 len = strlen(filename);
+    char *of = malloc(sizeof(char) * len+15);
+    strcpy(of, filename);
+    strcat(of, "_CFG.dot");
+    FILE *fp = fopen(of, "w");
+    fprintf(fp, "digraph G {\nnode [shape=box, fontname=Courier];\n");
+    
+    IR *irs = (IR *)(ir->data);
+    for (u64 i = 0; i < ir->count; ++i) {
+        fprintf(fp, "%llu[label=\"", irs[i].block->id);
+        u64 end = irs[i].block->end;
+        for (; i <= end; ++i) {
+            IR_saveOne(&irs[i], fp, "\\l");
+        }
+        --i;
+        fprintf(fp, "\"]\n");
+    }
+    
+    for (u64 i = 0; i < ir->count; ++i) {
+        if (irs[i].block->next) fprintf(fp, "%llu->%llu\n", irs[i].block->id, irs[i].block->next->id);
+        if (irs[i].block->jump) fprintf(fp, "%llu->%llu\n", irs[i].block->id, irs[i].block->jump->id);
+        u64 end = irs[i].block->end;
+        for (; i < end; ++i);
+    }
+    
+    fprintf(fp, "}");
+    fclose(fp);
+}
+
 String read_file(char *filename) {
     FILE *fp = fopen(filename, "rb");
     String file_data;
@@ -58,7 +161,9 @@ void parse_args(int argc, char **argv) {
     for (u64 i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-o") == 0) {
             ++i;
-            // get output file
+            outfile = argv[i];
+        } else if (strcmp(argv[i], "-s") == 0) {
+            silent = true;
         } else {
             codefile = argv[i];;
         }
@@ -72,8 +177,8 @@ void parse_args(int argc, char **argv) {
 int main(int argc, char **argv) {
     parse_args(argc, argv);
     String code = read_file(codefile);
-    puts(CYAN "***CODE***" RESET);
-    puts(code.data);
+    if (!silent) puts(CYAN "***CODE***" RESET);
+    if (!silent) puts(code.data);
     SymbolTable st;
     SymbolTable_init(&st, 10);
     
@@ -95,26 +200,65 @@ int main(int argc, char **argv) {
     Node *AST = Parser_parse(&parser);
     
     DynArray generated_IR;
-    generated_IR.element_size = sizeof(IR*);
+    generated_IR.element_size = sizeof(IR);
     generated_IR.capacity = 0;
+    generated_IR.count = 0;
     {
+        IR *label = malloc(sizeof(IR));
+        label->block = NULL;
+        label->instruction = OP_LABEL;
+        label->operands[0].type = OT_LABEL;
+        label->operands[0].named = true;
+        label->operands[0].label_name.data = "__start";
+        label->operands[0].label_name.count = 8; 
+        DynArray_add(&generated_IR, label);
         IR *main_call = malloc(sizeof(IR));
+        main_call->block = NULL;
         main_call->instruction = OP_CALL;
         main_call->operands[0].type = OT_LABEL;
         main_call->operands[0].named = true;
         main_call->operands[0].label_name.data = "main";
         main_call->operands[0].label_name.count = 5;
-        DynArray_add(&generated_IR, &main_call);
+        DynArray_add(&generated_IR, main_call);
+        IR *jump = malloc(sizeof(IR));
+        jump->block = NULL;
+        jump->instruction = OP_JUMP;
+        jump->operands[0].type = OT_LABEL;
+        jump->operands[0].named = true;
+        jump->operands[0].label_name.data = "__start";
+        jump->operands[0].label_name.count = 8; 
+        DynArray_add(&generated_IR, jump);
     }
-    puts(CYAN "***AST***" RESET);
-    printAST(AST, 0, st.scope);
+    if (!silent) puts(CYAN "***AST***" RESET);
+    if (!silent) printAST(AST, 0, st.scope);
     
-    puts(CYAN "****IR****" RESET);
+    if (!silent) puts(CYAN "****IR****" RESET);
     type_check(AST, NULL);
-    LoopContext loop_context;
-    loop_context.in_loop = false;
-    IR_generate(AST, &generated_IR, st.scope, &loop_context);
-    IR_print(generated_IR.data, generated_IR.count);
+    IRContext context;
+    context.in_loop = false;
+    IR_generate(AST, &generated_IR, st.scope, &context);
+    if (!silent) IR_print(generated_IR.data, generated_IR.count);
+    
+    DynArray generated_AVR;
+    generated_AVR.element_size = sizeof(AVR);
+    generated_AVR.capacity = 0;
+    generated_AVR.count = 0;
+    
+    if (!silent) puts(CYAN "***AVR***" RESET);
+    
+    IR2AVR(&generated_IR, &generated_AVR, temporary_index);
+    if (!silent) printAVR(&generated_AVR);
+    
+    if (!silent) puts(CYAN "***HEX***" RESET);
+    if (!silent) printIntelHex(&generated_AVR);
+    
+    if (outfile) {
+        saveAST(AST, st.scope, outfile);
+        IR_save(&generated_IR, outfile);
+        saveCFG(&generated_IR, outfile);
+        saveAVR(&generated_AVR, outfile);
+        saveIntelHex(&generated_AVR, outfile);
+    }
     
     /*
 puts(CYAN "**TOKENS**" RESET);

@@ -1,3 +1,3 @@
 @echo off
 
-call .\bin\fcc.exe %1
+call .\bin\fcc.exe %*

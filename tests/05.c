@@ -1,24 +1,31 @@
-int foo() {
-    int x;
-    int y;
-    x = 5;
-    y = ~x + 3;
-    return x * y;
+int delay() {
+    char i;
+    char j;
+    i = 0;
+    while (i < 250) {
+        j = 0;
+        while (j < 250) {
+            j += 1;
+        }
+        i += 1;
+    }
+    return 0;
 }
 
 int main() {
-    foo();
+    char *ddra;
+    char *porta;
+    char c;
+    ddra = 58;
+    porta = 59;
+    *ddra = 255;
+    *porta = 255;
     
-    int i;
-    i = 0;
-    while (i < 10) {
-        i++;
-    }
-    for (i = 42; i < 69; i += 3) {
-        --i;
-        if (i == 50) {
-            break;
-        } else if (i == 51) continue;
+    c = 0;
+    while (1) {
+        *porta = ~(1 << (c & 7));
+        c += 1;
+        delay();
     }
     return 0;
 }

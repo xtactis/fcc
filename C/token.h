@@ -203,7 +203,7 @@ char *Token_toStr(char *s, Token t) {
         sprintf(s, "%s (%d)", TYPES[t.type-TOKEN_TYPE-1], t.type);
     } else if (t.type > 700 && t.type < 800) {
         sprintf(s, "%s (%d)", MODIFIERS[t.type-TOKEN_MODIFIER-1], t.type);
-    } else if (t.type > 800 && t.type < 900) {
+    } else if (t.type > 800 && t.type < 823) {
         sprintf(s, "%s (%d)", MULTI_OPS[t.type-TOKEN_OPERATOR-1], t.type);
     } else {
         switch (t.type) {
@@ -245,6 +245,44 @@ char *Token_toStr(char *s, Token t) {
             }
             case TOKEN_FOR_COND: {
                 sprintf(s, "for cond (%d)", t.type);
+                break;
+            }
+            case TOKEN_PREINC: {
+                sprintf(s, "pre ++ (%d)", t.type);
+                break;
+            }
+            case TOKEN_PREDEC: {
+                sprintf(s, "pre -- (%d)", t.type);
+                break;
+            }
+            case TOKEN_POSTINC: {
+                sprintf(s, "post ++ (%d)", t.type);
+                break;
+            }
+            case TOKEN_POSTDEC: {
+                sprintf(s, "post -- (%d)", t.type);
+                break;
+            }
+            case TOKEN_DEREF: {
+                sprintf(s, "deref * (%d)", t.type);
+                break;
+            }
+            case TOKEN_ADDRESS: {
+                sprintf(s, "address & (%d)", t.type);
+                break;
+            }
+            case TOKEN_PLUS: {
+                sprintf(s, "unary + (%d)", t.type);
+                break;
+            }
+            case TOKEN_MINUS: {
+                sprintf(s, "unary - (%d)", t.type);
+                break;
+            }
+            case TOKEN_DECLARATION: {
+                SymbolTableEntry *entry = t.entry;
+                assert(entry);
+                sprintf(s, "function %s (%d)", entry->name.data, t.type);
                 break;
             }
             case TOKEN_ERROR: {
