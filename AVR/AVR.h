@@ -7,11 +7,11 @@ typedef u16 AVR;
 
 // https://en.wikipedia.org/wiki/Atmel_AVR_instruction_set#Instruction_encoding
 // http://ww1.microchip.com/downloads/cn/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf
-inline u16 NOP() {
+static inline u16 NOP() {
     return 0x0;
 }
 
-inline u16 MOVW(u8 rd, u8 rr) {
+static inline u16 MOVW(u8 rd, u8 rr) {
     // values should be in registers 16-31
     if (rd >= (1 << 5)) {
         warning(0, "MOVW Rd value greater than 0xF");
@@ -22,7 +22,7 @@ inline u16 MOVW(u8 rd, u8 rr) {
     return 0x0100 | ((rd & 0xF) << 4) | (rr & 0xF);
 }
 
-inline u16 MULS(u8 rd, u8 rr) {
+static inline u16 MULS(u8 rd, u8 rr) {
     // values should be in registers 16-31
     if (rd >= (1 << 5)) {
         warning(0, "MULS Rd value greater than 0xF");
@@ -33,7 +33,7 @@ inline u16 MULS(u8 rd, u8 rr) {
     return 0x0200 | ((rd & 0xF) << 4) | (rr & 0xF);
 }
 
-inline u16 MULSU(u8 rd, u8 rr) {
+static inline u16 MULSU(u8 rd, u8 rr) {
     // values should be in registers 16-23
     if (rd >= (1 << 4)) {
         warning(0, "MULSU Rd value greater than 0x7");
@@ -44,7 +44,7 @@ inline u16 MULSU(u8 rd, u8 rr) {
     return 0x0300 | ((rd & 0x7) << 4) | (rr & 0x7);
 }
 
-inline u16 FMUL(u8 rd, u8 rr) {
+static inline u16 FMUL(u8 rd, u8 rr) {
     // values should be in registers 16-23
     if (rd >= (1 << 4)) {
         warning(0, "FMUL Rd value greater than 0x7");
@@ -55,7 +55,7 @@ inline u16 FMUL(u8 rd, u8 rr) {
     return 0x0308 | ((rd & 0x7) << 4) | (rr & 0x7);
 }
 
-inline u16 FMULS(u8 rd, u8 rr) {
+static inline u16 FMULS(u8 rd, u8 rr) {
     // values should be in registers 16-23
     if (rd >= (1 << 4)) {
         warning(0, "FMULS Rd value greater than 0x7");
@@ -66,7 +66,7 @@ inline u16 FMULS(u8 rd, u8 rr) {
     return 0x0380 | ((rd & 0x7) << 4) | (rr & 0x7);
 }
 
-inline u16 FMULSU(u8 rd, u8 rr) {
+static inline u16 FMULSU(u8 rd, u8 rr) {
     // values should be in registers 16-23
     if (rd >= (1 << 4)) {
         warning(0, "FMULSU Rd value greater than 0x7");
@@ -77,7 +77,7 @@ inline u16 FMULSU(u8 rd, u8 rr) {
     return 0x0388 | ((rd & 0x7) << 4) | (rr & 0x7);
 }
 
-inline u16 CPC(u8 rd, u8 rr) {
+static inline u16 CPC(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "CPC Rd value greater than 0x1F");
@@ -90,7 +90,7 @@ inline u16 CPC(u8 rd, u8 rr) {
     return 0x0400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 CP(u8 rd, u8 rr) {
+static inline u16 CP(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "CP Rd value greater than 0x1F");
@@ -103,7 +103,7 @@ inline u16 CP(u8 rd, u8 rr) {
     return 0x1400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 SBC(u8 rd, u8 rr) {
+static inline u16 SBC(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "SBC Rd value greater than 0x1F");
@@ -116,7 +116,7 @@ inline u16 SBC(u8 rd, u8 rr) {
     return 0x0800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 SUB(u8 rd, u8 rr) {
+static inline u16 SUB(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "SUB Rd value greater than 0x1F");
@@ -129,7 +129,7 @@ inline u16 SUB(u8 rd, u8 rr) {
     return 0x1800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 ADD(u8 rd, u8 rr) {
+static inline u16 ADD(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ADD Rd value greater than 0x1F");
@@ -142,7 +142,7 @@ inline u16 ADD(u8 rd, u8 rr) {
     return 0x0C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 ADC(u8 rd, u8 rr) {
+static inline u16 ADC(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ADC Rd value greater than 0x1F");
@@ -155,7 +155,7 @@ inline u16 ADC(u8 rd, u8 rr) {
     return 0x1C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 LSL(u8 rd) {
+static inline u16 LSL(u8 rd) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LSL Rd value greater than 0x1F");
@@ -165,7 +165,7 @@ inline u16 LSL(u8 rd) {
     return 0x0C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 ROL(u8 rd) {
+static inline u16 ROL(u8 rd) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ROL Rd value greater than 0x1F");
@@ -175,7 +175,7 @@ inline u16 ROL(u8 rd) {
     return 0x1C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 CPSE(u8 rd, u8 rr) {
+static inline u16 CPSE(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ADC Rd value greater than 0x1F");
@@ -188,7 +188,7 @@ inline u16 CPSE(u8 rd, u8 rr) {
     return 0x1000 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 AND(u8 rd, u8 rr) {
+static inline u16 AND(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "AND Rd value greater than 0x1F");
@@ -201,7 +201,7 @@ inline u16 AND(u8 rd, u8 rr) {
     return 0x2000 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 EOR(u8 rd, u8 rr) {
+static inline u16 EOR(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "EOR Rd value greater than 0x1F");
@@ -214,7 +214,7 @@ inline u16 EOR(u8 rd, u8 rr) {
     return 0x2400 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 OR(u8 rd, u8 rr) {
+static inline u16 OR(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "OR Rd value greater than 0x1F");
@@ -227,7 +227,7 @@ inline u16 OR(u8 rd, u8 rr) {
     return 0x2800 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 MOV(u8 rd, u8 rr) {
+static inline u16 MOV(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "MOV Rd value greater than 0x1F");
@@ -240,7 +240,7 @@ inline u16 MOV(u8 rd, u8 rr) {
     return 0x2C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 CPI(u8 rd, u8 K) {
+static inline u16 CPI(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "CPI Rd value greater than 0xF");
@@ -248,7 +248,7 @@ inline u16 CPI(u8 rd, u8 K) {
     return 0x3000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 SBCI(u8 rd, u8 K) {
+static inline u16 SBCI(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "SBCI Rd value greater than 0xF");
@@ -256,7 +256,7 @@ inline u16 SBCI(u8 rd, u8 K) {
     return 0x4000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 SUBI(u8 rd, u8 K) {
+static inline u16 SUBI(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "SUBI Rd value greater than 0xF");
@@ -264,7 +264,7 @@ inline u16 SUBI(u8 rd, u8 K) {
     return 0x5000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 ORI(u8 rd, u8 K) {
+static inline u16 ORI(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "ORI Rd value greater than 0xF");
@@ -272,7 +272,7 @@ inline u16 ORI(u8 rd, u8 K) {
     return 0x6000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 SBR(u8 rd, u8 K) {
+static inline u16 SBR(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "SBR Rd value greater than 0xF");
@@ -280,7 +280,7 @@ inline u16 SBR(u8 rd, u8 K) {
     return 0x6000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 ANDI(u8 rd, u8 K) {
+static inline u16 ANDI(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "ANDI Rd value greater than 0xF");
@@ -288,7 +288,7 @@ inline u16 ANDI(u8 rd, u8 K) {
     return 0x7000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 CBR(u8 rd, u8 K) {
+static inline u16 CBR(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "CBR Rd value greater than 0xF");
@@ -296,7 +296,7 @@ inline u16 CBR(u8 rd, u8 K) {
     return 0x7000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 LDDz(u8 rd, u8 K) {
+static inline u16 LDDz(u8 rd, u8 K) {
     // registers 0-31, K 0-64
     if (rd >= (1 << 6)) {
         warning(0, "LDDz Rd value greater than 0x1F");
@@ -307,7 +307,7 @@ inline u16 LDDz(u8 rd, u8 K) {
     return 0x8000 | (K & 0x7) | ((K & 0x18) << 7) | ((K & 0x20) << 11) | ((rd & 0x1F) << 4);
 }
 
-inline u16 LDDy(u8 rd, u8 K) {
+static inline u16 LDDy(u8 rd, u8 K) {
     // registers 0-31, K 0-64
     if (rd >= (1 << 6)) {
         warning(0, "LDDy Rd value greater than 0x1F");
@@ -318,7 +318,7 @@ inline u16 LDDy(u8 rd, u8 K) {
     return 0x8008 | (K & 0x7) | ((K & 0x18) << 7) | ((K & 0x20) << 11) | ((rd & 0x1F) << 4);
 }
 
-inline u16 STDz(u8 rd, u8 K) {
+static inline u16 STDz(u8 rd, u8 K) {
     // registers 0-31, K 0-64
     if (rd >= (1 << 6)) {
         warning(0, "STDz Rd value greater than 0x1F");
@@ -329,7 +329,7 @@ inline u16 STDz(u8 rd, u8 K) {
     return 0x8200 | (K & 0x7) | ((K & 0x18) << 7) | ((K & 0x20) << 11) | ((rd & 0x1F) << 4);
 }
 
-inline u16 STDy(u8 rd, u8 K) {
+static inline u16 STDy(u8 rd, u8 K) {
     // registers 0-31, K 0-64
     if (rd >= (1 << 6)) {
         warning(0, "STDy Rd value greater than 0x1F");
@@ -340,7 +340,7 @@ inline u16 STDy(u8 rd, u8 K) {
     return 0x8208 | (K & 0x7) | ((K & 0x18) << 7) | ((K & 0x20) << 11) | ((rd & 0x1F) << 4);
 }
 
-inline u32 LDS(u8 rd, u16 address) {
+static inline u32 LDS(u8 rd, u16 address) {
     // registers 0-31, address 0-65535
     if (rd >= (1 << 6)) {
         warning(0, "LDS Rd value greater than 0x1F");
@@ -348,7 +348,7 @@ inline u32 LDS(u8 rd, u16 address) {
     return (u32)0x90000000 | address | ((rd & 0x1F) << 20);
 }
 
-inline u32 STS(u8 rd, u16 address) {
+static inline u32 STS(u8 rd, u16 address) {
     // registers 0-31, address 0-65535
     if (rd >= (1 << 6)) {
         warning(0, "STS Rd value greater than 0x1F");
@@ -356,7 +356,7 @@ inline u32 STS(u8 rd, u16 address) {
     return (u32)0x92000000 | address | ((rd & 0x1F) << 20);
 }
 
-inline u16 LDp(u8 rd, u8 y) {
+static inline u16 LDp(u8 rd, u8 y) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LD+ Rd value greater than 0x1F");
@@ -365,7 +365,7 @@ inline u16 LDp(u8 rd, u8 y) {
     return 0x9001 | ((rd & 0x1F) << 4) | (y << 3);
 }
 
-inline u16 STp(u8 rd, u8 y) {
+static inline u16 STp(u8 rd, u8 y) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ST+ Rd value greater than 0x1F");
@@ -374,7 +374,7 @@ inline u16 STp(u8 rd, u8 y) {
     return 0x9201 | ((rd & 0x1F) << 4) | (y << 3);
 }
 
-inline u16 LDm(u8 rd, u8 y) {
+static inline u16 LDm(u8 rd, u8 y) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LD- Rd value greater than 0x1F");
@@ -383,7 +383,7 @@ inline u16 LDm(u8 rd, u8 y) {
     return 0x9001 | ((rd & 0x1F) << 4) | (y << 3);
 }
 
-inline u16 STm(u8 rd, u8 y) {
+static inline u16 STm(u8 rd, u8 y) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ST- Rd value greater than 0x1F");
@@ -392,7 +392,7 @@ inline u16 STm(u8 rd, u8 y) {
     return 0x9202 | ((rd & 0x1F) << 4) | (y << 3);
 }
 
-inline u16 LPM(u8 rd) {
+static inline u16 LPM(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LPM Rd value greater than 0x1F");
@@ -400,7 +400,7 @@ inline u16 LPM(u8 rd) {
     return 0x9004 | ((rd & 0x1F) << 4);
 }
 
-inline u16 ELPM(u8 rd) {
+static inline u16 ELPM(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ELPM Rd value greater than 0x1F");
@@ -408,7 +408,7 @@ inline u16 ELPM(u8 rd) {
     return 0x9006 | ((rd & 0x1F) << 4);
 }
 
-inline u16 LPMp(u8 rd) {
+static inline u16 LPMp(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LPM+ Rd value greater than 0x1F");
@@ -416,7 +416,7 @@ inline u16 LPMp(u8 rd) {
     return 0x9005 | ((rd & 0x1F) << 4);
 }
 
-inline u16 ELPMp(u8 rd) {
+static inline u16 ELPMp(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ELPM+ Rd value greater than 0x1F");
@@ -424,7 +424,7 @@ inline u16 ELPMp(u8 rd) {
     return 0x9007 | ((rd & 0x1F) << 4);
 }
 
-inline u16 XCH(u8 rd) {
+static inline u16 XCH(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "XCH Rd value greater than 0x1F");
@@ -432,7 +432,7 @@ inline u16 XCH(u8 rd) {
     return 0x9204 | ((rd & 0x1F) << 4);
 }
 
-inline u16 LAS(u8 rd) {
+static inline u16 LAS(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LAS Rd value greater than 0x1F");
@@ -440,7 +440,7 @@ inline u16 LAS(u8 rd) {
     return 0x9205 | ((rd & 0x1F) << 4);
 }
 
-inline u16 LAC(u8 rd) {
+static inline u16 LAC(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LAC Rd value greater than 0x1F");
@@ -448,7 +448,7 @@ inline u16 LAC(u8 rd) {
     return 0x9206 | ((rd & 0x1F) << 4);
 }
 
-inline u16 LAT(u8 rd) {
+static inline u16 LAT(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LAT Rd value greater than 0x1F");
@@ -456,7 +456,7 @@ inline u16 LAT(u8 rd) {
     return 0x9207 | ((rd & 0x1F) << 4);
 }
 
-inline u16 LDx(u8 rd) {
+static inline u16 LDx(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LDx Rd value greater than 0x1F");
@@ -464,7 +464,7 @@ inline u16 LDx(u8 rd) {
     return 0x900C | ((rd & 0x1F) << 4);
 }
 
-inline u16 STx(u8 rd) {
+static inline u16 STx(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "STx Rd value greater than 0x1F");
@@ -472,7 +472,7 @@ inline u16 STx(u8 rd) {
     return 0x920C | ((rd & 0x1F) << 4);
 }
 
-inline u16 LDxp(u8 rd) {
+static inline u16 LDxp(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LDxp Rd value greater than 0x1F");
@@ -480,7 +480,7 @@ inline u16 LDxp(u8 rd) {
     return 0x900D | ((rd & 0x1F) << 4);
 }
 
-inline u16 STxp(u8 rd) {
+static inline u16 STxp(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "STxp Rd value greater than 0x1F");
@@ -488,7 +488,7 @@ inline u16 STxp(u8 rd) {
     return 0x920D | ((rd & 0x1F) << 4);
 }
 
-inline u16 LDxm(u8 rd) {
+static inline u16 LDxm(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LDxm Rd value greater than 0x1F");
@@ -496,7 +496,7 @@ inline u16 LDxm(u8 rd) {
     return 0x900E | ((rd & 0x1F) << 4);
 }
 
-inline u16 STxm(u8 rd) {
+static inline u16 STxm(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "STxm Rd value greater than 0x1F");
@@ -504,7 +504,7 @@ inline u16 STxm(u8 rd) {
     return 0x920E | ((rd & 0x1F) << 4);
 }
 
-inline u16 POP(u8 rd) {
+static inline u16 POP(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "POP Rd value greater than 0x1F");
@@ -512,7 +512,7 @@ inline u16 POP(u8 rd) {
     return 0x900F | ((rd & 0x1F) << 4);
 }
 
-inline u16 PUSH(u8 rd) {
+static inline u16 PUSH(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "PUSH Rd value greater than 0x1F");
@@ -520,7 +520,7 @@ inline u16 PUSH(u8 rd) {
     return 0x920F | ((rd & 0x1F) << 4);
 }
 
-inline u16 COM(u8 rd) {
+static inline u16 COM(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "COM Rd value greater than 0x1F");
@@ -528,7 +528,7 @@ inline u16 COM(u8 rd) {
     return 0x9400 | ((rd & 0x1F) << 4);
 }
 
-inline u16 NEG(u8 rd) {
+static inline u16 NEG(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "NEG Rd value greater than 0x1F");
@@ -536,7 +536,7 @@ inline u16 NEG(u8 rd) {
     return 0x9401 | ((rd & 0x1F) << 4);
 }
 
-inline u16 SWAP(u8 rd) {
+static inline u16 SWAP(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "SWAP Rd value greater than 0x1F");
@@ -544,7 +544,7 @@ inline u16 SWAP(u8 rd) {
     return 0x9402 | ((rd & 0x1F) << 4);
 }
 
-inline u16 INC(u8 rd) {
+static inline u16 INC(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "INC Rd value greater than 0x1F");
@@ -552,7 +552,7 @@ inline u16 INC(u8 rd) {
     return 0x9403 | ((rd & 0x1F) << 4);
 }
 
-inline u16 ASR(u8 rd) {
+static inline u16 ASR(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "COM Rd value greater than 0x1F");
@@ -560,7 +560,7 @@ inline u16 ASR(u8 rd) {
     return 0x9405 | ((rd & 0x1F) << 4);
 }
 
-inline u16 LSR(u8 rd) {
+static inline u16 LSR(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "LSR Rd value greater than 0x1F");
@@ -568,7 +568,7 @@ inline u16 LSR(u8 rd) {
     return 0x9406 | ((rd & 0x1F) << 4);
 }
 
-inline u16 ROR(u8 rd) {
+static inline u16 ROR(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "ROR Rd value greater than 0x1F");
@@ -576,7 +576,7 @@ inline u16 ROR(u8 rd) {
     return 0x9407 | ((rd & 0x1F) << 4);
 }
 
-inline u16 SER(u8 rd) {
+static inline u16 SER(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "SE Rd value greater than 0x1F");
@@ -584,7 +584,7 @@ inline u16 SER(u8 rd) {
     return 0xCF0F | ((rd & 0xF) << 4);
 }
 
-inline u16 CLR(u8 rd) {
+static inline u16 CLR(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "CLR Rd value greater than 0x1F");
@@ -592,115 +592,115 @@ inline u16 CLR(u8 rd) {
     return 0x2400 | (rd & 0xF) | ((rd & 0xF) << 4);
 }
 
-inline u16 SEC() {
+static inline u16 SEC() {
     return 0x9408;
 }
 
-inline u16 SEH() {
+static inline u16 SEH() {
     return 0x9458;
 }
 
-inline u16 SEI() {
+static inline u16 SEI() {
     return 0x9478;
 }
 
-inline u16 SEN() {
+static inline u16 SEN() {
     return 0x9428;
 }
 
-inline u16 SES() {
+static inline u16 SES() {
     return 0x9448;
 }
 
-inline u16 SET() {
+static inline u16 SET() {
     return 0x9468;
 }
 
-inline u16 SEV() {
+static inline u16 SEV() {
     return 0x9438;
 }
 
-inline u16 SEZ() {
+static inline u16 SEZ() {
     return 0x948;
 }
 
-inline u16 CLC() {
+static inline u16 CLC() {
     return 0x9488;
 }
 
-inline u16 CLH() {
+static inline u16 CLH() {
     return 0x94D8;
 }
 
-inline u16 CLI() {
+static inline u16 CLI() {
     return 0x94F8;
 }
 
-inline u16 CLN() {
+static inline u16 CLN() {
     return 0x94A8;
 }
 
-inline u16 CLS() {
+static inline u16 CLS() {
     return 0x94C8;
 }
 
-inline u16 CLT() {
+static inline u16 CLT() {
     return 0x94E8;
 }
 
-inline u16 CLV() {
+static inline u16 CLV() {
     return 0x94B8;
 }
 
-inline u16 CLZ() {
+static inline u16 CLZ() {
     return 0x9498;
 }
 
-inline u16 RET() {
+static inline u16 RET() {
     return 0x9508;
 }
 
-inline u16 RETI() {
+static inline u16 RETI() {
     return 0x9518;
 }
 
-inline u16 SLEEP() {
+static inline u16 SLEEP() {
     return 0x9588;
 }
 
-inline u16 BREAK() {
+static inline u16 BREAK() {
     return 0x9598;
 }
 
-inline u16 WDR() {
+static inline u16 WDR() {
     return 0x95A8;
 }
 
-inline u16 SPM() {
+static inline u16 SPM() {
     return 0x95E8;
 }
 
-inline u16 SPMzp() {
+static inline u16 SPMzp() {
     return 0x95F8;
 }
 
-inline u16 IJMP() {
+static inline u16 IJMP() {
     return 0x9409;
 }
 
-inline u16 EIJMP() {
+static inline u16 EIJMP() {
     return 0x9419;
 }
 
-inline u16 ICALL() {
+static inline u16 ICALL() {
     return 0x9509;
 }
 
-inline u16 EICALL() {
+static inline u16 EICALL() {
     return 0x9519;
 }
 
-inline u16 DEC(u8 rd) {
+static inline u16 DEC(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "DEC Rd value greater than 0x1F");
@@ -708,7 +708,7 @@ inline u16 DEC(u8 rd) {
     return 0x940A | ((rd & 0x1F) << 4);
 }
 
-inline u16 DES(u8 K) {
+static inline u16 DES(u8 K) {
     // registers 0-31
     if (K >= (1 << 5)) {
         warning(0, "DES K value greater than 0xF");
@@ -716,7 +716,7 @@ inline u16 DES(u8 K) {
     return 0x940B | ((K & 0xF) << 4);
 }
 
-inline u32 JMP(u32 address) {
+static inline u32 JMP(u32 address) {
     // address 0-4194303
     if (address >= (1 << 23)) {
         warning(0, "JMP address value greater than 0x3FFFFF");
@@ -724,7 +724,7 @@ inline u32 JMP(u32 address) {
     return (u32)0x940C0000 | (address & 0x1FFFF) | ((address & 0x3E0000) << 3);
 }
 
-inline u32 CALL(u32 address) {
+static inline u32 CALL(u32 address) {
     // address 0-4194303
     if (address >= (1 << 23)) {
         warning(0, "CALL address value greater than 0x3FFFFF");
@@ -732,7 +732,7 @@ inline u32 CALL(u32 address) {
     return (u32)0x940E0000 | (address & 0x1FFFF) | ((address & 0x3E0000) << 3);
 }
 
-inline u16 ADIW(u8 rp, u8 K) {
+static inline u16 ADIW(u8 rp, u8 K) {
     // pp = Register pair, W, X, Y or Z
     // K 0-63
     if (rp >= (1 << 3)) {
@@ -744,7 +744,7 @@ inline u16 ADIW(u8 rp, u8 K) {
     return 0x960B | (K & 0xF) | ((rp & 0x3) << 4) | ((K & 0x30) << 2);
 }
 
-inline u16 SBIW(u8 rp, u8 K) {
+static inline u16 SBIW(u8 rp, u8 K) {
     // pp = Register pair, W, X, Y or Z
     // K 0-63
     if (rp >= (1 << 3)) {
@@ -756,7 +756,7 @@ inline u16 SBIW(u8 rp, u8 K) {
     return 0x970B | (K & 0xF) | ((rp & 0x3) << 4) | ((K & 0x30) << 2);
 }
 
-inline u16 CBI(u8 A, u8 B) {
+static inline u16 CBI(u8 A, u8 B) {
     // A 0-63, B 0-8
     if (A >= (1 << 6)) {
         warning(0, "CBI A value greater than 0x1F");
@@ -767,7 +767,7 @@ inline u16 CBI(u8 A, u8 B) {
     return 0x9800 | (B & 0x7) | ((A & 0x1F) << 3);
 }
 
-inline u16 SBI(u8 A, u8 B) {
+static inline u16 SBI(u8 A, u8 B) {
     // A 0-63, B 0-8
     if (A >= (1 << 6)) {
         warning(0, "SBI A value greater than 0x1F");
@@ -778,7 +778,7 @@ inline u16 SBI(u8 A, u8 B) {
     return 0x9A00 | (B & 0x7) | ((A & 0x1F) << 3);
 }
 
-inline u16 SBIC(u8 A, u8 B) {
+static inline u16 SBIC(u8 A, u8 B) {
     // A 0-63, B 0-8
     if (A >= (1 << 6)) {
         warning(0, "SBIC A value greater than 0x1F");
@@ -789,7 +789,7 @@ inline u16 SBIC(u8 A, u8 B) {
     return 0x9900 | (B & 0x7) | ((A & 0x1F) << 3);
 }
 
-inline u16 SBIS(u8 A, u8 B) {
+static inline u16 SBIS(u8 A, u8 B) {
     // A 0-63, B 0-8
     if (A >= (1 << 6)) {
         warning(0, "SBIS A value greater than 0x1F");
@@ -800,7 +800,7 @@ inline u16 SBIS(u8 A, u8 B) {
     return 0x9C00 | (B & 0x7) | ((A & 0x1F) << 3);
 }
 
-inline u16 MUL(u8 rd, u8 rr) {
+static inline u16 MUL(u8 rd, u8 rr) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "MUL Rd value greater than 0x1F");
@@ -813,7 +813,7 @@ inline u16 MUL(u8 rd, u8 rr) {
     return 0x9C00 | (rd << 4) | (rr & 0xF) | ((rr & 0x10) << 5);
 }
 
-inline u16 IN(u8 rd, u8 a) {
+static inline u16 IN(u8 rd, u8 a) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "IN Rd value greater than 0x1F");
@@ -826,7 +826,7 @@ inline u16 IN(u8 rd, u8 a) {
     return 0xB000 | (rd << 4) | (a & 0xF) | ((a & 0x30) << 5);
 }
 
-inline u16 OUT(u8 rd, u8 a) {
+static inline u16 OUT(u8 rd, u8 a) {
     // values should be in registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "OUT Rd value greater than 0x1F");
@@ -839,7 +839,7 @@ inline u16 OUT(u8 rd, u8 a) {
     return 0xB800 | (rd << 4) | (a & 0xF) | ((a & 0x30) << 5);
 }
 
-inline u16 RJMP(u16 offset) {
+static inline u16 RJMP(u16 offset) {
     // offset is a signed 12 bit integer, we'll treat it as an uint for ease
     // please prepare it beforehand uwu
     if (offset >= (1 << 13)) {
@@ -848,7 +848,7 @@ inline u16 RJMP(u16 offset) {
     return 0xC000 | (offset & 0x0FFF);
 }
 
-inline u16 RCALL(u16 offset) {
+static inline u16 RCALL(u16 offset) {
     // offset is a signed 12 bit integer, we'll treat it as an uint for ease
     // please prepare it beforehand uwu
     if (offset >= (1 << 13)) {
@@ -857,7 +857,7 @@ inline u16 RCALL(u16 offset) {
     return 0xD000 | (offset & 0x0FFF);
 }
 
-inline u16 LDI(u8 rd, u8 K) {
+static inline u16 LDI(u8 rd, u8 K) {
     // registers 16-31, K 0-255
     if (rd >= (1 << 5)) {
         warning(0, "LDI Rd value greater than 0xF");
@@ -865,7 +865,7 @@ inline u16 LDI(u8 rd, u8 K) {
     return 0xE000 | ((rd & 0xF) << 4) | (K & 0xF) | ((K & 0xF0) << 4);
 }
 
-inline u16 BRBC(u8 K, u8 B) {
+static inline u16 BRBC(u8 K, u8 B) {
     // K 0-127 (7 bit signed int, treated as uint), B 0-8
     if (K >= (1 << 8)) {
         warning(0, "BRBC K value greater than 0x7F");
@@ -876,7 +876,7 @@ inline u16 BRBC(u8 K, u8 B) {
     return 0xF400 | ((K & 0x7F) << 3) | (B & 0x7);
 }
 
-inline u16 BRBS(u8 K, u8 B) {
+static inline u16 BRBS(u8 K, u8 B) {
     // K 0-127 (7 bit signed int, treated as uint), B 0-8
     if (K >= (1 << 8)) {
         warning(0, "BRBS K value greater than 0x7F");
@@ -887,7 +887,7 @@ inline u16 BRBS(u8 K, u8 B) {
     return 0xF000 | ((K & 0x7F) << 3) | (B & 0x7);
 }
 
-inline u16 BRCC(u8 K) {
+static inline u16 BRCC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRCC K value greater than 0x7F");
@@ -895,7 +895,7 @@ inline u16 BRCC(u8 K) {
     return 0xF400 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRCS(u8 K) {
+static inline u16 BRCS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRCS K value greater than 0x7F");
@@ -903,7 +903,7 @@ inline u16 BRCS(u8 K) {
     return 0xF000 | ((K & 0x7F) << 3);
 }
 
-inline u16 BREQ(u8 K) {
+static inline u16 BREQ(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BREQ K value greater than 0x7F");
@@ -911,7 +911,7 @@ inline u16 BREQ(u8 K) {
     return 0xF001 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRGE(u8 K) {
+static inline u16 BRGE(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRGE K value greater than 0x7F");
@@ -919,7 +919,7 @@ inline u16 BRGE(u8 K) {
     return 0xF404 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRHC(u8 K) {
+static inline u16 BRHC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRHC K value greater than 0x7F");
@@ -927,7 +927,7 @@ inline u16 BRHC(u8 K) {
     return 0xF405 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRHS(u8 K) {
+static inline u16 BRHS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRHS K value greater than 0x7F");
@@ -935,7 +935,7 @@ inline u16 BRHS(u8 K) {
     return 0xF005 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRID(u8 K) {
+static inline u16 BRID(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRID K value greater than 0x7F");
@@ -943,7 +943,7 @@ inline u16 BRID(u8 K) {
     return 0xF407 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRIE(u8 K) {
+static inline u16 BRIE(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRIE K value greater than 0x7F");
@@ -951,7 +951,7 @@ inline u16 BRIE(u8 K) {
     return 0xF007 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRLO(u8 K) {
+static inline u16 BRLO(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRLO K value greater than 0x7F");
@@ -959,7 +959,7 @@ inline u16 BRLO(u8 K) {
     return 0xF000 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRLT(u8 K) {
+static inline u16 BRLT(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRLT K value greater than 0x7F");
@@ -967,7 +967,7 @@ inline u16 BRLT(u8 K) {
     return 0xF004 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRMI(u8 K) {
+static inline u16 BRMI(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRMI K value greater than 0x7F");
@@ -975,7 +975,7 @@ inline u16 BRMI(u8 K) {
     return 0xF002 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRNE(u8 K) {
+static inline u16 BRNE(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRNE K value greater than 0x7F");
@@ -983,7 +983,7 @@ inline u16 BRNE(u8 K) {
     return 0xF401 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRPL(u8 K) {
+static inline u16 BRPL(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRPL K value greater than 0x7F");
@@ -991,7 +991,7 @@ inline u16 BRPL(u8 K) {
     return 0xF402 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRSH(u8 K) {
+static inline u16 BRSH(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRSH K value greater than 0x7F");
@@ -999,7 +999,7 @@ inline u16 BRSH(u8 K) {
     return 0xF400 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRTC(u8 K) {
+static inline u16 BRTC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRTC K value greater than 0x7F");
@@ -1007,7 +1007,7 @@ inline u16 BRTC(u8 K) {
     return 0xF406 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRTS(u8 K) {
+static inline u16 BRTS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRTS K value greater than 0x7F");
@@ -1015,7 +1015,7 @@ inline u16 BRTS(u8 K) {
     return 0xF006 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRVC(u8 K) {
+static inline u16 BRVC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRVC K value greater than 0x7F");
@@ -1023,7 +1023,7 @@ inline u16 BRVC(u8 K) {
     return 0xF403 | ((K & 0x7F) << 3);
 }
 
-inline u16 BRVS(u8 K) {
+static inline u16 BRVS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
     if (K >= (1 << 8)) {
         warning(0, "BRVS K value greater than 0x7F");
@@ -1031,7 +1031,7 @@ inline u16 BRVS(u8 K) {
     return 0xF003 | ((K & 0x7F) << 3);
 }
 
-inline u16 BSET(u8 S) {
+static inline u16 BSET(u8 S) {
     // S 0-7 
     if (S >= (1 << 8)) {
         warning(0, "BSET S value greater than 0x7");
@@ -1039,7 +1039,7 @@ inline u16 BSET(u8 S) {
     return 0x9408 | ((S & 0x7) << 4);
 }
 
-inline u16 BCLR(u8 S) {
+static inline u16 BCLR(u8 S) {
     // S 0-7 
     if (S >= (1 << 8)) {
         warning(0, "BCLR S value greater than 0x7");
@@ -1047,7 +1047,7 @@ inline u16 BCLR(u8 S) {
     return 0x9488 | ((S & 0x7) << 4);
 }
 
-inline u16 BLD(u8 rd, u8 B) {
+static inline u16 BLD(u8 rd, u8 B) {
     // registers 16-31, B 0-8
     if (rd >= (1 << 6)) {
         warning(0, "BLD Rd value greater than 0x1F");
@@ -1058,7 +1058,7 @@ inline u16 BLD(u8 rd, u8 B) {
     return 0xF800 | ((rd & 0x1F) << 4) | (B & 0x7);
 }
 
-inline u16 BST(u8 rd, u8 B) {
+static inline u16 BST(u8 rd, u8 B) {
     // registers 16-31, B 0-8
     if (rd >= (1 << 6)) {
         warning(0, "BST Rd value greater than 0x1F");
@@ -1069,7 +1069,7 @@ inline u16 BST(u8 rd, u8 B) {
     return 0xFA00 | ((rd & 0x1F) << 4) | (B & 0x7);
 }
 
-inline u16 SBRC(u8 rd, u8 B) {
+static inline u16 SBRC(u8 rd, u8 B) {
     // registers 16-31, B 0-8
     if (rd >= (1 << 6)) {
         warning(0, "SBRC Rd value greater than 0x1F");
@@ -1080,7 +1080,7 @@ inline u16 SBRC(u8 rd, u8 B) {
     return 0xFE00 | ((rd & 0x1F) << 4) | (B & 0x7);
 }
 
-inline u16 SBRS(u8 rd, u8 B) {
+static inline u16 SBRS(u8 rd, u8 B) {
     // registers 16-31, B 0-8
     if (rd >= (1 << 6)) {
         warning(0, "SBRS Rd value greater than 0x1F");
@@ -1091,7 +1091,7 @@ inline u16 SBRS(u8 rd, u8 B) {
     return 0xFF00 | ((rd & 0x1F) << 4) | (B & 0x7);
 }
 
-inline u16 TST(u8 rd) {
+static inline u16 TST(u8 rd) {
     // registers 0-31
     if (rd >= (1 << 6)) {
         warning(0, "SBRS Rd value greater than 0x1F");
@@ -1369,7 +1369,7 @@ void saveAVR(const DynArray *instructions, char *outfile) {
     FILE *fp = fopen(of, "w");
     AVR *ins = instructions->data;
     for (u64 i = 0; i < instructions->count; ++i) {
-        fprintf(fp, "%4llx:\t", i*2);
+        fprintf(fp, "%4lx:\t", i*2);
         const AVR instruction = ins[i];
         if ((instruction & 0xFC0F) == 0x9000) {
             // LDS/STS - 32-bit instruction
@@ -1629,11 +1629,11 @@ void saveAVR(const DynArray *instructions, char *outfile) {
     fclose(fp);
 }
 
-inline u16 swapEndiannes16(u16 x) {
+static inline u16 swapEndiannes16(u16 x) {
     return ((x & 0xFF00) >> 8) | ((x & 0x00FF) << 8);
 }
 
-inline u32 swapEndiannes32(u32 x) {
+static inline u32 swapEndiannes32(u32 x) {
     return (swapEndiannes16((x & 0xFFFF0000) >> 16) << 16) | swapEndiannes16(x & 0x0000FFFF);
 }
 

@@ -10,15 +10,15 @@ static const u64 BITSET_SIZE = 8LL;
 typedef u64 Bitset[8]; // cl is stupid
 
 // NOTE(mdizdar): for all of these we're hoping the compiler will notice the division and modulo operations can be rewritten as bitshifts
-inline bool Bitset_isSet(Bitset bitset, u64 bit) {
+static inline bool Bitset_isSet(Bitset bitset, u64 bit) {
     return !!(bitset[bit/sizeof(*bitset)] & (1LL << (bit % sizeof(*bitset))));
 }
 
-inline void Bitset_set(Bitset bitset, u64 bit) {
+static inline void Bitset_set(Bitset bitset, u64 bit) {
     bitset[bit/sizeof(*bitset)] |= (1LL << (bit % sizeof(*bitset)));
 }
 
-inline void Bitset_clear(Bitset bitset, u64 bit) {
+static inline void Bitset_clear(Bitset bitset, u64 bit) {
     bitset[bit/sizeof(*bitset)] &= ~(1LL << (bit % sizeof(*bitset)));
 }
 
@@ -52,7 +52,7 @@ void *DynArray_at(DynArray *array, u64 index) {
     return (void *)((u8 *)array->data + index*array->element_size);
 }
 
-inline void DynArray_construct(DynArray *array, u64 element_size) {
+static inline void DynArray_construct(DynArray *array, u64 element_size) {
     array->element_size = element_size;
     array->capacity = 0;
     array->count = 0;
@@ -186,7 +186,7 @@ void Type_print(Type *type, u64 indent) {
     if (Bitset_isSet(type->is_volatile, 0)) printf("volatile ");
     if (Bitset_isSet(type->is_restrict, 0)) printf("restrict ");
     if (type->is_struct) {
-        printf("struct { [%llu] \n", type->struct_type->members.count);
+        printf("struct { [%lu] \n", type->struct_type->members.count);
         for (u64 i = 0; i < type->struct_type->members.count; ++i) {
             Type_print(((Declaration*)type->struct_type->members.data)[i].type, indent+2);
             

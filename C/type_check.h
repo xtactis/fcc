@@ -298,7 +298,7 @@ void type_check_params(Node *AST, Declaration *params, u64 param_count) {
         }
         type_check(AST, NULL);
         if (!types_are_equal_or_coercible(params[0].type, type_of(AST))) {
-            error(AST->token->line, "type of parameter %llu doesn't match expected type", param_count);
+            error(AST->token->line, "type of parameter %lu doesn't match expected type", param_count);
         }
         return;
     }
@@ -308,7 +308,7 @@ void type_check_params(Node *AST, Declaration *params, u64 param_count) {
     // NOTE(mdizdar): return_type can be NULL because it doesn't matter here
     type_check(AST->right, NULL);
     if (!types_are_equal_or_coercible(params[--param_count].type, type_of(AST->right))) {
-        error(AST->right->token->line, "type of parameter %llu doesn't match expected type", param_count);
+        error(AST->right->token->line, "type of parameter %lu doesn't match expected type", param_count);
     }
     type_check_params(AST->left, params, param_count);
 }
@@ -909,7 +909,7 @@ x->basic_type  = y;
             break;
         }
         default: {
-            //warning(AST->token->line, "idk what %llu is", AST->token->type);
+            //warning(AST->token->line, "idk what %lu is", AST->token->type);
             internal_error;
         }
     }

@@ -23,7 +23,7 @@ _Noreturn void error(u64 lineno, const char* fmt, ...) {
     
     fputs(RED, stderr);
     if (lineno > 0) {
-        fprintf(stderr, "[Line %llu] ERROR ", lineno);
+        fprintf(stderr, "[Line %lu] ERROR ", lineno);
     }
     vfprintf(stderr, fmt, args);
     fputs(RESET "\n", stderr);
@@ -34,7 +34,7 @@ _Noreturn void error(u64 lineno, const char* fmt, ...) {
 
 _Noreturn void internal_error(const char * filename, u64 line_number) {
     fputs(RED, stderr);
-    fprintf(stderr, "Internal compiler error at %s:%llu", filename, line_number);
+    fprintf(stderr, "Internal compiler error at %s:%lu", filename, line_number);
     fputs(RESET "\n", stderr);
     exit(1);
 }
@@ -45,7 +45,7 @@ void warning(u64 lineno, const char* fmt, ...) {
     
     fputs(YELLOW, stderr);
     if (lineno > 0) {
-        fprintf(stderr, "[Line %llu] WARNING ", lineno);
+        fprintf(stderr, "[Line %lu] WARNING ", lineno);
     }
     vfprintf(stderr, fmt, args);
     fputs(RESET "\n", stderr);

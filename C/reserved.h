@@ -7,7 +7,7 @@ const char * const KEYWORDS[] = {
     "if", "while", "do", "for", "switch", "case",
     "break", "continue", "else", "struct", "typedef", 
     "union", "enum", "return", "goto", "default",
-    "sizeof", "extern", "inline", "restrict", "_Alignas",
+    "sizeof", "extern", "static inline", "restrict", "_Alignas",
     "_Alignof", "_Atomic", "_Bool", "_Complex",
     "_Decimal128", "_Decimal32", "_Decimal64",
     "_Generic", "_Imaginary", "_Noreturn",

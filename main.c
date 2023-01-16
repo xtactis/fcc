@@ -53,7 +53,7 @@ void saveAST_labels(Node *AST, const Scope *current_scope, FILE *fp, u64 id) {
     if (AST->token->type != TOKEN_NEXT && AST->token->type != TOKEN_DECLARATION) {
         // NOTE(mdizdar): this is here so it doesn't generate unnecessary nodes
         char s[100];
-        fprintf(fp, "%llu[label=\"%s\"]\n", id, Token_toStr(s, *AST->token));
+        fprintf(fp, "%lu[label=\"%s\"]\n", id, Token_toStr(s, *AST->token));
     }
     if (AST->token->type == '?' || AST->token->type == TOKEN_FOR || AST->token->type == TOKEN_FOR_COND || AST->token->type == TOKEN_IF || AST->token->type == TOKEN_WHILE || AST->token->type == TOKEN_DO) {
         saveAST_labels(AST->cond, current_scope, fp, id+1024);
@@ -64,7 +64,7 @@ void saveAST_labels(Node *AST, const Scope *current_scope, FILE *fp, u64 id) {
         assert(entry != NULL);
         if (entry->type->is_function) {
             char s[100];
-            fprintf(fp, "%llu[label=\"%s\"]\n", id, Token_toStr(s, *AST->token));
+            fprintf(fp, "%lu[label=\"%s\"]\n", id, Token_toStr(s, *AST->token));
             saveAST_labels(entry->type->function_type->block, current_scope, fp, 2*id+1);
         }
     } else {
@@ -79,7 +79,7 @@ void saveAST_edges(Node *AST, const Scope *current_scope, FILE *fp, u64 id, u64 
         current_scope = AST->scope;
     }
     if (AST->token->type == '?' || AST->token->type == TOKEN_FOR || AST->token->type == TOKEN_FOR_COND || AST->token->type == TOKEN_IF || AST->token->type == TOKEN_WHILE || AST->token->type == TOKEN_DO) {
-        fprintf(fp, "%llu->%llu\n", prev, id);
+        fprintf(fp, "%lu->%lu\n", prev, id);
         saveAST_edges(AST->left, current_scope, fp, 2*id+1, id);
         saveAST_edges(AST->cond, current_scope, fp, id+1024, id);
         saveAST_edges(AST->right, current_scope, fp, 2*id+2, id);
@@ -90,11 +90,11 @@ void saveAST_edges(Node *AST, const Scope *current_scope, FILE *fp, u64 id, u64 
         SymbolTableEntry *entry = AST->token->entry;
         assert(entry != NULL);
         if (entry->type->is_function) {
-            fprintf(fp, "%llu->%llu\n", prev, id);
+            fprintf(fp, "%lu->%lu\n", prev, id);
             saveAST_edges(entry->type->function_type->block, current_scope, fp, 2*id+1, id);
         }
     } else {
-        fprintf(fp, "%llu->%llu\n", prev, id);
+        fprintf(fp, "%lu->%lu\n", prev, id);
         saveAST_edges(AST->left, current_scope, fp, 2*id+1, id);
         saveAST_edges(AST->right, current_scope, fp, 2*id+2, id);
     }
@@ -124,7 +124,7 @@ void saveCFG(DynArray *ir, char *filename) {
     
     IR *irs = (IR *)(ir->data);
     for (u64 i = 0; i < ir->count; ++i) {
-        fprintf(fp, "%llu[label=\"", irs[i].block->id);
+        fprintf(fp, "%lu[label=\"", irs[i].block->id);
         u64 end = irs[i].block->end;
         for (; i <= end; ++i) {
             IR_saveOne(&irs[i], fp, "\\l");
@@ -134,8 +134,8 @@ void saveCFG(DynArray *ir, char *filename) {
     }
     
     for (u64 i = 0; i < ir->count; ++i) {
-        if (irs[i].block->next) fprintf(fp, "%llu->%llu\n", irs[i].block->id, irs[i].block->next->id);
-        if (irs[i].block->jump) fprintf(fp, "%llu->%llu\n", irs[i].block->id, irs[i].block->jump->id);
+        if (irs[i].block->next) fprintf(fp, "%lu->%lu\n", irs[i].block->id, irs[i].block->next->id);
+        if (irs[i].block->jump) fprintf(fp, "%lu->%lu\n", irs[i].block->id, irs[i].block->jump->id);
         u64 end = irs[i].block->end;
         for (; i < end; ++i);
     }
@@ -151,7 +151,9 @@ String read_file(char *filename) {
     file_data.count = ftell(fp);
     rewind(fp);
     file_data.data = malloc((file_data.count+1) * sizeof(char));
-    fread(file_data.data, sizeof(char), file_data.count, fp);
+    if (!fread(file_data.data, sizeof(char), file_data.count, fp)) {
+        error(0, "Couldn't read source file or file is empty.");
+    }
     fclose(fp);
     file_data.data[file_data.count] = 0;
     return file_data;
@@ -311,21 +313,21 @@ puts(CYAN "**TOKENS**" RESET);
     puts(CYAN "\n***SYMBOL TABLE***" RESET);
     
     for (u64 i = 0; i < parser.symbol_table->scope->capacity; ++i) {
-        printf("%llu: ", i);
+        printf("%lu: ", i);
         if (parser.symbol_table->scope->hash_table[i].name.count == 0) { printf("\n"); continue; }
         SymbolTableEntry *entry = &parser.symbol_table->scope->hash_table[i];
         if (entry->type) {
-            printf("{ name: %s; type: %d; def_line: %llu }\n", entry->name.data, entry->type->basic_type, entry->definition_line);
+            printf("{ name: %s; type: %d; def_line: %lu }\n", entry->name.data, entry->type->basic_type, entry->definition_line);
         } else {
-            printf("{ name: %s; type: UNKNOWN; def_line: %llu }\n", entry->name.data, entry->definition_line);
+            printf("{ name: %s; type: UNKNOWN; def_line: %lu }\n", entry->name.data, entry->definition_line);
         }
     }
     
     puts(CYAN "\n***STATS***" RESET);
     
-    printf("Lines of code: %llu\n", parser.lexer.cur_line);
+    printf("Lines of code: %lu\n", parser.lexer.cur_line);
     printf("Time: ~%lf seconds\n", (double)(end-begin) / CLOCKS_PER_SEC);
-    printf("Memory: %llu bytes (%.2lf MB)\n", parser.arena->total_capacity, 1.*parser.arena->total_capacity/1024/1024);
+    printf("Memory: %lu bytes (%.2lf MB)\n", parser.arena->total_capacity, 1.*parser.arena->total_capacity/1024/1024);
     */
     return 0;
 }

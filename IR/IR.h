@@ -115,7 +115,7 @@ const char *IRVariable_toStr(IRVariable * const var, char *s) {
             break;
         }
         case OT_INT64: {
-            sprintf(s, "%llu", var->integer_value);
+            sprintf(s, "%lu", var->integer_value);
             break;
         }
         case OT_DOUBLE: {
@@ -127,23 +127,23 @@ const char *IRVariable_toStr(IRVariable * const var, char *s) {
             break;
         }
         case OT_TEMPORARY: {
-            sprintf(s, "t%llu", var->temporary_id);
+            sprintf(s, "t%lu", var->temporary_id);
             break;
         }
         case OT_DEREF_TEMPORARY: {
-            sprintf(s, "*t%llu", var->temporary_id);
+            sprintf(s, "*t%lu", var->temporary_id);
             break;
         }
         case OT_LABEL: {
             if (var->named) {
                 s = var->label_name.data;
             } else {
-                sprintf(s, "L%llu", var->label_index);
+                sprintf(s, "L%lu", var->label_index);
             }
             break;
         }
         case OT_SIZE: {
-            sprintf(s, "(%llu)", var->integer_value);
+            sprintf(s, "(%lu)", var->integer_value);
             break;
         }
         default: {
@@ -181,17 +181,17 @@ break;                                                         \
         }
         case OP_PUSH: {
             if (ir->operands[0].type != OT_NONE) {
-                fprintf(fp, "push %s (%llu)%s", IRVariable_toStr(&ir->operands[0], s), ir->operands[1].integer_value, newline);
+                fprintf(fp, "push %s (%lu)%s", IRVariable_toStr(&ir->operands[0], s), ir->operands[1].integer_value, newline);
             } else {
-                fprintf(fp, "push (%llu)%s", ir->operands[1].integer_value, newline);
+                fprintf(fp, "push (%lu)%s", ir->operands[1].integer_value, newline);
             }
             break;
         }
         case OP_POP: {
             if (ir->operands[0].type != OT_NONE) {
-                fprintf(fp, "pop %s (%llu)%s", IRVariable_toStr(&ir->operands[0], s), ir->operands[1].integer_value, newline);
+                fprintf(fp, "pop %s (%lu)%s", IRVariable_toStr(&ir->operands[0], s), ir->operands[1].integer_value, newline);
             } else {
-                fprintf(fp, "pop (%llu)%s", ir->operands[1].integer_value, newline);
+                fprintf(fp, "pop (%lu)%s", ir->operands[1].integer_value, newline);
             }
             break;
         }
@@ -230,7 +230,7 @@ break;                                                         \
             break;
         }
         case '~': case '!': ONE_OPERAND_OP("%c", ir->instruction);
-        case '=':           ONE_OPERAND_OP("");
+        case '=':           ONE_OPERAND_OP(" ");
         case OP_PLUS:       ONE_OPERAND_OP("+");
         case OP_MINUS:      ONE_OPERAND_OP("-");
         case OP_DEREF:      ONE_OPERAND_OP("*");

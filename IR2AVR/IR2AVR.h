@@ -345,7 +345,7 @@ DynArray_add(AVR_instructions, cmd); }
     //*
     for (u64 j = 0; j < ir->count; ++j) {
         IRVariable* live = irs[j].liveVars.data;
-        printf("%llu:\t", j);
+        printf("%lu:\t", j);
         for (u64 i = 0; i < irs[j].liveVars.count; ++i) {
             char s[40];
             printf("%s, ", IRVariable_toStr(&live[i], s));
@@ -353,7 +353,7 @@ DynArray_add(AVR_instructions, cmd); }
         printf("\n");
     }
     for (u64 i = 0; i < reg_number; ++i) {
-        printf("t%llu -> r%u\n", i, real_reg[i]);
+        printf("t%lu -> r%u\n", i, real_reg[i]);
     }
     //*/
     
