@@ -1376,7 +1376,7 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     
     Parser_eat(parser, token, TOKEN_IDENT);
     
-    SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, &token->name);
+    SymbolTableEntry *entry = SymbolTable_shallow_find(parser->symbol_table, &token->name);
     if (entry != NULL) Parser_duplicateError(parser, entry);
     
     u64 fline = parser->lexer.cur_line;

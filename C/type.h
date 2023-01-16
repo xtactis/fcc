@@ -179,6 +179,34 @@ struct bool_Type {
     bool is_function;
 };
 
+char *Type_toStr(char *s, const Type *type, bool in_line, u64 indent) {
+    if (type->is_union || type->is_struct || type->is_typedef || type->is_array || type->is_function) {
+        return "<weird type>";
+    }
+    switch(type->basic_type) {
+        case BASIC_ERROR: sprintf(s, "ERROR type "); break;
+        case BASIC_VOID:  sprintf(s, "void "); break;
+        case BASIC_CHAR:  sprintf(s, "char "); break;
+        
+        case BASIC_SCHAR:  sprintf(s, "signed char "); break;
+        case BASIC_SSHORT: sprintf(s, "short int "); break;
+        case BASIC_SINT:   sprintf(s, "int "); break;
+        case BASIC_SLONG:  sprintf(s, "long int "); break;
+        case BASIC_SLLONG: sprintf(s, "long long int "); break;
+        
+        case BASIC_FLOAT:   sprintf(s, "float "); break;
+        case BASIC_DOUBLE:  sprintf(s, "double "); break;
+        case BASIC_LDOUBLE: sprintf(s, "long double "); break;
+        
+        case BASIC_UCHAR:  sprintf(s, "unsigned char "); break;
+        case BASIC_USHORT: sprintf(s, "unsigned short int "); break;
+        case BASIC_UINT:   sprintf(s, "unsigned int "); break;
+        case BASIC_ULONG:  sprintf(s, "unsigned long int "); break;
+        case BASIC_ULLONG: sprintf(s, "unsigned long long int "); break;
+    }
+    return s;
+}
+
 void Type_print(Type *type, u64 indent) {
     for (u64 i = 0; i < indent; ++i) putchar(' ');
     if (type->is_static) printf("static ");

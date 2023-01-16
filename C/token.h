@@ -306,7 +306,7 @@ typedef struct _Node {
     struct _Node *cond; // this is only used for ternary
     
     const Scope *scope; // NOTE(mdizdar): usually NULL, except on nodes that change the scope
-    Type *type;
+    Type *type; // filled in by type checker
 } Node;
 
 #endif // TOKEN_H

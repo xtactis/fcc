@@ -12,6 +12,7 @@
 // NOTE(mdizdar): forward declarations because of cyclic imports
 struct _Type;
 typedef struct _Type Type;
+char *Type_toStr(char *, const Type *, bool, u64);
 
 static const double resize_threshold = 0.7;
 static const u64 NEW_SCOPE_CAPACITY = 10;
@@ -23,6 +24,13 @@ typedef struct SymbolTableEntry {
     u64 temporary_id; // NOTE(mdizdar): this is used in IR generation to keep track
     bool is_typename;
 } SymbolTableEntry;
+
+char *SymbolTableEntry_toStr(char *s, const SymbolTableEntry *entry) {
+    char ts[256];
+    sprintf(s, "name: %s; type: %s; line: %llu; typename?: %u", 
+            entry->name.data, Type_toStr(ts, entry->type, false, 0), entry->definition_line, entry->is_typename);
+    return s;
+}
 
 typedef struct Scope {
     struct Scope *previous;
@@ -123,7 +131,7 @@ void SymbolTable_add(SymbolTable *st, const String *name, Type *type, u64 defini
     }
 }
 
-SymbolTableEntry *Scope_find(const Scope *scope, const String *name) {
+SymbolTableEntry *Scope_shallow_find(const Scope *scope, const String *name) {
     u64 hash = Scope_hash(scope, name);
     
     u64 travel = 0;
@@ -136,7 +144,17 @@ SymbolTableEntry *Scope_find(const Scope *scope, const String *name) {
         hash = (hash+1)%scope->capacity;
         ++travel;
     }
+
+    return NULL;
+}
+
+SymbolTableEntry *Scope_find(const Scope *scope, const String *name) {
+    SymbolTableEntry *maybe_found = Scope_shallow_find(scope, name);
     
+    if (maybe_found != NULL) {
+        return maybe_found;
+    }
+
     if (scope->previous != NULL) {
         return Scope_find(scope->previous, name);
     }
@@ -148,9 +166,18 @@ SymbolTableEntry *SymbolTable_find(const SymbolTable *st, const String *name) {
     return Scope_find(st->scope, name);
 }
 
+SymbolTableEntry *SymbolTable_shallow_find(const SymbolTable *st, const String *name) {
+    return Scope_shallow_find(st->scope, name);
+}
+
 SymbolTableEntry *SymbolTable_find_cstr(SymbolTable *st, char *name) {
     const String sname = (String){.data = name, .count = strlen(name)};
     return SymbolTable_find(st, &sname);
+}
+
+SymbolTableEntry *SymbolTable_shallow_find_cstr(const SymbolTable *st, const String *name) {
+    const String sname = (String){.data = name, .count = strlen(name)};
+    return Scope_shallow_find(st->scope, &sname);
 }
 
 #endif //SYMBOL_TABLE_H
