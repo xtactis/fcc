@@ -155,7 +155,7 @@ char *Token_toStr_long(char *s, Token t) {
                 break;
             }
             case TOKEN_LLONG_LITERAL: {
-                sprintf(s, "Token: { type: long long literal (%d); value: %llu }", t.type, t.integer_value);
+                sprintf(s, "Token: { type: long long literal (%d); value: %lu }", t.type, t.integer_value);
                 break;
             }
             case TOKEN_FLOAT_LITERAL: {
@@ -220,7 +220,7 @@ char *Token_toStr(char *s, Token t) {
                 break;
             }
             case TOKEN_LLONG_LITERAL: {
-                sprintf(s, "%lluLL (%d)", t.integer_value, t.type);
+                sprintf(s, "%luLL (%d)", t.integer_value, t.type);
                 break;
             }
             case TOKEN_FLOAT_LITERAL: {
@@ -282,7 +282,7 @@ char *Token_toStr(char *s, Token t) {
             case TOKEN_DECLARATION: {
                 SymbolTableEntry *entry = t.entry;
                 assert(entry);
-                sprintf(s, "function %s (%d)", entry->name.data, t.type);
+                sprintf(s, "decl %s (%d)", entry->name.data, t.type);
                 break;
             }
             case TOKEN_ERROR: {

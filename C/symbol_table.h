@@ -27,7 +27,7 @@ typedef struct SymbolTableEntry {
 
 char *SymbolTableEntry_toStr(char *s, const SymbolTableEntry *entry) {
     char ts[256];
-    sprintf(s, "name: %s; type: %s; line: %llu; typename?: %u", 
+    sprintf(s, "name: %s; type: %s; line: %lu; typename?: %u", 
             entry->name.data, Type_toStr(ts, entry->type, false, 0), entry->definition_line, entry->is_typename);
     return s;
 }

@@ -371,6 +371,9 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                 }
                 break;
             }
+            default: {
+                printf("Internal compiler warning: unhandled lexer state %d\n", state);
+            }
         }
     }
     return Lexer_returnToken(lexer, lexer->code.count, t);
@@ -1220,6 +1223,9 @@ inline Type *Parser_cvp(Parser *parser, Type *type) {
                     Bitset_set(new_type->is_volatile, new_type->pointer_count);
                     break;
                 }
+                default: {
+                    error(parser->lexer.cur_line, "Internal compiler error: token type isn't const, volatile nor restrict"); 
+                }
                 // TODO(mdizdar): case TOKEN_RESTRICT: Bitset_set(new_type->is_restrict, new_type->pointer_count); break;
             }
             
@@ -1343,6 +1349,9 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
             }
             case TOKEN_AUTO: {
                 warning(parser->lexer.cur_line, "auto does nothing, it never has done anything and it never will.");
+            }
+            default: {
+                error(parser->lexer.cur_line, "Expected a type name, got %s", token->name.data);
             }
         }
         token = Lexer_peekNextToken(&parser->lexer);

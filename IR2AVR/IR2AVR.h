@@ -4,6 +4,7 @@
 #include "../utils/common.h"
 #include "../IR/IR.h"
 #include "../AVR/AVR.h"
+#include "../C/type.h"
 
 static u64 basic_block_index = 0;
 
@@ -100,19 +101,17 @@ BasicBlock *findBasicBlock(DynArray *ir, u64 index, DynArray *labels, IRVariable
 void findLabels(DynArray *ir, DynArray *labels) {
     IR *irs = (IR *)(ir->data);
     for (u64 i = 0; i < ir->count; ++i) {
-        switch (irs[i].instruction) {
-            case OP_LABEL: {
-                Label *newlabel = malloc(sizeof(Label));
-                newlabel->named = irs[i].operands[0].named;
-                if (irs[i].operands[0].named) {
-                    newlabel->label_name = irs[i].operands[0].label_name;
-                } else {
-                    newlabel->label_index = irs[i].operands[0].label_index;
-                }
-                newlabel->ir_index = i;
-                DynArray_add(labels, newlabel);
-                break;
+        if (irs[i].instruction == OP_LABEL) {
+            Label *newlabel = malloc(sizeof(Label));
+            newlabel->named = irs[i].operands[0].named;
+            if (irs[i].operands[0].named) {
+                newlabel->label_name = irs[i].operands[0].label_name;
+            } else {
+                newlabel->label_index = irs[i].operands[0].label_index;
             }
+            newlabel->ir_index = i;
+            DynArray_add(labels, newlabel);
+            break;
         }
     }
 }
@@ -345,7 +344,7 @@ DynArray_add(AVR_instructions, cmd); }
     //*
     for (u64 j = 0; j < ir->count; ++j) {
         IRVariable* live = irs[j].liveVars.data;
-        printf("%llu:\t", j);
+        printf("%lu:\t", j);
         for (u64 i = 0; i < irs[j].liveVars.count; ++i) {
             char s[40];
             printf("%s, ", IRVariable_toStr(&live[i], s));
@@ -353,7 +352,7 @@ DynArray_add(AVR_instructions, cmd); }
         printf("\n");
     }
     for (u64 i = 0; i < reg_number; ++i) {
-        printf("t%llu -> r%u\n", i, real_reg[i]);
+        printf("t%lu -> r%u\n", i, real_reg[i]);
     }
     //*/
     

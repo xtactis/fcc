@@ -4,6 +4,7 @@
 #define TYPE_H
 
 #include "arena.h"
+#include "../utils/dyn_array.h"
 
 // NOTE(mdizdar): who's gonna need more than 8*64 pointers for real tho
 static const u64 BITSET_SIZE = 8LL;
@@ -22,41 +23,6 @@ inline void Bitset_clear(Bitset bitset, u64 bit) {
     bitset[bit/sizeof(*bitset)] &= ~(1LL << (bit % sizeof(*bitset)));
 }
 
-typedef struct {
-    void *data;
-    u64 element_size;
-    u64 count;
-    u64 capacity;
-} DynArray;
-
-DynArray *DynArray_add(DynArray *array, void *element) {
-    if (!array->capacity) {
-        array->data = malloc(array->element_size * 2);
-        memcpy(array->data, element, array->element_size);
-        array->count = 1;
-        array->capacity = 2;
-        return array;
-    }
-    if (array->capacity == array->count) {
-        array->capacity += array->capacity;
-        array->data = realloc(array->data, array->capacity * array->element_size);
-    }
-    memcpy((u8 *)array->data + array->count*array->element_size, element, array->element_size);
-    ++array->count;
-    return array;
-}
-
-// NOTE(mdizdar): this doesn't work for some reason, figure it out bitch
-void *DynArray_at(DynArray *array, u64 index) {
-    assert(index < array->count);
-    return (void *)((u8 *)array->data + index*array->element_size);
-}
-
-inline void DynArray_construct(DynArray *array, u64 element_size) {
-    array->element_size = element_size;
-    array->capacity = 0;
-    array->count = 0;
-}
 
 struct _Type;
 struct u64_Type;

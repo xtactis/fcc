@@ -2,6 +2,7 @@
 #define AVR_H
 
 #include "../utils/common.h"
+#include "../utils/dyn_array.h"
 
 typedef u16 AVR;
 
@@ -867,7 +868,7 @@ inline u16 LDI(u8 rd, u8 K) {
 
 inline u16 BRBC(u8 K, u8 B) {
     // K 0-127 (7 bit signed int, treated as uint), B 0-8
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRBC K value greater than 0x7F");
     }
     if (B >= (1 << 4)) {
@@ -878,7 +879,7 @@ inline u16 BRBC(u8 K, u8 B) {
 
 inline u16 BRBS(u8 K, u8 B) {
     // K 0-127 (7 bit signed int, treated as uint), B 0-8
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRBS K value greater than 0x7F");
     }
     if (B >= (1 << 4)) {
@@ -889,7 +890,7 @@ inline u16 BRBS(u8 K, u8 B) {
 
 inline u16 BRCC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRCC K value greater than 0x7F");
     }
     return 0xF400 | ((K & 0x7F) << 3);
@@ -897,7 +898,7 @@ inline u16 BRCC(u8 K) {
 
 inline u16 BRCS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRCS K value greater than 0x7F");
     }
     return 0xF000 | ((K & 0x7F) << 3);
@@ -905,7 +906,7 @@ inline u16 BRCS(u8 K) {
 
 inline u16 BREQ(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BREQ K value greater than 0x7F");
     }
     return 0xF001 | ((K & 0x7F) << 3);
@@ -913,7 +914,7 @@ inline u16 BREQ(u8 K) {
 
 inline u16 BRGE(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRGE K value greater than 0x7F");
     }
     return 0xF404 | ((K & 0x7F) << 3);
@@ -921,7 +922,7 @@ inline u16 BRGE(u8 K) {
 
 inline u16 BRHC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRHC K value greater than 0x7F");
     }
     return 0xF405 | ((K & 0x7F) << 3);
@@ -929,7 +930,7 @@ inline u16 BRHC(u8 K) {
 
 inline u16 BRHS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRHS K value greater than 0x7F");
     }
     return 0xF005 | ((K & 0x7F) << 3);
@@ -937,7 +938,7 @@ inline u16 BRHS(u8 K) {
 
 inline u16 BRID(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRID K value greater than 0x7F");
     }
     return 0xF407 | ((K & 0x7F) << 3);
@@ -945,7 +946,7 @@ inline u16 BRID(u8 K) {
 
 inline u16 BRIE(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRIE K value greater than 0x7F");
     }
     return 0xF007 | ((K & 0x7F) << 3);
@@ -953,7 +954,7 @@ inline u16 BRIE(u8 K) {
 
 inline u16 BRLO(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRLO K value greater than 0x7F");
     }
     return 0xF000 | ((K & 0x7F) << 3);
@@ -961,7 +962,7 @@ inline u16 BRLO(u8 K) {
 
 inline u16 BRLT(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRLT K value greater than 0x7F");
     }
     return 0xF004 | ((K & 0x7F) << 3);
@@ -969,7 +970,7 @@ inline u16 BRLT(u8 K) {
 
 inline u16 BRMI(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRMI K value greater than 0x7F");
     }
     return 0xF002 | ((K & 0x7F) << 3);
@@ -977,7 +978,7 @@ inline u16 BRMI(u8 K) {
 
 inline u16 BRNE(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRNE K value greater than 0x7F");
     }
     return 0xF401 | ((K & 0x7F) << 3);
@@ -985,7 +986,7 @@ inline u16 BRNE(u8 K) {
 
 inline u16 BRPL(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRPL K value greater than 0x7F");
     }
     return 0xF402 | ((K & 0x7F) << 3);
@@ -993,7 +994,7 @@ inline u16 BRPL(u8 K) {
 
 inline u16 BRSH(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRSH K value greater than 0x7F");
     }
     return 0xF400 | ((K & 0x7F) << 3);
@@ -1001,7 +1002,7 @@ inline u16 BRSH(u8 K) {
 
 inline u16 BRTC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRTC K value greater than 0x7F");
     }
     return 0xF406 | ((K & 0x7F) << 3);
@@ -1009,7 +1010,7 @@ inline u16 BRTC(u8 K) {
 
 inline u16 BRTS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRTS K value greater than 0x7F");
     }
     return 0xF006 | ((K & 0x7F) << 3);
@@ -1017,7 +1018,7 @@ inline u16 BRTS(u8 K) {
 
 inline u16 BRVC(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRVC K value greater than 0x7F");
     }
     return 0xF403 | ((K & 0x7F) << 3);
@@ -1025,7 +1026,7 @@ inline u16 BRVC(u8 K) {
 
 inline u16 BRVS(u8 K) {
     // K 0-127 (7 bit signed int, treated as uint)
-    if (K >= (1 << 8)) {
+    if (K >= (1 << 7)) {
         warning(0, "BRVS K value greater than 0x7F");
     }
     return 0xF003 | ((K & 0x7F) << 3);
@@ -1033,7 +1034,7 @@ inline u16 BRVS(u8 K) {
 
 inline u16 BSET(u8 S) {
     // S 0-7 
-    if (S >= (1 << 8)) {
+    if (S >= (1 << 7)) {
         warning(0, "BSET S value greater than 0x7");
     }
     return 0x9408 | ((S & 0x7) << 4);
@@ -1041,7 +1042,7 @@ inline u16 BSET(u8 S) {
 
 inline u16 BCLR(u8 S) {
     // S 0-7 
-    if (S >= (1 << 8)) {
+    if (S >= (1 << 7)) {
         warning(0, "BCLR S value greater than 0x7");
     }
     return 0x9488 | ((S & 0x7) << 4);
@@ -1369,7 +1370,7 @@ void saveAVR(const DynArray *instructions, char *outfile) {
     FILE *fp = fopen(of, "w");
     AVR *ins = instructions->data;
     for (u64 i = 0; i < instructions->count; ++i) {
-        fprintf(fp, "%4llx:\t", i*2);
+        fprintf(fp, "%4lx:\t", i*2);
         const AVR instruction = ins[i];
         if ((instruction & 0xFC0F) == 0x9000) {
             // LDS/STS - 32-bit instruction
@@ -1638,7 +1639,7 @@ inline u32 swapEndiannes32(u32 x) {
 }
 
 void saveIntelHex_helper(const DynArray *instructions, FILE *fp) {
-    u8 checksum;
+    u8 checksum = 0;
     AVR *ins = instructions->data;
     for (u64 i = 0; i < instructions->count; ++i) {
         if (i % 8 == 0) {
