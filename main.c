@@ -155,14 +155,17 @@ String read_file(char *filename) {
     file_data.count = ftell(fp);
     rewind(fp);
     file_data.data = malloc((file_data.count+1) * sizeof(char));
-    fread(file_data.data, sizeof(char), file_data.count, fp);
+    size_t actually_read = fread(file_data.data, sizeof(char), file_data.count, fp);
+    if (actually_read != file_data.count) {
+        error(-1, "Error reading file.");
+    }
     fclose(fp);
     file_data.data[file_data.count] = 0;
     return file_data;
 }
 
 void parse_args(int argc, char **argv) {
-    for (u64 i = 1; i < argc; ++i) {
+    for (s64 i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-o") == 0) {
             ++i;
             outfile = argv[i];
@@ -198,7 +201,6 @@ int main(int argc, char **argv) {
         .symbol_table = &st,
         .arena = Arena_init(4096),
         .type_arena = Arena_init(4096)
-#pragma warning(suppress: 4221) 
     };
     
     Node *AST = Parser_parse(&parser);

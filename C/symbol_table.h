@@ -175,7 +175,7 @@ SymbolTableEntry *SymbolTable_find_cstr(SymbolTable *st, char *name) {
     return SymbolTable_find(st, &sname);
 }
 
-SymbolTableEntry *SymbolTable_shallow_find_cstr(const SymbolTable *st, const String *name) {
+SymbolTableEntry *SymbolTable_shallow_find_cstr(const SymbolTable *st, char *name) {
     const String sname = (String){.data = name, .count = strlen(name)};
     return Scope_shallow_find(st->scope, &sname);
 }

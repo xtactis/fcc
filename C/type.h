@@ -146,29 +146,32 @@ struct bool_Type {
 };
 
 char *Type_toStr(char *s, const Type *type, bool in_line, u64 indent) {
+    (void)in_line;
+    (void)indent;
     if (type->is_union || type->is_struct || type->is_typedef || type->is_array || type->is_function) {
+        // TODO(mdizdar): finish this
         return "<weird type>";
     }
     switch(type->basic_type) {
-        case BASIC_ERROR: sprintf(s, "ERROR type "); break;
-        case BASIC_VOID:  sprintf(s, "void "); break;
-        case BASIC_CHAR:  sprintf(s, "char "); break;
+        case BASIC_ERROR: sprintf(s, "ERROR type"); break;
+        case BASIC_VOID:  sprintf(s, "void"); break;
+        case BASIC_CHAR:  sprintf(s, "char"); break;
         
-        case BASIC_SCHAR:  sprintf(s, "signed char "); break;
-        case BASIC_SSHORT: sprintf(s, "short int "); break;
-        case BASIC_SINT:   sprintf(s, "int "); break;
-        case BASIC_SLONG:  sprintf(s, "long int "); break;
-        case BASIC_SLLONG: sprintf(s, "long long int "); break;
+        case BASIC_SCHAR:  sprintf(s, "signed char"); break;
+        case BASIC_SSHORT: sprintf(s, "short int"); break;
+        case BASIC_SINT:   sprintf(s, "int"); break;
+        case BASIC_SLONG:  sprintf(s, "long int"); break;
+        case BASIC_SLLONG: sprintf(s, "long long int"); break;
         
-        case BASIC_FLOAT:   sprintf(s, "float "); break;
-        case BASIC_DOUBLE:  sprintf(s, "double "); break;
-        case BASIC_LDOUBLE: sprintf(s, "long double "); break;
+        case BASIC_FLOAT:   sprintf(s, "float"); break;
+        case BASIC_DOUBLE:  sprintf(s, "double"); break;
+        case BASIC_LDOUBLE: sprintf(s, "long double"); break;
         
-        case BASIC_UCHAR:  sprintf(s, "unsigned char "); break;
-        case BASIC_USHORT: sprintf(s, "unsigned short int "); break;
-        case BASIC_UINT:   sprintf(s, "unsigned int "); break;
-        case BASIC_ULONG:  sprintf(s, "unsigned long int "); break;
-        case BASIC_ULLONG: sprintf(s, "unsigned long long int "); break;
+        case BASIC_UCHAR:  sprintf(s, "unsigned char"); break;
+        case BASIC_USHORT: sprintf(s, "unsigned short int"); break;
+        case BASIC_UINT:   sprintf(s, "unsigned int"); break;
+        case BASIC_ULONG:  sprintf(s, "unsigned long int"); break;
+        case BASIC_ULLONG: sprintf(s, "unsigned long long int"); break;
     }
     return s;
 }
@@ -180,7 +183,7 @@ void Type_print(Type *type, u64 indent) {
     if (Bitset_isSet(type->is_volatile, 0)) printf("volatile ");
     if (Bitset_isSet(type->is_restrict, 0)) printf("restrict ");
     if (type->is_struct) {
-        printf("struct { [%llu] \n", type->struct_type->members.count);
+        printf("struct { [%lu] \n", type->struct_type->members.count);
         for (u64 i = 0; i < type->struct_type->members.count; ++i) {
             Type_print(((Declaration*)type->struct_type->members.data)[i].type, indent+2);
             

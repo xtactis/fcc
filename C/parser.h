@@ -321,6 +321,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                     t->integer_value = lexer->code.data[lookahead-1];;
                     return Lexer_returnToken(lexer, lookahead+1, t);
                 }
+                break;
             }
             case STRING: {
                 if (escaped) {
@@ -1254,7 +1255,7 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     type->is_array = false;
     type->is_function = false;
     type->pointer_count = 0;
-    for (int i = 0; i < sizeof(type->is_const) / sizeof(*type->is_const); ++i) {
+    for (unsigned int i = 0; i < sizeof(type->is_const) / sizeof(*type->is_const); ++i) {
         type->is_const[i] = 0;
         type->is_volatile[i] = 0;
         type->is_restrict[i] = 0;
@@ -1349,6 +1350,7 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
             }
             case TOKEN_AUTO: {
                 warning(parser->lexer.cur_line, "auto does nothing, it never has done anything and it never will.");
+                break;
             }
             default: {
                 error(parser->lexer.cur_line, "Expected a type name, got %s", token->name.data);

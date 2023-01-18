@@ -197,7 +197,8 @@ bool types_are_equal_or_coercible(Type *t1, Type *t2) {
             Type *tmp = b1;
             b1 = b2;
             b2 = tmp;
-            p1 ^= p2 ^= p1 ^= p2;
+            p2 = p1;
+            p1 = true;
         }
         if (b2->is_struct || b2->is_union || b2->is_function) return false;
         return b2->basic_type != BASIC_FLOAT && b2->basic_type != BASIC_DOUBLE && b2->basic_type != BASIC_LDOUBLE;
