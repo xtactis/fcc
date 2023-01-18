@@ -450,7 +450,7 @@ x->basic_type  = y;
         }
         case '?': {
             type_check(AST->cond, return_type);
-            if (is_scalar(type_of(AST->cond))) {
+            if (!is_scalar(type_of(AST->cond))) {
                 error(AST->cond->token->line, "conditions should be of a scalar type");
             }
             type_check(AST->left, return_type);

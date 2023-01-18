@@ -7,18 +7,6 @@
 u64 temporary_index = 0;
 u64 label_index     = 0;
 
-typedef struct BasicBlock {
-    bool livenessDone;
-    
-    u64 id;
-    u64 begin;
-    u64 end;
-    struct BasicBlock *jump;
-    struct BasicBlock *next;
-    
-    DynArray in_blocks;
-} BasicBlock;
-
 typedef enum {
     // single character Operations will just be their ascii value
     OP_ERROR = 256,
@@ -91,8 +79,10 @@ typedef struct {
     uintptr_t entry;
 } IRVariable;
 
+struct BasicBlock;
+
 typedef struct {
-    BasicBlock *block;
+    struct BasicBlock *block;
     DynArray liveVars;
     
     IRVariable result;

@@ -3,6 +3,7 @@
 
 #include "printing.h"
 #include "types.h"
+#include "dyn_array.h"
 
 #ifndef _MSC_VER
 u64 max(u64 a, u64 b) {

@@ -237,6 +237,7 @@ int main(int argc, char **argv) {
     }
     if (!silent) puts(CYAN "***AST***" RESET);
     if (!silent) printAST(AST, 0, st.scope);
+    if (outfile) saveAST(AST, st.scope, outfile);
     
     if (!silent) puts(CYAN "****IR****" RESET);
     type_check(AST, NULL);
@@ -244,26 +245,26 @@ int main(int argc, char **argv) {
     context.in_loop = false;
     IR_generate(AST, &generated_IR, st.scope, &context);
     if (!silent) IR_print(generated_IR.data, generated_IR.count);
+
+
     
+    if (!silent) puts(CYAN "***AVR***" RESET);
     DynArray generated_AVR;
     generated_AVR.element_size = sizeof(AVR);
     generated_AVR.capacity = 0;
     generated_AVR.count = 0;
-    
-    if (!silent) puts(CYAN "***AVR***" RESET);
-    
+
     IR2AVR(&generated_IR, &generated_AVR, temporary_index);
-    if (!silent) printAVR(&generated_AVR);
+    //if (!silent) printAVR(&generated_AVR);
     
-    if (!silent) puts(CYAN "***HEX***" RESET);
-    if (!silent) printIntelHex(&generated_AVR);
+    //if (!silent) puts(CYAN "***HEX***" RESET);
+    //if (!silent) printIntelHex(&generated_AVR);
     
     if (outfile) {
-        saveAST(AST, st.scope, outfile);
         IR_save(&generated_IR, outfile);
         saveCFG(&generated_IR, outfile);
-        saveAVR(&generated_AVR, outfile);
-        saveIntelHex(&generated_AVR, outfile);
+//      saveAVR(&generated_AVR, outfile);
+//      saveIntelHex(&generated_AVR, outfile);
     }
     
     /*
