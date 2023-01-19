@@ -353,10 +353,22 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             
             IR_generate(AST->left, generated_IR, current_scope, context);
             
+            u64 jump_out_pos = -1;
+            if (AST->right) {
+                ir = malloc(sizeof(IR));
+                ir->instruction = OP_JUMP;
+                ir->operands[0].type = OT_LABEL;
+                ir->operands[0].named = false;
+                DynArray_add(generated_IR, ir);
+                jump_out_pos = generated_IR->count-1;
+            }
+
             ((IR *)generated_IR->data)[ifn_jump_pos].operands[1].label_index = add_label(generated_IR);
             
-            if (AST->right) {
+            if (AST->right) { // else
                 IR_generate(AST->right, generated_IR, current_scope, context);
+
+                ((IR *)DynArray_at(generated_IR, jump_out_pos))->operands[0].label_index = add_label(generated_IR);
             }
             break;
         }

@@ -33,8 +33,11 @@ BasicBlock *makeBasicBlock(DynArray *ir, u64 index, DynArray *labels) {
     bb->livenessDone = false;
     
     IR *irs = (IR *)(ir->data);
+    irs[index].block = bb;
     for (u64 i = index; i < ir->count; ++i) {
-        irs[i].block = bb;
+        if (irs[i].instruction != OP_LABEL) {
+            irs[i].block = bb;
+        }
         if (irs[i].instruction == OP_JUMP) {
             bb->end = i;
             bb->jump = findBasicBlock(ir, i+1, labels, &irs[i].operands[0]);
@@ -54,7 +57,6 @@ BasicBlock *makeBasicBlock(DynArray *ir, u64 index, DynArray *labels) {
             DynArray_add(&bb->jump->in_blocks, &bb);
             return bb;
         } else if (i != index && irs[i].instruction == OP_LABEL) {
-            irs[i].block = NULL;
             bb->next = findBasicBlock(ir, i, labels, NULL);
             DynArray_add(&bb->next->in_blocks, &bb);
             bb->end = i-1;
@@ -87,10 +89,8 @@ BasicBlock *findBasicBlock(DynArray *ir, u64 index, DynArray *labels, IRVariable
         for (u64 i = 0; i < labels->count; ++i) {
             if (label->named != ls[i].named) continue;
             if (ls[i].named) {
-                printf("label: %s\n", ls[i].label_name.data);
                 if (strcmp(label->label_name.data, ls[i].label_name.data)) continue;
             } else {
-                printf("label: %lu\n", ls[i].label_index);
                 if (label->label_index != ls[i].label_index) continue;
             }
             // found it
