@@ -4,5 +4,5 @@ int main() {
     while (i < 10) {
         ++i;
     }
-    return 0;
+    return i;
 }
