@@ -63,6 +63,13 @@ inline u64 add_specific_label(DynArray *generated_IR, u64 index) {
 }
 
 inline u64 add_label(DynArray *generated_IR) {
+    if (generated_IR->count > 0) {
+        IR *last = (IR *)DynArray_back(generated_IR);
+        // NOTE(mdizdar): this is a bit stupid, I should make labels more generic so we can jump to named labels as well if need be
+        if (last->instruction == OP_LABEL && !last->operands[0].named) {
+            return last->operands[0].label_index;
+        }
+    }
     IR *ir = malloc(sizeof(IR));
     ir->instruction = OP_LABEL;
     ir->operands[0].type = OT_LABEL;

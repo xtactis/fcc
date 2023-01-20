@@ -35,6 +35,11 @@ void *DynArray_at(DynArray *array, u64 index) {
     return (void *)((u8 *)array->data + index*array->element_size);
 }
 
+void *DynArray_back(DynArray *array) {
+    assert(array->count > 0);
+    return DynArray_at(array, array->count-1);
+}
+
 inline void DynArray_construct(DynArray *array, u64 element_size) {
     array->element_size = element_size;
     array->capacity = 0;
