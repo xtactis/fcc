@@ -352,6 +352,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->instruction = OP_IFN_JUMP;
             ir->result.type = OT_NONE;
             ir->operands[0] = IR_generate(AST->cond, generated_IR, current_scope, context);
+            IRVariable condition_result = ir->operands[0];
             ir->operands[1].type = OT_LABEL;
             ir->operands[1].named = false;
             
@@ -359,6 +360,17 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             u64 ifn_jump_pos = generated_IR->count-1;
             
             IR_generate(AST->left, generated_IR, current_scope, context);
+
+            DynArray changed_vars;
+            for (u64 i = ifn_jump_pos; i < generated_IR->count; ++i) {
+                // TODO(mdizdar): find all instances of a variable whose scope is greater than the body of the if statement
+                // and put them in a separate array, so we can do resolve which temporary variable should be used later
+                // We'll want to do the same thing for the condition (since variables can be assigned to inside the conditions
+                // and the else branch
+                if (/*something*/ false) {
+                    // DynArray_add(&changed_vars, /*something*/);
+                }
+            }
             
             u64 jump_out_pos = -1;
             if (AST->right) {
@@ -377,6 +389,18 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
 
                 ((IR *)DynArray_at(generated_IR, jump_out_pos))->operands[0].label_index = add_label(generated_IR);
             }
+
+            for (u64 i = 0; i < changed_vars.count; ++i) {
+                ir = malloc(sizeof(IR));
+                ir->instruction = OP_PHI;
+                ir->result.type = OT_TEMPORARY;
+                ir->result.entry = 0; // TODO(mdizdar): FILL THIS IN
+                ir->result.temporary_id = temporary_index++;
+                ir->operands[0].type = OT_TEMPORARY;
+                ir->operands[1].type = OT_TEMPORARY;
+                ir->condition_result = condition_result;
+            }
+
             break;
         }
         case TOKEN_WHILE: {

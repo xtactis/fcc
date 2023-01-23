@@ -22,6 +22,8 @@ typedef enum {
     OP_MINUS    = 308,
     OP_LABEL    = 309,
     
+    OP_PHI = 401,
+
     OP_NOT_EQ         = 806,
     OP_EQUALS         = 810,
     OP_LESS_EQ        = 811,
@@ -87,6 +89,9 @@ typedef struct {
     
     IRVariable result;
     IRVariable operands[2];
+
+    // NOTE(mdizdar): stores the id of the temporary register that holds the result of the condition
+    IRVariable condition_result;
     
     Op instruction;
 } IR;
@@ -218,6 +223,13 @@ break;                                                         \
         }
         case OP_CALL: {
             fprintf(fp, "call %s%s", IRVariable_toStr(&ir->operands[0], s), newline);
+            break;
+        }
+        case OP_PHI: {
+            fprintf(fp, "%s = ", IRVariable_toStr(&ir->result, s));
+            fprintf(fp, "phi (%s) ", IRVariable_toStr(&ir->condition_result, s));
+            fprintf(fp, "%s ", IRVariable_toStr(&ir->operands[0], s));
+            fprintf(fp, "%s%s", IRVariable_toStr(&ir->operands[1], s), newline);
             break;
         }
         case '~': case '!': ONE_OPERAND_OP("%c", ir->instruction);
