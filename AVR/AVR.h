@@ -4,7 +4,9 @@
 #include "../utils/common.h"
 #include "../utils/dyn_array.h"
 
-typedef u16 AVR;
+typedef u16 AVR, *AVRPtr;
+_generate_dynamic_array(AVR);
+_generate_dynamic_array(AVRPtr);
 
 // https://en.wikipedia.org/wiki/Atmel_AVR_instruction_set#Instruction_encoding
 // http://ww1.microchip.com/downloads/cn/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf
@@ -1100,7 +1102,7 @@ inline u16 TST(u8 rd) {
     return 0x2000 | ((rd & 0x1F) << 5) | (rd & 0x1F);
 }
 
-void printAVR(const DynArray *instructions) {
+void printAVR(const AVRArray *instructions) {
     // NOTE(mdizdar): I wonder if there's a nicer way of going about this... (there is)
     AVR *ins = instructions->data;
     for (u64 i = 0; i < instructions->count; ++i) {
@@ -1362,7 +1364,7 @@ void printAVR(const DynArray *instructions) {
     }
 }
 
-void saveAVR(const DynArray *instructions, char *outfile) {
+void saveAVR(const AVRArray *instructions, char *outfile) {
     u64 len = strlen(outfile);
     char *of = malloc(sizeof(char) * len+5);
     strcpy(of, outfile);
@@ -1638,7 +1640,7 @@ inline u32 swapEndiannes32(u32 x) {
     return (swapEndiannes16((x & 0xFFFF0000) >> 16) << 16) | swapEndiannes16(x & 0x0000FFFF);
 }
 
-void saveIntelHex_helper(const DynArray *instructions, FILE *fp) {
+void saveIntelHex_helper(const AVRArray *instructions, FILE *fp) {
     u8 checksum = 0;
     AVR *ins = instructions->data;
     for (u64 i = 0; i < instructions->count; ++i) {
@@ -1662,11 +1664,11 @@ void saveIntelHex_helper(const DynArray *instructions, FILE *fp) {
     fprintf(fp, ":00000001FF\n");
 }
 
-void printIntelHex(const DynArray *instructions) {
+void printIntelHex(const AVRArray *instructions) {
     saveIntelHex_helper(instructions, stdout);
 }
 
-void saveIntelHex(const DynArray *instructions, char *outfile) {
+void saveIntelHex(const AVRArray *instructions, char *outfile) {
     u64 len = strlen(outfile);
     char *of = malloc(sizeof(char) * len+5);
     strcpy(of, outfile);

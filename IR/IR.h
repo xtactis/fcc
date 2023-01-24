@@ -62,7 +62,7 @@ typedef enum {
     OT_SIZE = 13,
 } OperandType;
 
-typedef struct {
+STRUCT(IRVariable, {
     OperandType type;
     union {
         u64 temporary_id; // TODO(mdizdar): find a way to know which variable coincides with which temporary
@@ -79,13 +79,13 @@ typedef struct {
         };
     };
     uintptr_t entry;
-} IRVariable;
+});
 
 struct BasicBlock;
 
-typedef struct {
+STRUCT(IR, {
     struct BasicBlock *block;
-    DynArray liveVars;
+    IRVariableArray liveVars;
     
     IRVariable result;
     IRVariable operands[2];
@@ -94,7 +94,7 @@ typedef struct {
     IRVariable condition_result;
     
     Op instruction;
-} IR;
+});
 
 const char *IRVariable_toStr(IRVariable * const var, char *s) {
     switch (var->type) {
@@ -258,17 +258,15 @@ break;                                                         \
 #undef ONE_OPERAND_OP
 }
 
-void IR_save(const DynArray *generated_IR, char *outfile) {
+void IR_save(const IRArray *generated_IR, char *outfile) {
     u64 len = strlen(outfile);
     char *of = malloc(sizeof(char) * len+5);
     strcpy(of, outfile);
     strcat(of, ".ir");
     FILE *fp = fopen(of, "w");
     
-    IR *ir = generated_IR->data;
-    u64 size = generated_IR->count;
-    for (u64 i = 0; i < size; ++i) {
-        IR_saveOne(&ir[i], fp, "\n");
+    FOR_EACH(IR, it, generated_IR) {
+        IR_saveOne(it, fp, "\n");
     }
     fclose(fp);
 }

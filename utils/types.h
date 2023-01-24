@@ -25,4 +25,12 @@
 #define u32 uint32_t
 #define u64 uint64_t
 
+#define STRUCT(name, body) \
+    struct name##Array; \
+    typedef struct name body name, *name##Ptr; \
+    _generate_dynamic_array(name); \
+    _generate_dynamic_array(name##Ptr); \
+    _generate_dynamic_array(name##Array); \
+    typedef name##ArrayArray name##Matrix
+
 #endif //TYPES_H

@@ -112,7 +112,7 @@ typedef enum {
     TOKEN_DECLARATION    = 903,
 } TokenType;
 
-typedef struct {
+STRUCT(Token, {
     union {
         String name;
         SymbolTableEntry *entry;
@@ -126,7 +126,7 @@ typedef struct {
     u64 line;
     
     TokenType type;
-} Token;
+});
 
 // please for the love of god have s be large enough
 char *Token_toStr_long(char *s, Token t) {
@@ -300,13 +300,13 @@ char *Token_toStr(char *s, Token t) {
 struct _Type;
 typedef struct _Type Type;
 
-typedef struct _Node {
+STRUCT (Node, {
     Token *token;
-    struct _Node *left, *right;
-    struct _Node *cond; // this is only used for ternary
+    struct Node *left, *right;
+    struct Node *cond; // this is only used for ternary
     
     const Scope *scope; // NOTE(mdizdar): usually NULL, except on nodes that change the scope
     Type *type; // filled in by type checker
-} Node;
+});
 
 #endif // TOKEN_H

@@ -17,13 +17,13 @@ char *Type_toStr(char *, const Type *, bool, u64);
 static const double resize_threshold = 0.7;
 static const u64 NEW_SCOPE_CAPACITY = 10;
 
-typedef struct SymbolTableEntry {
+STRUCT(SymbolTableEntry, {
     String name;
     Type *type;
     u64 definition_line;
     u64 temporary_id; // NOTE(mdizdar): this is used in IR generation to keep track
     bool is_typename;
-} SymbolTableEntry;
+});
 
 char *SymbolTableEntry_toStr(char *s, const SymbolTableEntry *entry) {
     char ts[256];
@@ -32,18 +32,18 @@ char *SymbolTableEntry_toStr(char *s, const SymbolTableEntry *entry) {
     return s;
 }
 
-typedef struct Scope {
+STRUCT(Scope, {
     struct Scope *previous;
     
     SymbolTableEntry *hash_table;
     u64 size;
     u64 capacity;
-} Scope;
+});
 
-typedef struct {
+STRUCT(SymbolTable, {
     Arena *scopes_arena;
     Scope *scope;
-} SymbolTable;
+});
 
 void Scope_init(Scope *scope, u64 capacity) {
     scope->capacity = capacity;

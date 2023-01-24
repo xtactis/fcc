@@ -5,45 +5,159 @@
 #include <assert.h>
 #include "common.h"
 
-typedef struct {
-    void *data;
-    u64 element_size;
-    u64 count;
-    u64 capacity;
-} DynArray;
+// TODO(mdizdar): add a sorting function
 
-DynArray *DynArray_add(DynArray *array, void *element) {
-    if (!array->capacity) {
-        array->data = malloc(array->element_size * 2);
-        memcpy(array->data, element, array->element_size);
-        array->count = 1;
-        array->capacity = 2;
-        return array;
+#define _generate_dynamic_array(name) \
+    typedef struct name##Array { \
+        name *data; \
+        u64 count; \
+        u64 capacity; \
+    } name##Array; \
+    \
+    name##Array *name##Array_push_ptr(name##Array *array, name *element) { \
+        if (!array->capacity) { \
+            array->data = malloc(sizeof(name) * 2); \
+            memcpy(array->data, element, sizeof(name)); \
+            array->count = 1; \
+            array->capacity = 2; \
+            return array; \
+        } \
+        if (array->capacity == array->count) { \
+            array->capacity += array->capacity; \
+            array->data = realloc(array->data, array->capacity * sizeof(name)); \
+        } \
+        /* I'm still unsure if memcpy is the thing we want to be doing here */ \
+        memcpy(array->data + array->count, element, sizeof(name)); \
+        ++array->count; \
+        return array; \
+    } \
+    \
+    /* pop back actually just reduces the count, we never free the memory */ \
+    name *name##Array_pop_back(const name##Array *array) { \
+        assert(array->count > 0); \
+        --array->count; \
+        return array->data + array->count; \
+    } \
+    \
+    name##Array *name##Array_push_back(name##Array *array, name element) { \
+        return name##Array_push_ptr(array, &element); \
+    } \
+    \
+    name *name##Array_at(const name##Array *array, u64 index) { \
+        assert(index < array->count); \
+        return array->data + index; \
+    } \
+    \
+    name *name##Array_front(const name##Array *array) { \
+        assert(array->count > 0); \
+        return name##Array_at(array, 0); \
+    } \
+    \
+    name *name##Array_back(const name##Array *array) { \
+        assert(array->count > 0); \
+        return name##Array_at(array, array->count-1); \
+    } \
+    \
+    name *name##Array_begin(const name##Array *array) { \
+        if (array->count == 0) return NULL; \
+        return name##Array_at(array, 0); \
+    } \
+    \
+    name *name##Array_end(const name##Array *array) { \
+        if (array->count == 0) return NULL; \
+        return array->data+array->count; \
+    } \
+    \
+    name *name##Array_next(const name##Array *array, name *el) { \
+        assert(el > array->data); \
+        assert(el < array->data+array->count); \
+        return ++el; \
+    } \
+    \
+    name *name##Array_rbegin(const name##Array *array) { \
+        if (array->count == 0) return NULL; \
+        return name##Array_back(array); \
+    } \
+    \
+    name *name##Array_rend(const name##Array *array) { \
+        if (array->count == 0) return NULL; \
+        return array->data-1; \
+    } \
+    \
+    name *name##Array_previous(const name##Array *array, name *el) { \
+        assert(el > array->data); \
+        assert(el < array->data+array->count); \
+        return --el; \
+    } \
+    \
+    void name##Array_erase(name##Array *array, u64 index) { \
+        assert(array->count > 0); \
+        --array->count; \
+        if (array->count == index) return; \
+        memcpy(array->data + index, array->data + index + 1, sizeof(name) * (array->count - index)); \
+    } \
+    \
+    void name##Array_reserve(name##Array *array, u64 new_cap) { \
+        array->capacity = new_cap; \
+        if (array->data) { \
+            array->data = realloc(array->data, array->capacity * sizeof(name)); \
+        } else { \
+            array->data = malloc(array->capacity * sizeof(name)); \
+        } \
+    } \
+    \
+    void name##Array_clear(name##Array *array) { \
+        array->count = 0; \
+    } \
+    \
+    void name##Array_shrink_to_fit(name##Array *array) { \
+        array->capacity = array->count; \
+        array->data = realloc(array->data, array->count * sizeof(name)); \
+    } \
+    \
+    void name##Array_construct(name##Array *array) { \
+        array->capacity = 0; \
+        array->count = 0; \
+        array->data = NULL; \
+    } \
+    \
+    void name##Array_destruct(name##Array *array) { \
+        assert(array); \
+        if (array->data) { \
+            free(array->data); \
+        } \
+    } \
+    \
+    name##Array *name##Array_copy(name##Array *dest, const name##Array *source) { \
+        name##Array_clear(dest); \
+        FOR_EACH (name##Array, it, source) { \
+            name##Array_push_ptr(dest, it); \
+        } \
+        return dest; \
     }
-    if (array->capacity == array->count) {
-        array->capacity += array->capacity;
-        array->data = realloc(array->data, array->capacity * array->element_size);
-    }
-    memcpy((u8 *)array->data + array->count*array->element_size, element, array->element_size);
-    ++array->count;
-    return array;
-}
 
-// NOTE(mdizdar): this doesn't work for some reason, figure it out bitch
-void *DynArray_at(DynArray *array, u64 index) {
-    assert(index < array->count);
-    return (void *)((u8 *)array->data + index*array->element_size);
-}
+#define FOR_EACH(type, it, array) \
+    for (type *it = type##Array_begin(array); \
+            it != type##Array_end(array); \
+            it = type##Array_next(array, it))
 
-void *DynArray_back(DynArray *array) {
-    assert(array->count > 0);
-    return DynArray_at(array, array->count-1);
-}
+#define FOR_EACH_REV(type, it, array) \
+    for (type *it = type##Array_rbegin(array); \
+            it != type##Array_rend(array); \
+            it = type##Array_previous(array, it))
 
-inline void DynArray_construct(DynArray *array, u64 element_size) {
-    array->element_size = element_size;
-    array->capacity = 0;
-    array->count = 0;
-}
+_generate_dynamic_array(u8);
+_generate_dynamic_array(u16);
+_generate_dynamic_array(u32);
+_generate_dynamic_array(u64);
+_generate_dynamic_array(s8);
+_generate_dynamic_array(s16);
+_generate_dynamic_array(s32);
+_generate_dynamic_array(s64);
+_generate_dynamic_array(b8);
+_generate_dynamic_array(b16);
+_generate_dynamic_array(b32);
+_generate_dynamic_array(b64);
+_generate_dynamic_array(bool);
 
 #endif // DYN_ARRAY_H

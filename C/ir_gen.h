@@ -51,43 +51,49 @@ static inline Op Token_unary_to_Op(TokenType type) {
     }
 }
 
-inline u64 add_specific_label(DynArray *generated_IR, u64 index) {
-    IR *ir = malloc(sizeof(IR));
-    ir->instruction = OP_LABEL;
-    ir->operands[0].type = OT_LABEL;
-    ir->operands[0].named = false;
-    ir->operands[0].label_index = index;
-    ir->block = NULL;
-    DynArray_add(generated_IR, ir);
+inline u64 add_specific_label(IRArray *generated_IR, u64 index) {
+    IRArray_push_back(generated_IR, (IR){
+        .instruction = OP_LABEL,
+        .operands[0] = {
+            .type = OT_LABEL,
+            .named = false,
+            .label_index = index
+        },
+        .block = NULL
+    });
     return index;
 }
 
-inline u64 add_label(DynArray *generated_IR) {
+inline u64 add_label(IRArray *generated_IR) {
     if (generated_IR->count > 0) {
-        IR *last = (IR *)DynArray_back(generated_IR);
+        IR *last = IRArray_back(generated_IR);
         // NOTE(mdizdar): this is a bit stupid, I should make labels more generic so we can jump to named labels as well if need be
         if (last->instruction == OP_LABEL && !last->operands[0].named) {
             return last->operands[0].label_index;
         }
     }
-    IR *ir = malloc(sizeof(IR));
-    ir->instruction = OP_LABEL;
-    ir->operands[0].type = OT_LABEL;
-    ir->operands[0].named = false;
-    ir->operands[0].label_index = label_index++;
-    ir->block = NULL;
-    DynArray_add(generated_IR, ir);
+    IRArray_push_back(generated_IR, (IR){
+        .instruction = OP_LABEL,
+        .operands[0] = {
+            .type = OT_LABEL,
+            .named = false,
+            .label_index = label_index++
+        },
+        .block = NULL
+    });
     return label_index-1;
 }
 
-inline void add_named_label(DynArray *generated_IR, String *label_name) {
-    IR *ir = malloc(sizeof(IR));
-    ir->instruction = OP_LABEL;
-    ir->operands[0].type = OT_LABEL;
-    ir->operands[0].named = true;
-    ir->operands[0].label_name = *label_name;
-    ir->block = NULL;
-    DynArray_add(generated_IR, ir);
+inline void add_named_label(IRArray *generated_IR, String *label_name) {
+    IRArray_push_back(generated_IR, (IR) {
+        .instruction = OP_LABEL,
+        .operands[0] = {
+            .type = OT_LABEL,
+            .named = true,
+            .label_name = *label_name
+        },
+        .block = NULL
+    });
 }
 
 IR *move_to_temp(IRVariable x) {
@@ -126,7 +132,7 @@ OperandType operand_from_type(Type *type) { // I'm just gonna pretend structs do
 
 // TODO(mdizdar): not sure how to handle struct type scopes
 // NOTE(mdizdar): returns the id of the result variable 
-IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_scope, IRContext *context) {
+IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_scope, IRContext *context) {
     if (AST->scope != NULL) {
         // NOTE(mdizdar): I have a suspicion this isn't what I want to be doing here... does the scope get reverted once we're out? (the answer is no)
         current_scope = AST->scope;
@@ -140,61 +146,71 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             assert(current_scope != NULL);
             
             add_named_label(generated_IR, &entry->name);
-            IR *ir = malloc(sizeof(IR));
-            ir->instruction = OP_PRELUDE;
-            ir->operands[0].type = OT_INT16;
-            ir->operands[0].integer_value = entry->type->function_type->size_of;
-            ir->result.type = OT_NONE;
-            ir->block = NULL;
-            DynArray_add(generated_IR, ir);
-            for (s64 i = entry->type->function_type->parameters.count-1;
-                 i >= 0;
-                 --i) {
-                IR *param = malloc(sizeof(IR));
-                param->block = NULL;
-                param->instruction = OP_GET_ARG;
-                param->result.type = OT_TEMPORARY;
-                param->result.temporary_id = temporary_index++;
-                param->operands[0].type = OT_INT64;
-                param->operands[0].integer_value = (u64)(entry->type->function_type->parameters.count - i);
-                SymbolTableEntry *dentry = Scope_find(current_scope, &((Declaration*)(entry->type->function_type->parameters.data))[i].name);
+            IRArray_push_back(generated_IR, (IR) {
+                .instruction = OP_PRELUDE,
+                .operands[0] = {
+                    .type = OT_INT16,
+                    .integer_value = entry->type->function_type->size_of
+                },
+                .result.type = OT_NONE,
+                .block = NULL
+            });
+            u64 i = 0;
+            FOR_EACH_REV(Declaration, parameter, entry->type->function_type->parameters) {
+                IR param = {
+                    .instruction = OP_GET_ARG,
+                    .result = {
+                        .type = OT_TEMPORARY,
+                        .temporary_id = temporary_index++
+                    },
+                    .operands[0] = {
+                        .type = OT_INT64,
+                        .integer_value = i
+                    },
+                    .block = NULL
+                };
+                SymbolTableEntry *dentry = Scope_find(current_scope, &parameter->name);
                 dentry->temporary_id = param->result.temporary_id;
-                DynArray_add(generated_IR, param);
+                IRArray_push_back(generated_IR, param);
+                ++i;
             }
             return IR_generate(AST->token->entry->type->function_type->block, generated_IR, current_scope, context);
         } else {
-            IRVariable var;
-            var.type = OT_TEMPORARY;
-            var.entry = (uintptr_t)AST->token->entry;
-            var.temporary_id = temporary_index++;
+            IRVariable var = {
+                .type = OT_TEMPORARY,
+                .entry = (uintptr_t)AST->token->entry,
+                .temporary_id = temporary_index++
+            };
             ((SymbolTableEntry *)var.entry)->temporary_id = var.temporary_id;
             return var;
         }
     }
     
     if (AST->token->type == TOKEN_INT_LITERAL) {
-        IRVariable var;
-        var.type = OT_INT16;
-        var.integer_value = AST->token->integer_value;
-        return var;
+        return (IRVariable) {
+            .type = OT_INT16,
+            .integer_value = AST->token->integer_value
+        };
     } else if (AST->token->type == TOKEN_FLOAT_LITERAL) {
-        IRVariable var;
-        var.type = OT_FLOAT;
-        var.float_value = AST->token->float_value;
-        return var;
+        return (IRVariable) {
+            .type = OT_FLOAT,
+            .float_value = AST->token->float_value
+        };
     } else if (AST->token->type == TOKEN_DOUBLE_LITERAL) {
-        IRVariable var;
-        var.type = OT_DOUBLE;
-        var.double_value = AST->token->double_value;
-        return var;
+        return (IRVariable) {
+            .type = OT_DOUBLE,
+            .double_value = AST->token->double_value
+        };
     } else if (AST->token->type == TOKEN_IDENT) {
-        IRVariable var;
-        var.type = OT_TEMPORARY;
-        var.entry = (uintptr_t)AST->token->entry;
-        var.temporary_id = ((SymbolTableEntry *)var.entry)->temporary_id;
-        return var;
+        return (IRVariable) {
+            .type = OT_TEMPORARY,
+            .entry = (uintptr_t)AST->token->entry,
+            .temporary_id = ((SymbolTableEntry *)var.entry)->temporary_id
+        };
     }
     
+    // TODO(mdizdar): maybe there's no need for mallocing this here since I can just
+    // push_back local variables and they'll get copied properly
     IR *ir = malloc(sizeof(IR));
     ir->block = NULL;
     switch ((int)AST->token->type) {
@@ -213,7 +229,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->result.temporary_id = temporary_index++;
             ir->operands[0] = IR_generate(AST->left, generated_IR, current_scope, context);
             ir->operands[1] = IR_generate(AST->right, generated_IR, current_scope, context);
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case '=': {
@@ -222,9 +238,10 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[0] = IR_generate(AST->right, generated_IR, current_scope, context);
             if (ir->result.type == OT_TEMPORARY && ir->result.entry != 0) {
                 ir->result.temporary_id = temporary_index++;
-                ((SymbolTableEntry *)ir->result.entry)->temporary_id = ir->result.temporary_id;
+                SymbolTableEntry *entry = (SymbolTableEntry *)ir->result.entry;
+                entry->temporary_id = ir->result.temporary_id;
             }
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case TOKEN_ADD_ASSIGN: case TOKEN_SUB_ASSIGN:
@@ -235,7 +252,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->result = IR_generate(AST->left, generated_IR, current_scope, context);
             ir->operands[0] = ir->result;
             ir->operands[1] = IR_generate(AST->right, generated_IR, current_scope, context);
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case TOKEN_BITNOT_ASSIGN: {
@@ -246,7 +263,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 ir->result.temporary_id = temporary_index++;
                 ((SymbolTableEntry *)ir->result.entry)->temporary_id = ir->result.temporary_id;
             }
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case TOKEN_PREINC: case TOKEN_PREDEC: {
@@ -259,7 +276,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 ir->result.temporary_id = temporary_index++;
                 ((SymbolTableEntry *)ir->result.entry)->temporary_id = ir->result.temporary_id;
             }
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case TOKEN_POSTINC: case TOKEN_POSTDEC: {
@@ -271,7 +288,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir2->result.temporary_id = temporary_index++;
             ir2->operands[0] = IR_generate(AST->left, generated_IR, current_scope, context);
             
-            DynArray_add(generated_IR, ir2);
+            IRArray_push_ptr(generated_IR, ir2);
             ir->instruction = Token_comp_assign_to_Op(AST->token->type);
             ir->result      = ir2->operands[0];
             ir->operands[0] = ir2->operands[0];
@@ -281,7 +298,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 ir->result.temporary_id = temporary_index++;
                 ((SymbolTableEntry *)ir->result.entry)->temporary_id = ir->result.temporary_id;
             }
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             ir = ir2; // this is done so we can return the original value as are the semantics of post inc/dec
             break;
         }
@@ -299,7 +316,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->result.entry = 0;
             ir->result.temporary_id = temporary_index++;
             ir->operands[0] = IR_generate(AST->left, generated_IR, current_scope, context);
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case '?': {
@@ -310,14 +327,14 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[1].type = OT_LABEL;
             ir->operands[1].named = false;
             
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             
             // if false
             IRVariable Fres = IR_generate(AST->right, generated_IR, current_scope, context);
-            IR *F = ((IR **)generated_IR->data)[generated_IR->count-1];
+            IR *F = IRArray_back(generated_IR);
             if (Fres.type != OT_TEMPORARY) {
                 F = move_to_temp(Fres);
-                DynArray_add(generated_IR, F);
+                IRArray_push_ptr(generated_IR, F);
             }
             
             IR *ir2 = malloc(sizeof(IR));
@@ -327,17 +344,17 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir2->operands[0].type = OT_LABEL;
             ir2->operands[0].named = false;
             
-            DynArray_add(generated_IR, ir2);
+            IRArray_push_ptr(generated_IR, ir2);
             
             // NOTE(mdizdar): assuming the dynarray stores pointers so modifying through this variable will modify the one stored in the dynarray
             ir->operands[1].label_index = add_label(generated_IR); // after F
             
             // if true
             IRVariable Tres = IR_generate(AST->left, generated_IR, current_scope, context);
-            IR *T = ((IR **)generated_IR->data)[generated_IR->count-1];
+            IR *T = IRArray_back(generated_IR);
             if (Tres.type != OT_TEMPORARY) {
                 T = move_to_temp(Tres);
-                DynArray_add(generated_IR, T);
+                IRArray_push_ptr(generated_IR, T);
             }
             
             F->result.temporary_id = T->result.temporary_id;
@@ -356,15 +373,27 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[1].type = OT_LABEL;
             ir->operands[1].named = false;
             
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             u64 ifn_jump_pos = generated_IR->count-1;
             
             IR_generate(AST->left, generated_IR, current_scope, context);
 
-            DynArray changed_vars;
-            for (u64 i = ifn_jump_pos; i < generated_IR->count; ++i) {
+            SymbolTableEntryArray changed_vars;
+            SymbolTableEntryArray_construct(&changed_vars);
+            printf("%lu - %lu\n", ifn_jump_pos+1, generated_IR->count);
+            for (u64 i = ifn_jump_pos+1; i < generated_IR->count; ++i) {
+                IR *ir = IRArray_at(generated_IR, i);
+                if (ir->result.type != OT_TEMPORARY) {
+                    continue;
+                }
+                if (!ir->result.entry) {
+                    continue;
+                }
+                char s[512];
+                printf("t%lu: %s\n", ir->result.temporary_id, SymbolTableEntry_toStr(s, (SymbolTableEntry *)ir->result.entry));
+                SymbolTableEntryArray_add(&changed_vars, (SymbolTableEntry *)ir->result.entry);
                 // TODO(mdizdar): find all instances of a variable whose scope is greater than the body of the if statement
-                // and put them in a separate array, so we can do resolve which temporary variable should be used later
+                // and put them in a separate array, so we can resolve which temporary variable should be used later
                 // We'll want to do the same thing for the condition (since variables can be assigned to inside the conditions
                 // and the else branch
                 if (/*something*/ false) {
@@ -378,19 +407,19 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 ir->instruction = OP_JUMP;
                 ir->operands[0].type = OT_LABEL;
                 ir->operands[0].named = false;
-                DynArray_add(generated_IR, ir);
+                IRArray_push_ptr(generated_IR, ir);
                 jump_out_pos = generated_IR->count-1;
             }
 
-            ((IR *)generated_IR->data)[ifn_jump_pos].operands[1].label_index = add_label(generated_IR);
+            IRArray_at(generated_IR, ifn_jump_pos)->operands[1].label_index = add_label(generated_IR);
             
             if (AST->right) { // else
                 IR_generate(AST->right, generated_IR, current_scope, context);
 
-                ((IR *)DynArray_at(generated_IR, jump_out_pos))->operands[0].label_index = add_label(generated_IR);
+                IRArray_at(generated_IR, jump_out_pos)->operands[0].label_index = add_label(generated_IR);
             }
 
-            for (u64 i = 0; i < changed_vars.count; ++i) {
+            FOR_EACH (SymbolTableEntry, var, changed_vars) {
                 ir = malloc(sizeof(IR));
                 ir->instruction = OP_PHI;
                 ir->result.type = OT_TEMPORARY;
@@ -413,7 +442,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[1].type = OT_LABEL;
             ir->operands[1].named = false;
             
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             u64 ifn_jump_pos = generated_IR->count-1;
             
             context->in_loop = true;
@@ -433,9 +462,9 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir2->operands[0].named = false;
             ir2->operands[0].label_index = loop_top;
             
-            DynArray_add(generated_IR, ir2);
+            IRArray_push_ptr(generated_IR, ir2);
             
-            ((IR *)generated_IR->data)[ifn_jump_pos].operands[1].label_index = add_specific_label(generated_IR, loop_end);
+            IRArray_at(generated_IR, ifn_jump_pos)->operands[1].label_index = add_specific_label(generated_IR, loop_end);
             break;
         }
         case TOKEN_FOR: {
@@ -452,7 +481,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[1].type = OT_LABEL;
             ir->operands[1].named = false;
             
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             u64 ifn_jump_pos = generated_IR->count-1;
             
             context->in_loop = true;
@@ -474,9 +503,9 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir2->operands[0].named = false;
             ir2->operands[0].label_index = loop_top;
             
-            DynArray_add(generated_IR, ir2);
+            IRArray_push_ptr(generated_IR, ir2);
             
-            ((IR *)generated_IR->data)[ifn_jump_pos].operands[1].label_index = add_specific_label(generated_IR, loop_end);
+            IRArray_at(generated_IR, ifn_jump_pos)->operands[1].label_index = add_specific_label(generated_IR, loop_end);
             break;
         }
         case TOKEN_BREAK: {
@@ -489,7 +518,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[0].named = false;
             ir->operands[0].label_index = context->loop_end;
             
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case TOKEN_CONTINUE: {
@@ -502,7 +531,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[0].named = false;
             ir->operands[0].label_index = context->loop_continue;
             
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case TOKEN_FUNCTION_CALL: {
@@ -521,7 +550,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                     param->operands[1].integer_value = 1;
                     param->result.type = OT_NONE;
                     arg = arg->left;
-                    DynArray_add(generated_IR, param);
+                    IRArray_push_ptr(generated_IR, param);
                 }
                 ++argcnt;
                 IR *param = malloc(sizeof(IR));
@@ -531,7 +560,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 param->operands[1].type = OT_SIZE;
                 param->operands[1].integer_value = 1;
                 param->result.type = OT_NONE;
-                DynArray_add(generated_IR, param);
+                IRArray_push_ptr(generated_IR, param);
             }
             
             ir->instruction = OP_CALL;
@@ -540,7 +569,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
             ir->operands[0].label_name = AST->left->token->entry->name;
             // NOTE(mdizdar): this is stupid and not how function calls actually work but lets pretend it isn't
             ir->result.type = OT_NONE;
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             
             for (u64 i = 0; i < argcnt; ++i) {
                 IR *pop = malloc(sizeof(IR));
@@ -550,7 +579,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 pop->operands[1].type = OT_SIZE;
                 pop->operands[1].integer_value = 1; // TODO(mdizdar): this should depend on the size of the arguments
                 pop->result.type = OT_NONE;
-                DynArray_add(generated_IR, pop);
+                IRArray_push_ptr(generated_IR, pop);
             }
             if (!ret_is_void) {
                 IR *ret = malloc(sizeof(IR));
@@ -558,7 +587,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 ret->instruction = OP_GET_RETURNED;
                 ret->result.type = OT_TEMPORARY;
                 ret->result.temporary_id = temporary_index++;
-                DynArray_add(generated_IR, ret);
+                IRArray_push_ptr(generated_IR, ret);
                 return ret->result;
             }
             break;
@@ -571,7 +600,7 @@ IRVariable IR_generate(Node *AST, DynArray *generated_IR, const Scope *current_s
                 ir->operands[0] = IR_generate(AST->left, generated_IR, current_scope, context); 
             }
             ir->result = ir->operands[0];
-            DynArray_add(generated_IR, ir);
+            IRArray_push_ptr(generated_IR, ir);
             break;
         }
         case TOKEN_NEXT: {

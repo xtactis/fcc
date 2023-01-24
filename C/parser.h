@@ -18,13 +18,13 @@
 
 //#define Arena_alloc(x, y) malloc((y))
 
-typedef struct {
+STRUCT(CachedToken, {
     Token *token;
     u64 lookahead;
     u64 cur_line;
-} CachedToken;
+});
 
-typedef struct {
+STRUCT(Lexer, {
     String code;
     
     CachedToken *token_at;
@@ -34,7 +34,7 @@ typedef struct {
     u64 prev_line;
     u64 pos;
     u64 peek;
-} Lexer;
+});
 
 TokenType checkKeyword(const char *name) {
     u32 kw_len = sizeof(KEYWORDS) / sizeof(char*);
@@ -394,12 +394,12 @@ Token *Lexer_getNextToken(Lexer *lexer) {
 
 //~ PARSER
 
-typedef struct {
+STRUCT(Parser, {
     Arena *arena;
     Arena *type_arena;
     SymbolTable *symbol_table;
     Lexer lexer;
-} Parser;
+});
 
 typedef enum {
     PRECEDENCE_NONE = 0,
@@ -1057,14 +1057,14 @@ Declaration *Parser_struct(Parser *parser, Type **type) {
         _type->struct_type = Arena_alloc(parser->type_arena, sizeof(StructType));
         
         //type->struct_type->members.data         = NULL;
-        DynArray_construct(&_type->struct_type->members, sizeof(Declaration));
+        DeclarationArray_construct(&_type->struct_type->members);
         
         token = Lexer_peekNextToken(&parser->lexer);
         while (token->type != '}') {
             Lexer_resetPeek(&parser->lexer);
             Declaration *member = Parser_declaration(parser, false); // TODO(mdizdar): these shouldn't be adding anything to the symbol table
             if (member) {
-                DynArray_add(&_type->struct_type->members, member);
+                DeclarationArray_push_ptr(&_type->struct_type->members, member);
             }
             token = Lexer_peekNextToken(&parser->lexer);
             while (token->type == ';') {
@@ -1113,14 +1113,14 @@ Declaration *Parser_union(Parser *parser, Type **type) {
         _type->union_type = Arena_alloc(parser->type_arena, sizeof(StructType));
         
         //type->union_type->members.data         = NULL;
-        DynArray_construct(&_type->struct_type->members, sizeof(Declaration));
+        DeclarationArray_construct(&_type->struct_type->members);
         
         token = Lexer_peekNextToken(&parser->lexer);
         while (token->type != '}') {
             Lexer_resetPeek(&parser->lexer);
             Declaration *member = Parser_declaration(parser, false); // TODO(mdizdar): these shouldn't be adding anything to the symbol table
             if (member) {
-                DynArray_add(&_type->struct_type->members, member);
+                DeclarationArray_push_ptr(&_type->struct_type->members, member);
             }
             token = Lexer_peekNextToken(&parser->lexer);
             while (token->type == ';') {
@@ -1168,7 +1168,7 @@ Type *Parser_function(Parser *parser, Type *type) {
     ftype->is_function = true;
     ftype->pointer_count = 0;
     ftype->function_type = Arena_alloc(parser->type_arena, sizeof(FunctionType));
-    DynArray_construct(&ftype->function_type->parameters, sizeof(Declaration));
+    DeclarationArray_construct(&ftype->function_type->parameters);
     ftype->function_type->return_type = type;
     
     SymbolTable_pushScope(parser->symbol_table);
@@ -1178,7 +1178,7 @@ Type *Parser_function(Parser *parser, Type *type) {
     while (token->type != ')') {
         Lexer_resetPeek(&parser->lexer);
         Declaration *decl = Parser_declaration(parser, false);
-        DynArray_add(&ftype->function_type->parameters, decl);
+        DeclarationArray_push_ptr(&ftype->function_type->parameters, decl);
         token = Lexer_peekNextToken(&parser->lexer);
         if (token->type == ',') {
             Parser_eat(parser, token, ',');

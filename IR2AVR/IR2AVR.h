@@ -8,32 +8,30 @@
 #include "../AVR/AVR.h"
 #include "../C/type.h"
 
-
-DynArray findLabels(DynArray *ir) {
-    DynArray labels;
-    labels.element_size = sizeof(Label);
-    labels.capacity = 0;
-    labels.count = 0;
+LabelArray findLabels(IRArray *ir) {
+    LabelArray labels;
+    LabelArray_construct(&labels);
     
-    IR *irs = (IR *)(ir->data);
-    for (u64 i = 0; i < ir->count; ++i) {
-        if (irs[i].instruction == OP_LABEL) {
-            Label *newlabel = malloc(sizeof(Label));
-            newlabel->named = irs[i].operands[0].named;
-            if (irs[i].operands[0].named) {
-                newlabel->label_name = irs[i].operands[0].label_name;
+    u64 i = 0;
+    FOR_EACH(IR, it, ir) {
+        if (it->instruction == OP_LABEL) {
+            Label newlabel;
+            newlabel.named = it->operands[0].named;
+            if (it->operands[0].named) {
+                newlabel.label_name = it->operands[0].label_name;
             } else {
-                newlabel->label_index = irs[i].operands[0].label_index;
+                newlabel.label_index = it->operands[0].label_index;
             }
-            newlabel->ir_index = i;
-            DynArray_add(&labels, newlabel);
+            newlabel.ir_index = i++;
+            LabelArray_push_back(&labels, newlabel);
         }
     }
     return labels;
 }
 
-void clashGraph(u64 current_reg, DynArray *regs, u8 *real_reg, u64 reg_number) {
-    u64 *reg = regs[current_reg].data;
+// TODO(mdizdar): regs should probably be a typedef and not a raw u64
+void clashGraph(u64 current_reg, u64Array *regs, u8 *real_reg, u64 reg_number) {
+    u64 *reg = regs[current_reg].data; // this can't be correct lol?
     bool found;
     // TODO(mdizdar): this should be all registers, but let's keep it simple for now
     for (u8 j = 16; j < 24; ++j) {
@@ -57,39 +55,32 @@ void clashGraph(u64 current_reg, DynArray *regs, u8 *real_reg, u64 reg_number) {
     }
 }
 
-void IR2AVR(DynArray *ir, DynArray *AVR_instructions, u64 reg_number) {
-#define APPEND_CMD(CMD, ...) { AVR *cmd = malloc(sizeof(AVR)); \
-*cmd = CMD(__VA_ARGS__); \
-DynArray_add(AVR_instructions, cmd); }
-#define APPEND_LONG_CMD(CMD, ...) { u32 c = CMD(__VA_ARGS__); \
-AVR *cmd = malloc(sizeof(AVR)); \
-*cmd = (u16)(c >> 16); \
-DynArray_add(AVR_instructions, cmd); \
-cmd = malloc(sizeof(AVR)); \
-*cmd = (u16)(c & 0xFFFF); \
-DynArray_add(AVR_instructions, cmd); }
+void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
+#define APPEND_CMD(CMD, ...) AVRArray_push_back(AVR_instructions, CMD(__VA_ARGS__));
+#define APPEND_LONG_CMD(CMD, ...) { \
+    u32 c = CMD(__VA_ARGS__); \
+    AVRArray_push_back(AVR_instructions, c >> 16); \
+    AVRArray_push_back(AVR_instructions, c & 0xFFF); \
+}
     
     IR *irs = (IR *)(ir->data);
     
-    DynArray labels = findLabels(ir);
+    LabelArray labels = findLabels(ir);
     makeBasicBlocks(ir, &labels);
     return;
 
     livenessAnalysis(ir);
     
-    DynArray *regs = malloc(sizeof(DynArray) * reg_number);
+    u64Array *regs = malloc(sizeof(u64Array) * reg_number);
     for (u64 i = 0; i < reg_number; ++i) {
-        regs[i].count = 0;
-        regs[i].capacity = 0;
-        regs[i].data = NULL;
-        regs[i].element_size = sizeof(u64);
+        u64Array_construct(regs[i]);
     }
-    for (u64 i = 0; i < ir->count; ++i) {
-        IRVariable *live = irs[i].liveVars.data;
-        for (u64 j = 0; j < irs[i].liveVars.count; ++j) {
-            for (u64 k = j+1; k < irs[i].liveVars.count; ++k) {
-                DynArray_add(&regs[live[j].temporary_id], &live[k].temporary_id);
-                DynArray_add(&regs[live[k].temporary_id], &live[j].temporary_id);
+    FOR_EACH (IR, it, ir) {
+        IRVariable *live = it->liveVars.data;
+        for (u64 j = 0; j < it->liveVars.count; ++j) {
+            for (u64 k = j+1; k < it->liveVars.count; ++k) {
+                u64Array_add(&regs[live[j].temporary_id], &live[k].temporary_id);
+                u64Array_add(&regs[live[k].temporary_id], &live[j].temporary_id);
             }
         }
     }
@@ -104,14 +95,16 @@ DynArray_add(AVR_instructions, cmd); }
     }
     
     //*
-    for (u64 j = 0; j < ir->count; ++j) {
-        IRVariable* live = irs[j].liveVars.data;
+    u64 j = 0;
+    FOR_EACH (IR, it, ir) {
+        IRVariable* live = it->liveVars.data;
         printf("%lu:\t", j);
-        for (u64 i = 0; i < irs[j].liveVars.count; ++i) {
+        FOR_EACH (IRVariable, live, it->liveVars) {
             char s[40];
-            printf("%s, ", IRVariable_toStr(&live[i], s));
+            printf("%s, ", IRVariable_toStr(live, s));
         }
         printf("\n");
+        ++j;
     }
     for (u64 i = 0; i < reg_number; ++i) {
         printf("t%lu -> r%u\n", i, real_reg[i]);

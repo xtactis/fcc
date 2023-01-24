@@ -29,31 +29,31 @@ struct u64_Type;
 struct bool_Type;
 typedef struct _Type Type;
 
-typedef struct {
+STRUCT(Declaration, {
     Type *type; // NOTE(mdizdar): at one point we'll have common types multiple variables can point to, so we use a pointer
     String name;
-} Declaration;
+});
 
-typedef struct {
-    DynArray members;
+STRUCT(StructType, {
+    DeclarationArray members;
     //SymbolTable member_table;
-} StructType;
+});
 
-typedef struct {
-    DynArray members;
-} UnionType;
+STRUCT(UnionType, {
+    DeclarationArray members;
+});
 
-typedef struct {
+STRUCT(ArrayType, {
     Type *element;
     u64 size;
-} ArrayType;
+});
 
-typedef struct {
+STRUCT(FunctionType, {
     u64 size_of;
     Type *return_type;
-    DynArray parameters;
+    DeclarationArray parameters;
     Node *block;
-} FunctionType;
+});
 
 typedef enum {
     BASIC_ERROR = 0,
@@ -77,7 +77,7 @@ typedef enum {
     BASIC_ULLONG = 7+32,
 } BasicType;
 
-struct _Type {
+STRUCT(Type, {
     union {
         StructType *struct_type;
         UnionType *union_type;
@@ -99,9 +99,9 @@ struct _Type {
     int is_typedef:1;
     int is_array:1;
     int is_function:1;
-};
+});
 
-struct u64_Type {
+STRUCT(u64_Type, {
     union {
         StructType *struct_type;
         UnionType *union_type;
@@ -121,9 +121,9 @@ struct u64_Type {
     u64 is_typedef;
     u64 is_array;
     u64 is_function;
-};
+});
 
-struct bool_Type {
+STRUCT(bool_Type, {
     union {
         StructType *struct_type;
         UnionType *union_type;
@@ -143,7 +143,7 @@ struct bool_Type {
     bool is_typedef;
     bool is_array;
     bool is_function;
-};
+});
 
 char *Type_toStr(char *s, const Type *type, bool in_line, u64 indent) {
     (void)in_line;

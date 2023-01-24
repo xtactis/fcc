@@ -118,7 +118,7 @@ void saveAST(Node *AST, const Scope *current_scope, char *filename) {
     fclose(fp);
 }
 
-void saveCFG(DynArray *ir, char *filename) {
+void saveCFG(IRArray *ir, char *filename) {
     u64 len = strlen(filename);
     char *of = malloc(sizeof(char) * len+15);
     strcpy(of, filename);
@@ -126,7 +126,7 @@ void saveCFG(DynArray *ir, char *filename) {
     FILE *fp = fopen(of, "w");
     fprintf(fp, "digraph G {\nnode [shape=box, fontname=Courier];\n");
     
-    IR *irs = (IR *)(ir->data);
+    IR *irs = ir->data;
     for (u64 i = 0; i < ir->count; ++i) {
         fprintf(fp, "%lu[label=\"", irs[i].block->id);
         u64 end = irs[i].block->end;
@@ -205,10 +205,8 @@ int main(int argc, char **argv) {
     
     Node *AST = Parser_parse(&parser);
     
-    DynArray generated_IR;
-    generated_IR.element_size = sizeof(IR);
-    generated_IR.capacity = 0;
-    generated_IR.count = 0;
+    IRArray generated_IR;
+    IRArray_construct(&generated_IR);
     {
         IR *label = malloc(sizeof(IR));
         label->block = NULL;
@@ -217,7 +215,7 @@ int main(int argc, char **argv) {
         label->operands[0].named = true;
         label->operands[0].label_name.data = "__start";
         label->operands[0].label_name.count = 8; 
-        DynArray_add(&generated_IR, label);
+        IRArray_push_ptr(&generated_IR, label);
         IR *main_call = malloc(sizeof(IR));
         main_call->block = NULL;
         main_call->instruction = OP_CALL;
@@ -225,7 +223,7 @@ int main(int argc, char **argv) {
         main_call->operands[0].named = true;
         main_call->operands[0].label_name.data = "main";
         main_call->operands[0].label_name.count = 5;
-        DynArray_add(&generated_IR, main_call);
+        IRArray_push_ptr(&generated_IR, main_call);
         IR *jump = malloc(sizeof(IR));
         jump->block = NULL;
         jump->instruction = OP_JUMP;
@@ -233,7 +231,7 @@ int main(int argc, char **argv) {
         jump->operands[0].named = true;
         jump->operands[0].label_name.data = "__start";
         jump->operands[0].label_name.count = 8; 
-        DynArray_add(&generated_IR, jump);
+        IRArray_push_ptr(&generated_IR, jump);
     }
     if (!silent) puts(CYAN "***AST***" RESET);
     if (!silent) printAST(AST, 0, st.scope);
@@ -249,10 +247,8 @@ int main(int argc, char **argv) {
 
     
     if (!silent) puts(CYAN "***AVR***" RESET);
-    DynArray generated_AVR;
-    generated_AVR.element_size = sizeof(AVR);
-    generated_AVR.capacity = 0;
-    generated_AVR.count = 0;
+    AVRArray generated_AVR;
+    AVRArray_construct(&generated_AVR);
 
     IR2AVR(&generated_IR, &generated_AVR, temporary_index);
     //if (!silent) printAVR(&generated_AVR);
