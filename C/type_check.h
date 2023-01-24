@@ -400,7 +400,7 @@ x->basic_type  = y;
         }
         case TOKEN_FOR: {
             Node *init_cond_iter = AST->cond;
-            type_check(init_cond_iter->left, return_type);
+            size_of += type_check(init_cond_iter->left, return_type);
             type_check(init_cond_iter->cond, return_type);
             type_check(init_cond_iter->right, return_type);
             if (!is_scalar(type_of(init_cond_iter->cond))) {
@@ -423,8 +423,8 @@ x->basic_type  = y;
             break;
         }
         case TOKEN_NEXT: {
-            type_check(AST->left, return_type);
-            type_check(AST->right, return_type);
+            size_of += type_check(AST->left, return_type);
+            size_of += type_check(AST->right, return_type);
             break;
         }
         case TOKEN_FUNCTION_CALL: {
