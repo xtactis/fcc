@@ -10,8 +10,8 @@
 #include "arena.h"
 
 // NOTE(mdizdar): forward declarations because of cyclic imports
-struct _Type;
-typedef struct _Type Type;
+struct Type;
+typedef struct Type Type;
 char *Type_toStr(char *, const Type *, bool, u64);
 
 static const double resize_threshold = 0.7;

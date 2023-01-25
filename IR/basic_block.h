@@ -16,7 +16,7 @@ STRUCT(BasicBlock, {
     struct BasicBlock *jump;
     struct BasicBlock *next;
     
-    struct BasicBlockArray in_blocks;
+    struct BasicBlockPtrArray *in_blocks;
 });
 
 BasicBlock *findBasicBlock(IRArray *ir, u64 index, LabelArray *labels, IRVariable *label);
@@ -27,7 +27,8 @@ BasicBlock *makeBasicBlock(IRArray *ir, u64 index, LabelArray *labels) {
     bb->jump = NULL;
     bb->next = NULL;
     bb->id = basic_block_index++;
-    BasicBlockArray_construct(bb->in_blocks);
+    bb->in_blocks = malloc(sizeof(BasicBlockPtrArray));
+    BasicBlockPtrArray_construct(bb->in_blocks);
     bb->livenessDone = false;
     
     IR *irs = ir->data;
@@ -39,7 +40,7 @@ BasicBlock *makeBasicBlock(IRArray *ir, u64 index, LabelArray *labels) {
         if (irs[i].instruction == OP_JUMP) {
             bb->end = i;
             bb->jump = findBasicBlock(ir, i+1, labels, &irs[i].operands[0]);
-            BasicBlockArray_push_ptr(&bb->jump->in_blocks, &bb);
+            BasicBlockPtrArray_push_back(bb->jump->in_blocks, bb);
             return bb;
         } else if (irs[i].instruction == OP_IF_JUMP || 
                    irs[i].instruction == OP_IFN_JUMP) {
@@ -50,13 +51,13 @@ BasicBlock *makeBasicBlock(IRArray *ir, u64 index, LabelArray *labels) {
                 free(bb->next);
                 bb->next = NULL;
             } else {
-                BasicBlockArray_push_ptr(&bb->next->in_blocks, &bb);
+                BasicBlockPtrArray_push_back(bb->next->in_blocks, bb);
             }
-            BasicBlockArray_push_ptr(&bb->jump->in_blocks, &bb);
+            BasicBlockPtrArray_push_back(bb->jump->in_blocks, bb);
             return bb;
         } else if (i != index && irs[i].instruction == OP_LABEL) {
             bb->next = findBasicBlock(ir, i, labels, NULL);
-            BasicBlockArray_push_ptr(&bb->next->in_blocks, &bb);
+            BasicBlockPtrArray_push_back(bb->next->in_blocks, bb);
             bb->end = i-1;
             return bb;
         } else if (irs[i].instruction == OP_RETURN) {
@@ -72,9 +73,7 @@ void makeBasicBlocks(IRArray *ir, LabelArray *labels) {
     int i = -1;
     FOR_EACH (IR, it, ir) {
         ++i;
-        it->liveVars.element_size = sizeof(IRVariable);
-        it->liveVars.count = 0;
-        it->liveVars.capacity = 0;
+        IRVariableArray_construct(&it->liveVars);
         if (it->block) continue;
         makeBasicBlock(ir, i, labels);
     }
@@ -83,7 +82,7 @@ void makeBasicBlocks(IRArray *ir, LabelArray *labels) {
 BasicBlock *findBasicBlock(IRArray *ir, u64 index, LabelArray *labels, IRVariable *label) {
     if (label) {
         // looking for a label, not an index
-        FOR_EACH (Label, it, LabelArray) {
+        FOR_EACH (Label, it, labels) {
             if (label->named != it->named) continue;
             if (it->named) {
                 if (strcmp(label->label_name.data, it->label_name.data)) continue;
@@ -91,8 +90,8 @@ BasicBlock *findBasicBlock(IRArray *ir, u64 index, LabelArray *labels, IRVariabl
                 if (label->label_index != it->label_index) continue;
             }
             // found it
-            if (irs[it->ir_index].block) {
-                return irs[it->ir_index].block;
+            if (IRArray_at(ir, it->ir_index)->block) {
+                return IRArray_at(ir, it->ir_index)->block;
             } else {
                 return makeBasicBlock(ir, it->ir_index, labels);
             }
@@ -151,7 +150,6 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
     for (u64 i = block->end; i >= block->begin && i <= block->end; --i) {
         IRVariableArray notLive;
         IRVariableArray_construct(&notLive);
-        IRVariable *live = liveVars->data;
         FOR_EACH (IRVariable, it, liveVars) {
             addVariable(&irs[i].liveVars, it, &changed);
         }
@@ -208,7 +206,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
             }
         }
         FOR_EACH (IRVariable, nl, &notLive) {
-            removeVariable(&irs[i].liveVars, &nl[j], &changed);
+            removeVariable(&irs[i].liveVars, nl, &changed);
         }
         
         IRVariableArray_clear(liveVars); // this obviously shouldn't stay
@@ -219,25 +217,25 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
     if (!changed) return;
     block->livenessDone = true;
     IRVariableArray liveCopy;
-    IRVariableArray_construct(liveCopy);
-    FOR_EACH (BasicBlockPtr, in_block, &blocks->in_blocks) {
+    IRVariableArray_construct(&liveCopy);
+    FOR_EACH (BasicBlockPtr, in_block, block->in_blocks) {
         IRVariableArray_copy(&liveCopy, liveVars);
-        livenessAnalysisOneBlock(ir, in_block, &liveCopy);
+        livenessAnalysisOneBlock(ir, *in_block, &liveCopy);
     }
-    IRVariableArray_destruct(liveCopy);
+    IRVariableArray_destruct(&liveCopy);
 }
 
 void livenessAnalysis(IRArray *ir) {
     IRVariableArray liveVars;
-    IRVariableArray_construct(liveVars);
+    IRVariableArray_construct(&liveVars);
 
     FOR_EACH_REV (IR, it, ir) {
         if (it->block->livenessDone) continue;
-        IRVariableArray_clear(liveVars);
-        livenessAnalysisOneBlock(ir, it->.block, &liveVars);
+        IRVariableArray_clear(&liveVars);
+        livenessAnalysisOneBlock(ir, it->block, &liveVars);
     }
 
-    IRVariableArray_destruct(liveVars);
+    IRVariableArray_destruct(&liveVars);
 }
 
 #endif // BASIC_BLOCK_H

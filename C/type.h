@@ -24,10 +24,10 @@ inline void Bitset_clear(Bitset bitset, u64 bit) {
 }
 
 
-struct _Type;
+struct Type;
 struct u64_Type;
 struct bool_Type;
-typedef struct _Type Type;
+typedef struct Type Type;
 
 STRUCT(Declaration, {
     Type *type; // NOTE(mdizdar): at one point we'll have common types multiple variables can point to, so we use a pointer

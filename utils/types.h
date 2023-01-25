@@ -9,28 +9,36 @@
 #define false 0
 #define true 1
 
-#define bool uint_fast8_t
-#define b8   uint8_t
-#define b16  uint16_t
-#define b32  uint32_t
-#define b64  uint64_t
+typedef uint_fast8_t bool;
+typedef uint8_t      b8;
+typedef uint16_t     b16;
+typedef uint32_t     b32;
+typedef uint64_t     b64;
+                     
+typedef int8_t   s8;
+typedef int16_t  s16;
+typedef int32_t  s32;
+typedef int64_t  s64;
+                     
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
-#define s8  int8_t
-#define s16 int16_t
-#define s32 int32_t
-#define s64 int64_t
+#define _generate_declarations(type) \
+    typedef struct type##Array type##Array, *type##ArrayPtr; \
+    typedef struct type##ArrayArray type##ArrayArray, *type##ArrayArrayPtr; \
+    typedef struct type##ArrayArray type##Matrix, *type##MatrixPtr;
 
-#define u8  uint8_t
-#define u16 uint16_t
-#define u32 uint32_t
-#define u64 uint64_t
+#define _generate_type(type) \
+    _generate_dynamic_array(type); \
+    _generate_dynamic_array(type##Array); \
 
 #define STRUCT(name, body) \
-    struct name##Array; \
+    _generate_declarations(name); \
+    _generate_declarations(name##Ptr); \
     typedef struct name body name, *name##Ptr; \
-    _generate_dynamic_array(name); \
-    _generate_dynamic_array(name##Ptr); \
-    _generate_dynamic_array(name##Array); \
-    typedef name##ArrayArray name##Matrix
+    _generate_type(name); \
+    _generate_type(name##Ptr);
 
 #endif //TYPES_H

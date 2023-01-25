@@ -156,7 +156,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 .block = NULL
             });
             u64 i = 0;
-            FOR_EACH_REV(Declaration, parameter, entry->type->function_type->parameters) {
+            FOR_EACH_REV(Declaration, parameter, &entry->type->function_type->parameters) {
                 IR param = {
                     .instruction = OP_GET_ARG,
                     .result = {
@@ -170,7 +170,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                     .block = NULL
                 };
                 SymbolTableEntry *dentry = Scope_find(current_scope, &parameter->name);
-                dentry->temporary_id = param->result.temporary_id;
+                dentry->temporary_id = param.result.temporary_id;
                 IRArray_push_back(generated_IR, param);
                 ++i;
             }
@@ -205,7 +205,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
         return (IRVariable) {
             .type = OT_TEMPORARY,
             .entry = (uintptr_t)AST->token->entry,
-            .temporary_id = ((SymbolTableEntry *)var.entry)->temporary_id
+            .temporary_id = AST->token->entry->temporary_id
         };
     }
     
@@ -391,7 +391,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 }
                 char s[512];
                 printf("t%lu: %s\n", ir->result.temporary_id, SymbolTableEntry_toStr(s, (SymbolTableEntry *)ir->result.entry));
-                SymbolTableEntryArray_add(&changed_vars, (SymbolTableEntry *)ir->result.entry);
+                SymbolTableEntryArray_push_ptr(&changed_vars, (SymbolTableEntry *)ir->result.entry);
                 // TODO(mdizdar): find all instances of a variable whose scope is greater than the body of the if statement
                 // and put them in a separate array, so we can resolve which temporary variable should be used later
                 // We'll want to do the same thing for the condition (since variables can be assigned to inside the conditions
@@ -419,7 +419,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 IRArray_at(generated_IR, jump_out_pos)->operands[0].label_index = add_label(generated_IR);
             }
 
-            FOR_EACH (SymbolTableEntry, var, changed_vars) {
+            FOR_EACH (SymbolTableEntry, var, &changed_vars) {
                 ir = malloc(sizeof(IR));
                 ir->instruction = OP_PHI;
                 ir->result.type = OT_TEMPORARY;

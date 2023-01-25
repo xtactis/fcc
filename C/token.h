@@ -297,12 +297,13 @@ char *Token_toStr(char *s, Token t) {
     return s;
 }
 
-struct _Type;
-typedef struct _Type Type;
+struct Type;
+typedef struct Type Type;
 
 STRUCT (Node, {
     Token *token;
-    struct Node *left, *right;
+    struct Node *left;
+    struct Node *right;
     struct Node *cond; // this is only used for ternary
     
     const Scope *scope; // NOTE(mdizdar): usually NULL, except on nodes that change the scope

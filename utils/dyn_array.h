@@ -33,7 +33,7 @@
     } \
     \
     /* pop back actually just reduces the count, we never free the memory */ \
-    name *name##Array_pop_back(const name##Array *array) { \
+    name *name##Array_pop_back(name##Array *array) { \
         assert(array->count > 0); \
         --array->count; \
         return array->data + array->count; \
@@ -69,7 +69,7 @@
     } \
     \
     name *name##Array_next(const name##Array *array, name *el) { \
-        assert(el > array->data); \
+        assert(el >= array->data); \
         assert(el < array->data+array->count); \
         return ++el; \
     } \
@@ -85,7 +85,7 @@
     } \
     \
     name *name##Array_previous(const name##Array *array, name *el) { \
-        assert(el > array->data); \
+        assert(el >= array->data); \
         assert(el < array->data+array->count); \
         return --el; \
     } \
@@ -130,7 +130,7 @@
     \
     name##Array *name##Array_copy(name##Array *dest, const name##Array *source) { \
         name##Array_clear(dest); \
-        FOR_EACH (name##Array, it, source) { \
+        FOR_EACH (name, it, source) { \
             name##Array_push_ptr(dest, it); \
         } \
         return dest; \
@@ -146,18 +146,18 @@
             it != type##Array_rend(array); \
             it = type##Array_previous(array, it))
 
-_generate_dynamic_array(u8);
-_generate_dynamic_array(u16);
-_generate_dynamic_array(u32);
-_generate_dynamic_array(u64);
-_generate_dynamic_array(s8);
-_generate_dynamic_array(s16);
-_generate_dynamic_array(s32);
-_generate_dynamic_array(s64);
-_generate_dynamic_array(b8);
-_generate_dynamic_array(b16);
-_generate_dynamic_array(b32);
-_generate_dynamic_array(b64);
-_generate_dynamic_array(bool);
+_generate_type(u8);
+_generate_type(u16);
+_generate_type(u32);
+_generate_type(u64);
+_generate_type(s8);
+_generate_type(s16);
+_generate_type(s32);
+_generate_type(s64);
+_generate_type(b8);
+_generate_type(b16);
+_generate_type(b32);
+_generate_type(b64);
+_generate_type(bool);
 
 #endif // DYN_ARRAY_H

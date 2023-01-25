@@ -73,14 +73,14 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
     
     u64Array *regs = malloc(sizeof(u64Array) * reg_number);
     for (u64 i = 0; i < reg_number; ++i) {
-        u64Array_construct(regs[i]);
+        u64Array_construct(&regs[i]);
     }
     FOR_EACH (IR, it, ir) {
         IRVariable *live = it->liveVars.data;
         for (u64 j = 0; j < it->liveVars.count; ++j) {
             for (u64 k = j+1; k < it->liveVars.count; ++k) {
-                u64Array_add(&regs[live[j].temporary_id], &live[k].temporary_id);
-                u64Array_add(&regs[live[k].temporary_id], &live[j].temporary_id);
+                u64Array_push_ptr(&regs[live[j].temporary_id], &live[k].temporary_id);
+                u64Array_push_ptr(&regs[live[k].temporary_id], &live[j].temporary_id);
             }
         }
     }
@@ -97,9 +97,8 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
     //*
     u64 j = 0;
     FOR_EACH (IR, it, ir) {
-        IRVariable* live = it->liveVars.data;
         printf("%lu:\t", j);
-        FOR_EACH (IRVariable, live, it->liveVars) {
+        FOR_EACH (IRVariable, live, &it->liveVars) {
             char s[40];
             printf("%s, ", IRVariable_toStr(live, s));
         }
