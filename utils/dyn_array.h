@@ -159,5 +159,9 @@ _generate_type(b16);
 _generate_type(b32);
 _generate_type(b64);
 _generate_type(bool);
+_generate_type(char);
+_generate_type(int);
+_generate_type(f32);
+_generate_type(f64);
 
 #endif // DYN_ARRAY_H

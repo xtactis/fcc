@@ -15,9 +15,9 @@ u64 min(u64 a, u64 b) {
 }
 #endif
 
-typedef struct {
+STRUCT(String, {
     char *data;
     u64 count;
-} String;
+});
 
 #endif // COMMON_H

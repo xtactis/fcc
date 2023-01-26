@@ -25,6 +25,11 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+typedef float  f32;
+typedef double f64;
+_Static_assert(sizeof(f32) == 4, "Machines not compliant with IEEE 754/IEC 559 are not supported. `float` should be 4 bytes (32 bits) wide.");
+_Static_assert(sizeof(f64) == 8, "Machines not compliant with IEEE 754/IEC 559 are not supported. `double` should be 8 bytes (64 bits) wide.");
+
 #define _generate_declarations(type) \
     typedef struct type##Array type##Array, *type##ArrayPtr; \
     typedef struct type##ArrayArray type##ArrayArray, *type##ArrayArrayPtr; \
@@ -35,6 +40,7 @@ typedef uint64_t u64;
     _generate_dynamic_array(type##Array); \
 
 #define STRUCT(name, body) \
+    typedef struct name name, *name##Ptr; \
     _generate_declarations(name); \
     _generate_declarations(name##Ptr); \
     typedef struct name body name, *name##Ptr; \
