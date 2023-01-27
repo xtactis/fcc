@@ -3,24 +3,28 @@
 check() {
     # TODO(mdizdar): actually implement testing
     res="OK"
-    build/fcc -s $1.c -o $1
+    build/fcc -s tests/$1.c -o tests/$1
     if [ $? != 0 ]; then
         res="FAILED"
     fi
     echo "$1 ..... $res"
 }
 
-if ! [ -f build/fcc ]; then
-    ./build.sh
-fi
+./build.sh
 
 echo "==================================="
 echo "               TESTS               "
 echo "==================================="
 
-check 'tests/scope'
-check 'tests/ternary'
-check 'tests/if'
-check 'tests/ifelse'
-check 'tests/ifelseif'
-check 'tests/while'
+check 'main'
+check 'int'
+check 'int_assign'
+check 'int_assign_exp'
+check 'return_exp'
+check 'return_var'
+check 'scope'
+check 'ternary'
+check 'if'
+check 'ifelse'
+check 'ifelseif'
+check 'while'

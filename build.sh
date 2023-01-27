@@ -1,5 +1,6 @@
 #!/bin/bash
 mkdir -p build
 pushd build
-gcc -std=c17 -Wall -Wextra -O2 ../main.c -o fcc
+time gcc -std=c17 -Wall -Wextra -O2 ../main.c -o fcc
 popd # build
+
