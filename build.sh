@@ -17,14 +17,15 @@ else
     need_to_rebuild=1
 fi
 
-
 if [ $need_to_rebuild = "1" ]; then
     mkdir -p build
     pushd build > /dev/null
 
     time gcc -std=c17 -Wall -Wextra -O2 ../main.c -o fcc
+    status=$?
 
     popd > /dev/null # build
+    exit $status
 else
     echo "Source hasn't been modified!"
 fi

@@ -23,12 +23,18 @@ check() {
 
 ./build.sh
 
+if [ $? != 0 ]; then
+    echo -e "\e[31mBuild failed!\e[0m"
+    exit 1
+fi
+
 echo "==================================="
 echo "               TESTS               "
 echo "==================================="
 
 check 'main'
 check 'int'
+check 'two_variables'
 check 'int_assign'
 check 'int_assign_exp'
 check 'return_exp'
