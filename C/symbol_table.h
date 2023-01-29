@@ -17,18 +17,26 @@ char *Type_toStr(char *, const Type *, bool, u64);
 static const double resize_threshold = 0.7;
 static const u64 NEW_SCOPE_CAPACITY = 10;
 
+STRUCT(Address, {
+    bool global;
+    u64 offset;
+});
+
 STRUCT(SymbolTableEntry, {
     String name;
     Type *type;
     u64 definition_line;
+    u64 definition_column;
     u64 temporary_id; // NOTE(mdizdar): this is used in IR generation to keep track
+    Address location_in_memory;
+
     bool is_typename;
 });
 
 char *SymbolTableEntry_toStr(char *s, const SymbolTableEntry *entry) {
     char ts[256];
-    sprintf(s, "name: %s; type: %s; line: %lu; typename?: %u", 
-            entry->name.data, Type_toStr(ts, entry->type, false, 0), entry->definition_line, entry->is_typename);
+    sprintf(s, "name: %s; type: %s; line: %lu; col: %lu; typename?: %u", 
+            entry->name.data, Type_toStr(ts, entry->type, false, 0), entry->definition_line, entry->definition_column, entry->is_typename);
     return s;
 }
 
@@ -89,7 +97,7 @@ u64 SymbolTable_hash(const SymbolTable *st, const String *name) {
 }
 
 // returns how much we had to travel to find a vacant cell
-u64 SymbolTable_add_helper(SymbolTable *st, const String *name, Type *type, u64 definition_line) {
+u64 SymbolTable_add_helper(SymbolTable *st, const String *name, Type *type, u64 definition_line, u64 definition_column) {
     u64 hash = SymbolTable_hash(st, name);
     
     u64 travel = 0;
@@ -102,7 +110,12 @@ u64 SymbolTable_add_helper(SymbolTable *st, const String *name, Type *type, u64 
         hash = (hash+1)%st->scope->capacity;
         ++travel;
     }
-    st->scope->hash_table[hash] = (SymbolTableEntry){.type = type, .definition_line = definition_line, .name.count = name->count};
+    st->scope->hash_table[hash] = (SymbolTableEntry){
+        .type = type,
+        .definition_line = definition_line,
+        .definition_column = definition_column,
+        .name.count = name->count
+    };
     st->scope->hash_table[hash].name.data = malloc(name->count);
     strcpy(st->scope->hash_table[hash].name.data, name->data);
     
@@ -117,14 +130,14 @@ void SymbolTable_resize(SymbolTable *st) {
     SymbolTable_init(st, st->scope->capacity*2);
     for (u64 i = 0; i < old_capacity; ++i) {
         if (old_table[i].name.count == 0) continue;
-        SymbolTable_add_helper(st, &old_table[i].name, old_table[i].type, old_table[i].definition_line);
+        SymbolTable_add_helper(st, &old_table[i].name, old_table[i].type, old_table[i].definition_line, old_table[i].definition_column);
     }
     // free(old_table); // NOTE(mdizdar): freeing is expensive, for now we don't care
 }
 
-void SymbolTable_add(SymbolTable *st, const String *name, Type *type, u64 definition_line) {
+void SymbolTable_add(SymbolTable *st, const String *name, Type *type, u64 definition_line, u64 definition_column) {
     // assumes the table has been init-ed, if it hasn't it WILL explode
-    const u64 travel = SymbolTable_add_helper(st, name, type, definition_line);
+    const u64 travel = SymbolTable_add_helper(st, name, type, definition_line, definition_column);
     
     if ((travel > st->scope->capacity/2) || (1.0 * st->scope->size / st->scope->capacity > resize_threshold)) {
         SymbolTable_resize(st);

@@ -14,11 +14,17 @@
 
 #define ADD_PHI(...) NOT_IMPL;
 
-typedef struct {
-    u64 loop_top, loop_end, loop_continue;
+STRUCT(IRContext, {
+    u64 loop_top;
+    u64 loop_end;
+    u64 loop_continue;
+
+    u64 declaration_relative_address;
     
     bool in_loop;
-} IRContext;
+    bool global;
+    bool lhs;
+});
 
 static inline bool Token_is_value(Token *token) {
     return token->type == TOKEN_IDENT || (token->type >= TOKEN_LITERAL && token->type < TOKEN_KEYWORD);
@@ -149,15 +155,6 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             assert(current_scope != NULL);
             
             add_named_label(generated_IR, &entry->name);
-            IRArray_push_back(generated_IR, (IR) {
-                .instruction = OP_PRELUDE,
-                .operands[0] = {
-                    .type = OT_INT16,
-                    .integer_value = entry->type->function_type->size_of
-                },
-                .result.type = OT_NONE,
-                .block = NULL
-            });
             u64 i = 0;
             FOR_EACH_REV(Declaration, parameter, &entry->type->function_type->parameters) {
                 IR param = {
@@ -177,7 +174,23 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 IRArray_push_back(generated_IR, param);
                 ++i;
             }
-            return IR_generate(AST->token->entry->type->function_type->block, generated_IR, current_scope, context);
+            IRArray_push_back(generated_IR, (IR) {
+                .instruction = OP_PRELUDE,
+                .operands[0] = {
+                    .type = OT_INT16,
+                    .integer_value = entry->type->function_type->size_of
+                },
+                .result.type = OT_NONE,
+                .block = NULL
+            });
+            u64 old_relative_address = context->declaration_relative_address;
+            context->declaration_relative_address = 0;
+            context->global = false;
+            IRVariable ret = IR_generate(AST->token->entry->type->function_type->block, generated_IR, current_scope, context);
+            context->declaration_relative_address = old_relative_address;
+            context->global = true;
+
+            return ret;
         } else {
             IRVariable var = {
                 .type = OT_TEMPORARY,
@@ -185,6 +198,12 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 .temporary_id = temporary_index++
             };
             ((SymbolTableEntry *)var.entry)->temporary_id = var.temporary_id;
+            AST->token->entry->location_in_memory = (Address) {
+                .global = context->global,
+                .offset = context->declaration_relative_address
+            };
+            context->declaration_relative_address += Type_sizeof(AST->token->entry->type);
+
             return var;
         }
     }
@@ -205,16 +224,31 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             .double_value = AST->token->double_value
         };
     } else if (AST->token->type == TOKEN_IDENT) {
-        return (IRVariable) {
-            .type = OT_TEMPORARY,
-            .entry = (uintptr_t)AST->token->entry,
-            .temporary_id = AST->token->entry->temporary_id
+        if (context->lhs) {
+            return (IRVariable) {
+                .type = OT_VARIABLE,
+                .entry = (uintptr_t)AST->token->entry
+            };
+        }
+        IR ir = {
+            .instruction = OP_LOAD,
+            .result = {
+                .type = OT_TEMPORARY,
+                .temporary_id = temporary_index++
+            },
+            .operands[0] = {
+                .type = OT_INT64, // FIXME(mdizdar): this should be more specific than "int64"
+                .integer_value = AST->token->entry->location_in_memory.offset
+            }
         };
+        IRArray_push_ptr(generated_IR, &ir);
+        return ir.result;
     }
+    context->lhs = false;
     
     // TODO(mdizdar): maybe there's no need for mallocing this here since I can just
     // push_back local variables and they'll get copied properly
-    IR ir = {.block = NULL};
+    IR ir = (IR){.block = NULL};
     switch ((int)AST->token->type) {
         case '+': case '-':
         case '*': case '/': case '%':
@@ -236,13 +270,15 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
         }
         case '=': {
             ir.instruction = (Op)AST->token->type;
+            context->lhs = true;
             ir.result = IR_generate(AST->left, generated_IR, current_scope, context);
+            context->lhs = false;
             ir.operands[0] = IR_generate(AST->right, generated_IR, current_scope, context);
             if (ir.result.type == OT_TEMPORARY && ir.result.entry != 0) {
                 ir.result.temporary_id = temporary_index++;
                 SymbolTableEntry *entry = (SymbolTableEntry *)ir.result.entry;
                 entry->temporary_id = ir.result.temporary_id;
-            }
+            } 
             IRArray_push_ptr(generated_IR, &ir);
             break;
         }
@@ -282,13 +318,15 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             break;
         }
         case TOKEN_POSTINC: case TOKEN_POSTDEC: {
-            IR ir2 = (IR) {};
-            ir2.block = NULL;
-            ir2.instruction = (Op)'=';
-            ir2.result.type = OT_TEMPORARY;
-            ir2.result.entry = 0;
-            ir2.result.temporary_id = temporary_index++;
-            ir2.operands[0] = IR_generate(AST->left, generated_IR, current_scope, context);
+            IR ir2 = (IR) {
+                .instruction = (Op)'=',
+                .result = {
+                    .type = OT_TEMPORARY,
+                    .entry = 0,
+                    .temporary_id = temporary_index++
+                },
+                .operands[0] = IR_generate(AST->left, generated_IR, current_scope, context)
+            };
             
             IRArray_push_ptr(generated_IR, &ir2);
             ir.instruction = Token_comp_assign_to_Op(AST->token->type);
@@ -392,12 +430,13 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 if (!ir->result.entry) {
                     continue;
                 }
+                SymbolTableEntry *entry = (SymbolTableEntry *)ir->result.entry;
                 SymbolTableEntryArray_push_ptr(&changed_vars, (SymbolTableEntry *)ir->result.entry);
                 // TODO(mdizdar): find all instances of a variable whose scope is greater than the body of the if statement
                 // and put them in a separate array, so we can resolve which temporary variable should be used later
                 // We'll want to do the same thing for the condition (since variables can be assigned to inside the conditions
                 // and the else branch
-                if (/*something*/ false) {
+                if (/*Scope_shallow_find(current_scope)*/false) {
                     // DynArray_add(&changed_vars, /*something*/);
                 }
             }

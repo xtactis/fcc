@@ -8,57 +8,8 @@
 #include "token.h"
 #include "type.h"
 
-#define internal_error internal_error(__FILE__, __LINE__)
-
 static inline Type *type_of(Node *AST) {
     return AST->type;
-}
-
-// NOTE(mdizdar): in a real compiler this should depend on the target machine, but since we're targetting exactly one machine... 
-u64 size_of_type(Type *type) {
-    if (type->pointer_count) {
-        return 2;
-    } else if (type->is_struct) {
-        u64 size = 0;
-        for (u64 i = 0; i < type->struct_type->members.count; ++i) {
-            u64 cur = size_of_type(((Declaration *)type->struct_type->members.data)[i].type);
-            size += cur;
-            size += size%min(cur, 8);
-        }
-        return size;
-    } else if (type->is_union) {
-        u64 size = 0;
-        for (u64 i = 0; i < type->struct_type->members.count; ++i) {
-            max(size, size_of_type(((Declaration *)type->struct_type->members.data)[i].type));
-        }
-        return size;
-    } else if (type->is_typedef) {
-        return size_of_type(type->typedef_type);
-    } else if (type->is_array) {
-        return type->array_type->size * size_of_type(type->array_type->element);
-    } else if (type->is_function) {
-        // should never happen
-        internal_error;
-    } else { // it's a basic type
-        switch (type->basic_type) {
-            case BASIC_CHAR:
-            case BASIC_SCHAR:
-            case BASIC_UCHAR: return 1;
-            case BASIC_SSHORT:
-            case BASIC_USHORT:
-            case BASIC_SINT:
-            case BASIC_UINT: return 2;
-            case BASIC_SLONG:
-            case BASIC_ULONG:
-            case BASIC_FLOAT:
-            case BASIC_DOUBLE:
-            case BASIC_LDOUBLE: return 4;
-            case BASIC_SLLONG:
-            case BASIC_ULLONG: return 8;
-            case BASIC_VOID: return 1; // while techincally correct, I don't like it
-            default: error(0, "sir, this is a wendy's");
-        }
-    }
 }
 
 bool is_pointer(Type *type) {
@@ -245,7 +196,7 @@ Type *coerce(Type *t1, Type *t2) {
     }
     
     if (!is_integer(b1) && !is_integer(b2)) {
-        if (size_of_type(b1) > size_of_type(b2)) return t1;
+        if (Type_sizeof(b1) > Type_sizeof(b2)) return t1;
         else return t2;
     }
     if (!is_integer(b1)) {
@@ -254,8 +205,8 @@ Type *coerce(Type *t1, Type *t2) {
     if (!is_integer(b2)) {
         return t2;
     }
-    u64 s1 = size_of_type(b1);
-    u64 s2 = size_of_type(b2);
+    u64 s1 = Type_sizeof(b1);
+    u64 s2 = Type_sizeof(b2);
     
 #define RETURN_INT \
 Type *ret = malloc(sizeof(Type)); \
@@ -375,7 +326,7 @@ x->basic_type  = y;
             if (entry->type->is_function) {
                 entry->type->function_type->size_of = type_check(entry->type->function_type->block, entry->type->function_type->return_type);
             } else {
-                size_of = size_of_type(entry->type);
+                size_of = Type_sizeof(entry->type);
             }
             break;
         }

@@ -22,6 +22,7 @@ STRUCT(CachedToken, {
     Token *token;
     u64 lookahead;
     u64 cur_line;
+    u64 cur_col;
 });
 
 STRUCT(Lexer, {
@@ -30,6 +31,8 @@ STRUCT(Lexer, {
     CachedToken *token_at;
     Arena *token_arena;
     
+    u64 cur_col;
+    u64 prev_col;
     u64 cur_line;
     u64 prev_line;
     u64 pos;
@@ -59,17 +62,17 @@ TokenType checkKeyword(const char *name) {
 }
 
 inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
-    //printf("peek %llu / %llu\n", lexer->peek, lexer->code.count);
     if (t != NULL && t->type != TOKEN_ERROR) {
-        //printf("%p\n", lexer->token_at[lexer->peek]);
         for (u64 i = lexer->peek; i < lookahead; ++i) {
             lexer->token_at[i].token = t;
             lexer->token_at[i].lookahead = lookahead;
             lexer->token_at[i].cur_line = lexer->cur_line;
+            lexer->token_at[i].cur_col = lexer->cur_col;
         }
     }
     lexer->peek = lookahead;
     t->line = lexer->cur_line;
+    t->col = lexer->cur_col - lookahead + lexer->peek;
     return t;
 }
 
@@ -84,11 +87,13 @@ inline Token *Lexer_currentPeekedToken(Lexer *lexer) {
 inline void Lexer_resetPeek(Lexer *lexer) {
     lexer->peek = lexer->pos;
     lexer->cur_line = lexer->prev_line;
+    lexer->cur_col = lexer->prev_col;
 }
 
 inline void Lexer_confirmPeek(Lexer *lexer) {
     lexer->pos = lexer->peek;
     lexer->prev_line = lexer->cur_line;
+    lexer->prev_col = lexer->cur_col;
 }
 
 // finds the next token and returns it
@@ -97,6 +102,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
         CachedToken *ct = &lexer->token_at[lexer->peek];
         lexer->peek = ct->lookahead;
         lexer->cur_line = ct->cur_line;
+        lexer->cur_col = ct->cur_col;
         return ct->token;
     }
     enum State {
@@ -123,7 +129,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
     Token *t = Arena_alloc(lexer->token_arena, sizeof(Token)); // the token we return
     t->type = TOKEN_ERROR;
     
-    for (u64 lookahead = lexer->peek; lookahead < lexer->code.count; ++lookahead) {
+    for (u64 lookahead = lexer->peek; lookahead < lexer->code.count; ++lookahead, ++lexer->cur_col) {
         char c = lexer->code.data[lookahead];
         //printf("%llu %c\n", lookahead, c);
         switch (state) {
@@ -131,6 +137,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                 if (isspace(c)) {
                     if (c == '\n') {
                         ++lexer->cur_line;
+                        lexer->cur_col = -1;
                     }
                     ++lexer->peek;
                     continue;
@@ -1087,7 +1094,7 @@ Declaration *Parser_struct(Parser *parser, Type **type) {
     declaration->type = _type;
     if (type_name) {
         declaration->name = *type_name;
-        SymbolTable_add(parser->symbol_table, type_name, _type, parser->lexer.cur_line);
+        SymbolTable_add(parser->symbol_table, type_name, _type, parser->lexer.cur_line, parser->lexer.cur_col);
     } else {
         declaration->name.data = "";
         declaration->name.count = 0;
@@ -1143,7 +1150,7 @@ Declaration *Parser_union(Parser *parser, Type **type) {
     declaration->type = _type;
     if (type_name) {
         declaration->name = *type_name;
-        SymbolTable_add(parser->symbol_table, type_name, _type, parser->lexer.cur_line);
+        SymbolTable_add(parser->symbol_table, type_name, _type, parser->lexer.cur_line, parser->lexer.cur_col);
     } else {
         declaration->name.data = "";
         declaration->name.count = 0;
@@ -1247,21 +1254,8 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     }
     
     Type *type = Arena_alloc(parser->type_arena, sizeof(Type));
-    
-    type->is_static = false;
-    type->is_struct = false;
-    type->is_union = false;
-    type->is_typedef = false;
-    type->is_array = false;
-    type->is_function = false;
-    type->pointer_count = 0;
-    for (unsigned int i = 0; i < sizeof(type->is_const) / sizeof(*type->is_const); ++i) {
-        type->is_const[i] = 0;
-        type->is_volatile[i] = 0;
-        type->is_restrict[i] = 0;
-    }
-    type->basic_type = BASIC_ERROR;
-    
+    *type = (Type){ .basic_type = BASIC_ERROR };
+
     u8 longs = 0;
     u8 shorts = 0;
     bool is_signed = false;
@@ -1390,8 +1384,7 @@ Declaration *Parser_declaration(Parser *parser, bool can_be_static) {
     SymbolTableEntry *entry = SymbolTable_shallow_find(parser->symbol_table, &token->name);
     if (entry != NULL) Parser_duplicateError(parser, entry);
     
-    u64 fline = parser->lexer.cur_line;
-    SymbolTable_add(parser->symbol_table, &token->name, type, fline);
+    SymbolTable_add(parser->symbol_table, &token->name, type, token->line, token->col); 
     
     Type *ftype = Parser_function(parser, declaration->type);
     
@@ -1414,7 +1407,7 @@ while (token->type == ',') {
     }
 */
     
-    SymbolTable_add(parser->symbol_table, &token->name, type, parser->lexer.cur_line);
+    SymbolTable_add(parser->symbol_table, &token->name, type, parser->lexer.cur_line, parser->lexer.cur_col);
     
     //token->entry = SymbolTable_find(parser->symbol_table, &token->name);
     

@@ -3,6 +3,7 @@
 #ifndef TYPE_H
 #define TYPE_H
 
+#include "../utils/common.h"
 #include "arena.h"
 #include "../utils/dyn_array.h"
 
@@ -144,6 +145,51 @@ STRUCT(bool_Type, {
     bool is_array;
     bool is_function;
 });
+
+// NOTE(mdizdar): in a real compiler this should depend on the target machine, but since we're targetting exactly one machine... 
+u64 Type_sizeof(Type *type) {
+    if (type->pointer_count) {
+        return 2;
+    } else if (type->is_struct) {
+        u64 size = 0;
+        for (u64 i = 0; i < type->struct_type->members.count; ++i) {
+            u64 cur = Type_sizeof(((Declaration *)type->struct_type->members.data)[i].type);
+            size += cur;
+            size += size%min(cur, 8);
+        }
+        return size;
+    } else if (type->is_union) {
+        u64 size = 0;
+        for (u64 i = 0; i < type->struct_type->members.count; ++i) {
+            max(size, Type_sizeof(((Declaration *)type->struct_type->members.data)[i].type));
+        }
+        return size;
+    } else if (type->is_typedef) {
+        return Type_sizeof(type->typedef_type);
+    } else if (type->is_array) {
+        return type->array_type->size * Type_sizeof(type->array_type->element);
+    } else if (type->is_function) {
+        // should never happen
+        internal_error;
+    } else switch (type->basic_type) { // it's a basic type
+        case BASIC_CHAR:
+        case BASIC_SCHAR:
+        case BASIC_UCHAR: return 1;
+        case BASIC_SSHORT:
+        case BASIC_USHORT:
+        case BASIC_SINT:
+        case BASIC_UINT: return 2;
+        case BASIC_SLONG:
+        case BASIC_ULONG:
+        case BASIC_FLOAT:
+        case BASIC_DOUBLE:
+        case BASIC_LDOUBLE: return 4;
+        case BASIC_SLLONG:
+        case BASIC_ULLONG: return 8;
+        case BASIC_VOID: return 1; // while techincally correct, I don't like it
+        default: error(0, "sir, this is a wendy's");
+    }
+}
 
 char *Type_toStr(char *s, const Type *type, bool in_line, u64 indent) {
     (void)in_line;

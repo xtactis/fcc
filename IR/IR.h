@@ -22,7 +22,9 @@ typedef enum {
     OP_MINUS    = 308,
     OP_LABEL    = 309,
     
-    OP_PHI = 401,
+    OP_PHI   = 401,
+    OP_LOAD  = 402,
+    OP_STORE = 403,
 
     OP_NOT_EQ         = 806,
     OP_EQUALS         = 810,
@@ -78,7 +80,8 @@ STRUCT(IRVariable, {
             bool named;
         };
     };
-    uintptr_t entry;
+    uintptr_t entry; // why am I doing this instead of just including SymbolTableEntry?
+                     // is the idea that STE is C specific and this shouldn't be?
 });
 
 struct BasicBlock;
@@ -98,6 +101,10 @@ STRUCT(IR, {
 
 const char *IRVariable_toStr(IRVariable * const var, char *s) {
     switch (var->type) {
+        case OT_VARIABLE: {
+            sprintf(s, "%s", ((SymbolTableEntry *)var->entry)->name.data);
+            break;
+        }
         case OT_INT8: {
             sprintf(s, "%u", (u8)var->integer_value);
             break;
@@ -232,6 +239,12 @@ break;                                                         \
             fprintf(fp, "%s%s", IRVariable_toStr(&ir->operands[1], s), newline);
             break;
         }
+        case OP_STORE: {
+            fprintf(fp, "store %s -> ", IRVariable_toStr(&ir->operands[0], s));
+            fprintf(fp, "%s%s", IRVariable_toStr(&ir->operands[1], s), newline);
+            break;
+        }
+        case OP_LOAD: ONE_OPERAND_OP("load ");
         case '~': case '!': ONE_OPERAND_OP("%c", ir->instruction);
         case '=':           ONE_OPERAND_OP("%s", ""); // This is a stupid way of getting rid of a warning, I just want an empty string since there is no prefix operator
         case OP_PLUS:       ONE_OPERAND_OP("+");

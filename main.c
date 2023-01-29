@@ -197,6 +197,7 @@ int main(int argc, char **argv) {
             .pos = 0,
             .peek = 0,
             .cur_line = 1,
+            .cur_col = 0
         },
         .symbol_table = &st,
         .arena = Arena_init(4096),
@@ -239,7 +240,7 @@ int main(int argc, char **argv) {
     
     if (!silent) puts(CYAN "****IR****" RESET);
     type_check(AST, NULL);
-    IRContext context;
+    IRContext context = {.global = true};
     context.in_loop = false;
     IR_generate(AST, &generated_IR, st.scope, &context);
     if (!silent) IR_print(generated_IR.data, generated_IR.count);

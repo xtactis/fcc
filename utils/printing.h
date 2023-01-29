@@ -38,6 +38,7 @@ _Noreturn void internal_error(const char * filename, u64 line_number) {
     fputs(RESET "\n", stderr);
     exit(1);
 }
+#define internal_error internal_error(__FILE__, __LINE__)
 
 void warning(u64 lineno, const char* fmt, ...) {
     va_list args;

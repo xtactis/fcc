@@ -124,6 +124,7 @@ STRUCT(Token, {
     
     u64 lookahead;
     u64 line;
+    u64 col;
     
     TokenType type;
 });
