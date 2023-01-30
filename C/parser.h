@@ -522,7 +522,7 @@ Node *Parser_operand(Parser *parser) {
         if (entry) {
             token->entry = entry;
         } else {
-            error(token->col, "Identifier `%s` isn't declared in the current scope", token->name.data);
+            error(token->line, "Identifier `%s` isn't declared in the current scope", token->name.data);
         }
         node->token = token;
         node->left = NULL;
