@@ -175,6 +175,36 @@ SymbolTableEntry *Scope_find(const Scope *scope, const String *name) {
     return NULL;
 }
 
+SymbolTableEntry *Scope_shallow_find_before(const Scope *scope, const String *name, u64 line, u64 col) {
+    SymbolTableEntry *maybe_found = Scope_shallow_find(scope, name);
+    
+    if (maybe_found == NULL) {
+        return NULL;
+    }
+    if (maybe_found->definition_line > line) {
+        return NULL;
+    }
+    if (maybe_found->definition_line == line && maybe_found->definition_column > col) {
+        return NULL;
+    }
+
+    return maybe_found;
+}
+
+SymbolTableEntry *Scope_find_before(const Scope *scope, const String *name, u64 line, u64 col) {
+    SymbolTableEntry *maybe_found = Scope_shallow_find_before(scope, name, line, col);
+
+    if (maybe_found != NULL) {
+        return maybe_found;
+    }
+
+    if (scope->previous != NULL) {
+        return Scope_find(scope->previous, name);
+    }
+
+    return NULL;
+}
+
 SymbolTableEntry *SymbolTable_find(const SymbolTable *st, const String *name) {
     return Scope_find(st->scope, name);
 }
@@ -190,7 +220,24 @@ SymbolTableEntry *SymbolTable_find_cstr(SymbolTable *st, char *name) {
 
 SymbolTableEntry *SymbolTable_shallow_find_cstr(const SymbolTable *st, char *name) {
     const String sname = (String){.data = name, .count = strlen(name)};
-    return Scope_shallow_find(st->scope, &sname);
+    return SymbolTable_shallow_find(st, &sname);
 }
 
+SymbolTableEntry *SymbolTable_shallow_find_before(const SymbolTable *st, const String *name, u64 line, u64 col) {
+    return Scope_shallow_find_before(st->scope, name, line, col);
+}
+
+SymbolTableEntry *SymbolTable_find_before(const SymbolTable *st, const String *name, u64 line, u64 col) {
+    return Scope_find_before(st->scope, name, line, col);
+}
+
+SymbolTableEntry *SymbolTable_shallow_find_before_cstr(const SymbolTable *st, char *name, u64 line, u64 col) {
+    const String sname = (String){.data = name, .count = strlen(name)};
+    return SymbolTable_shallow_find_before(st, &sname, line, col);
+}
+
+SymbolTableEntry *SymbolTable_find_before_cstr(const SymbolTable *st, char *name, u64 line, u64 col) {
+    const String sname = (String){.data = name, .count = strlen(name)};
+    return SymbolTable_find_before(st, &sname, line, col);
+}
 #endif //SYMBOL_TABLE_H

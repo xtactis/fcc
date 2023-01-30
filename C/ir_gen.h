@@ -224,6 +224,12 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             .double_value = AST->token->double_value
         };
     } else if (AST->token->type == TOKEN_IDENT) {
+        return (IRVariable) {
+            .type = OT_TEMPORARY,
+            .entry = (uintptr_t)AST->token->entry,
+            .temporary_id = AST->token->entry->temporary_id
+        };
+        /*
         if (context->lhs) {
             return (IRVariable) {
                 .type = OT_VARIABLE,
@@ -243,6 +249,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
         };
         IRArray_push_ptr(generated_IR, &ir);
         return ir.result;
+        */
     }
     context->lhs = false;
     
@@ -432,13 +439,6 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 }
                 SymbolTableEntry *entry = (SymbolTableEntry *)ir->result.entry;
                 SymbolTableEntryArray_push_ptr(&changed_vars, (SymbolTableEntry *)ir->result.entry);
-                // TODO(mdizdar): find all instances of a variable whose scope is greater than the body of the if statement
-                // and put them in a separate array, so we can resolve which temporary variable should be used later
-                // We'll want to do the same thing for the condition (since variables can be assigned to inside the conditions
-                // and the else branch
-                if (/*Scope_shallow_find(current_scope)*/false) {
-                    // DynArray_add(&changed_vars, /*something*/);
-                }
             }
             
             u64 jump_out_pos = -1;

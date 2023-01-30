@@ -518,9 +518,11 @@ Node *Parser_operand(Parser *parser) {
     } else if (token->type == TOKEN_IDENT) {
         Parser_eat(parser, token, TOKEN_IDENT);
         node = Arena_alloc(parser->arena, sizeof(Node));
-        SymbolTableEntry *entry = SymbolTable_find(parser->symbol_table, &token->name);
+        SymbolTableEntry *entry = SymbolTable_find_before(parser->symbol_table, &token->name, token->line, token->col);
         if (entry) {
             token->entry = entry;
+        } else {
+            error(token->col, "Identifier `%s` isn't declared in the current scope", token->name.data);
         }
         node->token = token;
         node->left = NULL;
