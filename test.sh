@@ -21,6 +21,19 @@ check() {
     echo -e "test \`$1\` result: $res\e[0m"
 }
 
+check_fail() {
+    # TODO(mdizdar): actually implement testing
+    res="\e[32mOK"
+    build/fcc $fcc_silent tests/$1.c -o tests/$1
+    if [ $? != 0 ]; then
+        passed_tests=$((passed_tests + 1))
+    else
+        res="\e[31mFAILED"
+    fi
+    total_tests=$((total_tests + 1))
+    echo -e "test \`$1\` result: $res\e[0m"
+}
+
 ./build.sh
 
 if [ $? != 0 ]; then
@@ -45,5 +58,7 @@ check 'if'
 check 'ifelse'
 check 'ifelseif'
 check 'while'
+
+check_fail 'undeclared_variable'
 
 echo "Result: $passed_tests/$total_tests tests passed!"
