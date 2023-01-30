@@ -67,12 +67,12 @@ inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
             lexer->token_at[i].token = t;
             lexer->token_at[i].lookahead = lookahead;
             lexer->token_at[i].cur_line = lexer->cur_line;
-            lexer->token_at[i].cur_col = lexer->cur_col;
+            lexer->token_at[i].cur_col = lexer->cur_col - lookahead + lexer->peek;
         }
     }
-    lexer->peek = lookahead;
     t->line = lexer->cur_line;
     t->col = lexer->cur_col - lookahead + lexer->peek;
+    lexer->peek = lookahead;
     return t;
 }
 
@@ -81,6 +81,7 @@ inline Token *Lexer_currentToken(Lexer *lexer) {
 }
 
 inline Token *Lexer_currentPeekedToken(Lexer *lexer) {
+    assert(lexer->token_at[lexer->peek - 1].token != NULL);
     return lexer->token_at[lexer->peek - 1].token;
 }
 
