@@ -139,6 +139,26 @@ OperandType operand_from_type(Type *type) { // I'm just gonna pretend structs do
     }
 }
 
+void find_changed_variables(u64 start_index, u64 end_index, const Scope *current_scope, const IRArray *generated_IR, SymbolTableEntryPtrArray *changed_vars) {
+    for (u64 i = start_index; i < end_index; ++i) {
+        IR *ir = IRArray_at(generated_IR, i);
+        if (ir->result.type != OT_TEMPORARY) {
+            continue;
+        }
+        if (!ir->result.entry) {
+            continue;
+        }
+        SymbolTableEntry *entry = (SymbolTableEntry *)ir->result.entry;
+        SymbolTableEntry *same_entry = Scope_find(current_scope, &entry->name);
+        if (entry == same_entry) {
+            SymbolTableEntryPtrArray_push_back(changed_vars, entry);
+        }
+    }
+
+    // TODO(mdizdar): changed_vars should likely be a set of some sort since we only want unique vars
+    // for now, I will pretend like this isn't an issue
+}
+
 // TODO(mdizdar): not sure how to handle struct type scopes
 // NOTE(mdizdar): returns the id of the result variable 
 IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_scope, IRContext *context) {
@@ -427,20 +447,12 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             
             IR_generate(AST->left, generated_IR, current_scope, context);
 
-            SymbolTableEntryArray changed_vars;
-            SymbolTableEntryArray_construct(&changed_vars);
-            for (u64 i = ifn_jump_pos+1; i < generated_IR->count; ++i) {
-                IR *ir = IRArray_at(generated_IR, i);
-                if (ir->result.type != OT_TEMPORARY) {
-                    continue;
-                }
-                if (!ir->result.entry) {
-                    continue;
-                }
-                SymbolTableEntry *entry = (SymbolTableEntry *)ir->result.entry;
-                SymbolTableEntryArray_push_ptr(&changed_vars, (SymbolTableEntry *)ir->result.entry);
-            }
-            
+            SymbolTableEntryPtrArray changed_vars_left, changed_vars_right;
+            SymbolTableEntryPtrArray_construct(&changed_vars_left);
+            SymbolTableEntryPtrArray_construct(&changed_vars_right);
+
+            find_changed_vars(ifn_jump_pos+1, generated_IR->count, current_scope, generated_IR, changed_vars_left);
+
             u64 jump_out_pos = -1;
             if (AST->right) {
                 ir = (IR) {
@@ -460,21 +472,33 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 IR_generate(AST->right, generated_IR, current_scope, context);
 
                 IRArray_at(generated_IR, jump_out_pos)->operands[0].label_index = add_label(generated_IR);
+
+                find_changed_vars(jump_out_pos+1, generated_IR->count, current_scope, generated_IR, changed_vars_right);
             }
 
             ADD_PHI();
 
-            FOR_EACH (SymbolTableEntry, var, &changed_vars) {
-                ir = (IR) {};
-                ir.instruction = OP_PHI;
-                ir.result.type = OT_TEMPORARY;
-                ir.result.entry = 0; // TODO(mdizdar): FILL THIS IN
-                ir.result.temporary_id = temporary_index++;
-                ir.operands[0].type = OT_TEMPORARY;
-                ir.operands[1].type = OT_TEMPORARY;
-                ir.condition_result = condition_result;
+            FOR_EACH (SymbolTableEntryPtr, var, &changed_vars) {
+                ir = (IR) {
+                    .instruction = OP_PHI,
+                    .result = {
+                        .type = OT_TEMPORARY,
+                        .entry = 0, // TODO(mdizdar): FILL THIS IN
+                        .temporary_id = temporary_index++
+                    },
+                    .operands[0] = {
+                        .type = OT_TEMPORARY,
+
+                    },
+                    .operands[1] = {
+                        .type = OT_TEMPORARY
+                    },
+                    .condition_result = condition_result
+                };
             }
 
+            SymbolTableEntryPtrArray_destruct(&changed_vars_left);
+            SymbolTableEntryPtrArray_destruct(&changed_vars_right);
             break;
         }
         case TOKEN_WHILE: {
