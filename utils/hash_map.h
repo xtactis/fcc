@@ -103,6 +103,9 @@
     } \
     \
     key_type##value_type##KVPair *key_type##value_type##HashMap_get_helper(const key_type##value_type##HashMap *map, const key_type *key) { \
+        if (map->size == 0) { \
+            return NULL; \
+        } \
         u64 hash = map->hash_function(key) % map->capacity; \
         u64 travel = 0; \
         while (map->occupied[hash] != 0) { \
