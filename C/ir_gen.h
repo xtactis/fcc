@@ -14,6 +14,26 @@
 
 #define ADD_PHI(...) NOT_IMPL;
 
+typedef SymbolTableEntryPtr STEPtr;
+typedef TemporaryID TempID;
+_generate_hash_map(STEPtr, TempID);
+
+u64 STEPtr_hash(const STEPtr *_key) {
+    u64 key = (u64)_key;
+    key = (~key) + (key << 21); // key = (key << 21) - key - 1;
+    key = key ^ (key >> 24);
+    key = (key + (key << 3)) + (key << 8); // key * 265
+    key = key ^ (key >> 14);
+    key = (key + (key << 2)) + (key << 4); // key * 21
+    key = key ^ (key >> 28);
+    key = key + (key << 31);
+    return key;
+}
+
+bool TempID_eq(const TemporaryID *a, const TemporaryID *b) {
+    return *a == *b;
+}
+
 STRUCT(IRContext, {
     u64 loop_top;
     u64 loop_end;
@@ -139,7 +159,7 @@ OperandType operand_from_type(Type *type) { // I'm just gonna pretend structs do
     }
 }
 
-void find_changed_variables(u64 start_index, u64 end_index, const Scope *current_scope, const IRArray *generated_IR, SymbolTableEntryPtrArray *changed_vars) {
+void find_changed_variables(u64 start_index, u64 end_index, const Scope *current_scope, const IRArray *generated_IR, STEPtrTempIDHashMap *changed_vars) {
     for (u64 i = start_index; i < end_index; ++i) {
         IR *ir = IRArray_at(generated_IR, i);
         if (ir->result.type != OT_TEMPORARY) {
@@ -151,12 +171,9 @@ void find_changed_variables(u64 start_index, u64 end_index, const Scope *current
         SymbolTableEntry *entry = (SymbolTableEntry *)ir->result.entry;
         SymbolTableEntry *same_entry = Scope_find(current_scope, &entry->name);
         if (entry == same_entry) {
-            SymbolTableEntryPtrArray_push_back(changed_vars, entry);
+            STEPtrTempIDHashMap_set(changed_vars, &entry, &entry->temporary_id);
         }
     }
-
-    // TODO(mdizdar): changed_vars should likely be a set of some sort since we only want unique vars
-    // for now, I will pretend like this isn't an issue
 }
 
 // TODO(mdizdar): not sure how to handle struct type scopes
@@ -176,7 +193,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             
             add_named_label(generated_IR, &entry->name);
             u64 i = 0;
-            FOR_EACH_REV(Declaration, parameter, &entry->type->function_type->parameters) {
+            for (ARRAY_EACH_REV(Declaration, parameter, &entry->type->function_type->parameters)) {
                 IR param = {
                     .instruction = OP_GET_ARG,
                     .result = {
@@ -447,11 +464,14 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             
             IR_generate(AST->left, generated_IR, current_scope, context);
 
-            SymbolTableEntryPtrArray changed_vars_left, changed_vars_right;
-            SymbolTableEntryPtrArray_construct(&changed_vars_left);
-            SymbolTableEntryPtrArray_construct(&changed_vars_right);
+            STEPtrTempIDHashMap changed_vars_left, changed_vars_right;
+            STEPtrTempIDHashMap_construct(&changed_vars_left, STEPtr_hash, TempID_eq);
+            STEPtrTempIDHashMap_construct(&changed_vars_right, STEPtr_hash, TempID_eq);
+            //SymbolTableEntryPtrArray changed_vars_left, changed_vars_right;
+            //SymbolTableEntryPtrArray_construct(&changed_vars_left);
+            //SymbolTableEntryPtrArray_construct(&changed_vars_right);
 
-            find_changed_vars(ifn_jump_pos+1, generated_IR->count, current_scope, generated_IR, changed_vars_left);
+            find_changed_variables(ifn_jump_pos+1, generated_IR->count, current_scope, generated_IR, &changed_vars_left);
 
             u64 jump_out_pos = -1;
             if (AST->right) {
@@ -473,12 +493,12 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
 
                 IRArray_at(generated_IR, jump_out_pos)->operands[0].label_index = add_label(generated_IR);
 
-                find_changed_vars(jump_out_pos+1, generated_IR->count, current_scope, generated_IR, changed_vars_right);
+                find_changed_variables(jump_out_pos+1, generated_IR->count, current_scope, generated_IR, &changed_vars_right);
             }
 
             ADD_PHI();
 
-            FOR_EACH (SymbolTableEntryPtr, var, &changed_vars) {
+            for (HASH_MAP_EACH(STEPtr, TempID, var, &changed_vars_left)) {
                 ir = (IR) {
                     .instruction = OP_PHI,
                     .result = {
@@ -497,8 +517,8 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 };
             }
 
-            SymbolTableEntryPtrArray_destruct(&changed_vars_left);
-            SymbolTableEntryPtrArray_destruct(&changed_vars_right);
+            STEPtrTempIDHashMap_destruct(&changed_vars_left);
+            STEPtrTempIDHashMap_destruct(&changed_vars_right);
             break;
         }
         case TOKEN_WHILE: {

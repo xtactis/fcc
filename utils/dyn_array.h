@@ -130,21 +130,21 @@
     \
     name##Array *name##Array_copy(name##Array *dest, const name##Array *source) { \
         name##Array_clear(dest); \
-        FOR_EACH (name, it, source) { \
+        for (ARRAY_EACH(name, it, source)) { \
             name##Array_push_ptr(dest, it); \
         } \
         return dest; \
     }
 
-#define FOR_EACH(type, it, array) \
-    for (type *it = type##Array_begin(array); \
-            it != type##Array_end(array); \
-            it = type##Array_next(array, it))
+#define ARRAY_EACH(type, it, array) \
+    type *it = type##Array_begin(array); \
+    it != type##Array_end(array); \
+    it = type##Array_next(array, it)
 
-#define FOR_EACH_REV(type, it, array) \
-    for (type *it = type##Array_rbegin(array); \
-            it != type##Array_rend(array); \
-            it = type##Array_previous(array, it))
+#define ARRAY_EACH_REV(type, it, array) \
+    type *it = type##Array_rbegin(array); \
+    it != type##Array_rend(array); \
+    it = type##Array_previous(array, it)
 
 _generate_type(u8);
 _generate_type(u16);

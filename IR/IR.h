@@ -4,8 +4,11 @@
 #include "../C/symbol_table.h"
 #include "../utils/dyn_array.h"
 
-u64 temporary_index = 0;
-u64 label_index     = 0;
+typedef u64 TemporaryID;
+typedef u64 LabelID;
+
+TemporaryID temporary_index = 0;
+LabelID     label_index     = 0;
 
 typedef enum {
     // single character Operations will just be their ascii value
@@ -67,14 +70,14 @@ typedef enum {
 STRUCT(IRVariable, {
     OperandType type;
     union {
-        u64 temporary_id; // TODO(mdizdar): find a way to know which variable coincides with which temporary
+        TemporaryID temporary_id; // TODO(mdizdar): find a way to know which variable coincides with which temporary
         u64 integer_value;
         u64 pointer_size;
         double double_value;
         float float_value;
         struct {
             union {
-                u64 label_index;
+                LabelID label_index;
                 String label_name;
             };
             bool named;
@@ -278,7 +281,7 @@ void IR_save(const IRArray *generated_IR, char *outfile) {
     strcat(of, ".ir");
     FILE *fp = fopen(of, "w");
     
-    FOR_EACH(IR, it, generated_IR) {
+    for (ARRAY_EACH(IR, it, generated_IR)) {
         IR_saveOne(it, fp, "\n");
     }
     fclose(fp);

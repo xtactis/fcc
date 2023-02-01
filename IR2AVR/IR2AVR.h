@@ -13,7 +13,7 @@ LabelArray findLabels(IRArray *ir) {
     LabelArray_construct(&labels);
     
     u64 i = 0;
-    FOR_EACH(IR, it, ir) {
+    for (ARRAY_EACH(IR, it, ir)) {
         if (it->instruction == OP_LABEL) {
             Label newlabel;
             newlabel.named = it->operands[0].named;
@@ -75,7 +75,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
     for (u64 i = 0; i < reg_number; ++i) {
         u64Array_construct(&regs[i]);
     }
-    FOR_EACH (IR, it, ir) {
+    for (ARRAY_EACH(IR, it, ir)) {
         IRVariable *live = it->liveVars.data;
         for (u64 j = 0; j < it->liveVars.count; ++j) {
             for (u64 k = j+1; k < it->liveVars.count; ++k) {
@@ -96,9 +96,9 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
     
     //*
     u64 j = 0;
-    FOR_EACH (IR, it, ir) {
+    for (ARRAY_EACH(IR, it, ir)) {
         printf("%lu:\t", j);
-        FOR_EACH (IRVariable, live, &it->liveVars) {
+        for (ARRAY_EACH(IRVariable, live, &it->liveVars)) {
             char s[40];
             printf("%s, ", IRVariable_toStr(live, s));
         }

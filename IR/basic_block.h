@@ -71,7 +71,7 @@ BasicBlock *makeBasicBlock(IRArray *ir, u64 index, LabelArray *labels) {
 
 void makeBasicBlocks(IRArray *ir, LabelArray *labels) {
     int i = -1;
-    FOR_EACH (IR, it, ir) {
+    for (ARRAY_EACH(IR, it, ir)) {
         ++i;
         IRVariableArray_construct(&it->liveVars);
         if (it->block) continue;
@@ -82,7 +82,7 @@ void makeBasicBlocks(IRArray *ir, LabelArray *labels) {
 BasicBlock *findBasicBlock(IRArray *ir, u64 index, LabelArray *labels, IRVariable *label) {
     if (label) {
         // looking for a label, not an index
-        FOR_EACH (Label, it, labels) {
+        for (ARRAY_EACH(Label, it, labels)) {
             if (label->named != it->named) continue;
             if (it->named) {
                 if (strcmp(label->label_name.data, it->label_name.data)) continue;
@@ -109,7 +109,7 @@ BasicBlock *findBasicBlock(IRArray *ir, u64 index, LabelArray *labels, IRVariabl
 }
 
 void addHelper(IRVariableArray *vars, IRVariable *var, bool *changed) {
-    FOR_EACH (IRVariable, it, vars) {
+    for (ARRAY_EACH(IRVariable, it, vars)) {
         if (it->type == var->type && it->temporary_id == var->temporary_id) return;
     }
     *changed = true;
@@ -150,7 +150,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
     for (u64 i = block->end; i >= block->begin && i <= block->end; --i) {
         IRVariableArray notLive;
         IRVariableArray_construct(&notLive);
-        FOR_EACH (IRVariable, it, liveVars) {
+        for (ARRAY_EACH(IRVariable, it, liveVars)) {
             addVariable(&irs[i].liveVars, it, &changed);
         }
         switch ((int)irs[i].instruction) {
@@ -205,12 +205,12 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
                 addVariable(&irs[i].liveVars, &irs[i].operands[1], &changed);
             }
         }
-        FOR_EACH (IRVariable, nl, &notLive) {
+        for (ARRAY_EACH(IRVariable, nl, &notLive)) {
             removeVariable(&irs[i].liveVars, nl, &changed);
         }
         
         IRVariableArray_clear(liveVars); // this obviously shouldn't stay
-        FOR_EACH (IRVariable, l, &irs[i].liveVars) {
+        for (ARRAY_EACH(IRVariable, l, &irs[i].liveVars)) {
             IRVariableArray_push_ptr(liveVars, l);
         }
     }
@@ -218,7 +218,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
     block->livenessDone = true;
     IRVariableArray liveCopy;
     IRVariableArray_construct(&liveCopy);
-    FOR_EACH (BasicBlockPtr, in_block, block->in_blocks) {
+    for (ARRAY_EACH(BasicBlockPtr, in_block, block->in_blocks)) {
         IRVariableArray_copy(&liveCopy, liveVars);
         livenessAnalysisOneBlock(ir, *in_block, &liveCopy);
     }
@@ -229,7 +229,7 @@ void livenessAnalysis(IRArray *ir) {
     IRVariableArray liveVars;
     IRVariableArray_construct(&liveVars);
 
-    FOR_EACH_REV (IR, it, ir) {
+    for (ARRAY_EACH_REV(IR, it, ir)) {
         if (it->block->livenessDone) continue;
         IRVariableArray_clear(&liveVars);
         livenessAnalysisOneBlock(ir, it->block, &liveVars);

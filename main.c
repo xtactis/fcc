@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
     if (!silent) puts(CYAN "***CODE***" RESET);
     if (!silent) puts(code.data);
     SymbolTable st;
-    SymbolTable_init(&st, 10);
+    SymbolTable_init(&st);
     
     Parser parser = (Parser){
         .lexer = {
