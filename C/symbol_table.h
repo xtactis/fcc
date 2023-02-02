@@ -38,16 +38,19 @@ char *SymbolTableEntry_toStr(char *s, const SymbolTableEntry *entry) {
 }
 
 bool SymbolTableEntry_eq(const SymbolTableEntry *a, const SymbolTableEntry *b) {
-    return String_eq(&(a->name), &(b->name));
+    return String_eq(&a->name, &b->name);
 }
 
 void SymbolTableEntry_copy(SymbolTableEntry *dest, const SymbolTableEntry *src, ...) {
     *dest = (SymbolTableEntry){
-        .type              = src->type,
-        .definition_line   = src->definition_line,
-        .definition_column = src->definition_column,
+        .type               = src->type,
+        .definition_line    = src->definition_line,
+        .definition_column  = src->definition_column,
+        .location_in_memory = src->location_in_memory,
+        .temporary_id       = src->temporary_id,
+        .is_typename        = src->is_typename
     };
-    String_copy(&(dest->name), &(src->name));
+    String_copy(&dest->name, &src->name);
 }
 
 _generate_hash_map(String, SymbolTableEntry);
@@ -65,7 +68,7 @@ STRUCT(SymbolTable, {
 
 void Scope_init(Scope *scope) {
     scope->previous = NULL;
-    StringSymbolTableEntryHashMap_construct(&scope->hash_table, String_hash, SymbolTableEntry_eq);
+    StringSymbolTableEntryHashMap_construct(&scope->hash_table);
 }
 
 void SymbolTable_pushScope(SymbolTable *st) {

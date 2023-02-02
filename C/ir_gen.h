@@ -16,23 +16,28 @@
 
 typedef SymbolTableEntryPtr STEPtr;
 typedef TemporaryID TempID;
-_generate_hash_map(STEPtr, TempID);
 
-u64 STEPtr_hash(const STEPtr *_key) {
-    u64 key = (u64)_key;
-    key = (~key) + (key << 21); // key = (key << 21) - key - 1;
-    key = key ^ (key >> 24);
-    key = (key + (key << 3)) + (key << 8); // key * 265
-    key = key ^ (key >> 14);
-    key = (key + (key << 2)) + (key << 4); // key * 21
-    key = key ^ (key >> 28);
-    key = key + (key << 31);
-    return key;
+u64 STEPtr_hash(const STEPtr *key) {
+    return u64_hash((const u64 *)key);
+}
+
+void STEPtr_copy(STEPtr *dest, const STEPtr *src) {
+    *dest = *src;
+}
+
+bool STEPtr_eq(const STEPtr *a, const STEPtr *b) {
+    return *a == *b;
+}
+
+void TempID_copy(TempID *dest, const TempID *src) {
+    *dest = *src;
 }
 
 bool TempID_eq(const TemporaryID *a, const TemporaryID *b) {
     return *a == *b;
 }
+
+_generate_hash_map(STEPtr, TempID);
 
 STRUCT(IRContext, {
     u64 loop_top;
@@ -79,7 +84,7 @@ static inline Op Token_unary_to_Op(TokenType type) {
     }
 }
 
-inline u64 add_specific_label(IRArray *generated_IR, u64 index) {
+u64 add_specific_label(IRArray *generated_IR, u64 index) {
     IRArray_push_back(generated_IR, (IR){
         .instruction = OP_LABEL,
         .operands[0] = {
@@ -92,7 +97,7 @@ inline u64 add_specific_label(IRArray *generated_IR, u64 index) {
     return index;
 }
 
-inline u64 add_label(IRArray *generated_IR) {
+u64 add_label(IRArray *generated_IR) {
     if (generated_IR->count > 0) {
         IR *last = IRArray_back(generated_IR);
         // NOTE(mdizdar): this is a bit stupid, I should make labels more generic so we can jump to named labels as well if need be
@@ -112,7 +117,7 @@ inline u64 add_label(IRArray *generated_IR) {
     return label_index-1;
 }
 
-inline void add_named_label(IRArray *generated_IR, String *label_name) {
+void add_named_label(IRArray *generated_IR, String *label_name) {
     IRArray_push_back(generated_IR, (IR) {
         .instruction = OP_LABEL,
         .operands[0] = {
@@ -465,8 +470,8 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             IR_generate(AST->left, generated_IR, current_scope, context);
 
             STEPtrTempIDHashMap changed_vars_left, changed_vars_right;
-            STEPtrTempIDHashMap_construct(&changed_vars_left, STEPtr_hash, TempID_eq);
-            STEPtrTempIDHashMap_construct(&changed_vars_right, STEPtr_hash, TempID_eq);
+            STEPtrTempIDHashMap_construct(&changed_vars_left);
+            STEPtrTempIDHashMap_construct(&changed_vars_right);
             //SymbolTableEntryPtrArray changed_vars_left, changed_vars_right;
             //SymbolTableEntryPtrArray_construct(&changed_vars_left);
             //SymbolTableEntryPtrArray_construct(&changed_vars_right);

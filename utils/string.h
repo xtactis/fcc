@@ -27,12 +27,10 @@ bool String_eq(const String *a, const String *b) {
 }
 
 void String_copy(String *dest, const String *src, ...) {
-    if (dest->data) {
-        free(dest->data);
-    }
+    // TODO(mdizdar): not freeing here might cause a memory leak, I'll deal with it later
     dest->data = malloc(src->count);
     dest->count = src->count;
-    memcpy(dest->data, src->data, src->count);
+    memcpy(dest->data, src->data, src->count+1);
 }
 
 #endif // STRING_H

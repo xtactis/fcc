@@ -61,7 +61,7 @@ TokenType checkKeyword(const char *name) {
     return TOKEN_IDENT;
 }
 
-inline Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
+Token *Lexer_returnToken(Lexer *lexer, u64 lookahead, Token *t) {
     if (t != NULL && t->type != TOKEN_ERROR) {
         for (u64 i = lexer->peek; i < lookahead; ++i) {
             lexer->token_at[i].token = t;
@@ -431,19 +431,19 @@ _Noreturn void Parser_error(Parser *parser, Token *token, TokenType expected_typ
     char s[123], p[123];
     Token_toStr(s, *token);
     Token_toStr(p, (Token){.type = expected_type});
-    error(parser->lexer.cur_line, "Error: expected '%s', but got '%s'", p, s);
+    error(parser->lexer.cur_line, "expected '%s', but got '%s'", p, s);
 }
 
 _Noreturn void Parser_duplicateError(Parser *parser, SymbolTableEntry *previous) {
-    error(parser->lexer.cur_line, "Error: redefinition of %s; previous definition on line %llu", previous->name.data, previous->definition_line);
+    error(parser->lexer.cur_line, "redefinition of %s; previous definition on line %llu", previous->name.data, previous->definition_line);
 }
 
 _Noreturn void Parser_conflictingTypesError(Parser *parser, TokenType current, TokenType conflicting) {
-    error(parser->lexer.cur_line, "Error: can't combine type %llu with previously defined %llu", conflicting, current);
+    error(parser->lexer.cur_line, "can't combine type %llu with previously defined %llu", conflicting, current);
 }
 
 _Noreturn void Parser_notATypeError(Parser *parser, u64 longs, u64 shorts, TokenType type) {
-    error(parser->lexer.cur_line, "Error: '%s %s%d' is not a valid type", longs?"long":shorts?"short":"", longs == 2?"long ":"", type);
+    error(parser->lexer.cur_line, "'%s %s%d' is not a valid type", longs?"long":shorts?"short":"", longs == 2?"long ":"", type);
 }
 
 // TODO(mdizdar): compound literals

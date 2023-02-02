@@ -5,14 +5,6 @@
 #include <assert.h>
 #include "common.h"
 
-#define copy(dest, src, size) \
-    _Generic(*(src), \
-            String: String_copy, \
-            SymbolTableEntry: SymbolTableEntry_copy, \
-            default: memcpy \
-            )(dest, src, size)
-
-
 #define _generate_hash_map(key_type, value_type) \
     typedef struct key_type##value_type##KVPair { \
         key_type key; \
@@ -25,20 +17,14 @@
         u64 size; \
         u64 capacity; \
         double resize_threshold; \
-        u64 (* hash_function)(const key_type *); \
-        bool (* eq_function)(const value_type *, const value_type *); \
     } key_type##value_type##HashMap; \
     \
-    void key_type##value_type##HashMap_construct(key_type##value_type##HashMap *map, \
-                                                 u64 (* hash_function)(const key_type *), \
-                                                 bool (* eq_function)(const value_type *, const value_type *)) { \
+    void key_type##value_type##HashMap_construct(key_type##value_type##HashMap *map) { \
         map->capacity = 0; \
         map->size = 0; \
         map->table = NULL; \
         map->occupied = NULL; \
         map->resize_threshold = 0.7; \
-        map->hash_function = hash_function; \
-        map->eq_function = eq_function; \
     } \
     \
     void key_type##value_type##HashMap_destruct(key_type##value_type##HashMap *map) { \
@@ -49,21 +35,20 @@
     } \
     \
     u64 key_type##value_type##HashMap_add_helper(key_type##value_type##HashMap *map, const key_type *key, const value_type *value) { \
-        u64 hash = map->hash_function(key) % map->capacity; \
+        u64 hash = key_type##_hash(key) % map->capacity; \
         \
         u64 travel = 0; \
         /* NOTE(mdizdar): this is checking whether a hash is in use */ \
         while (map->occupied[hash] != 0) { \
-            /* TODO(mdizdar): no idea how to do `_eq` in a good way, might just generate it externally */ \
-            if (map->eq_function(&map->table[hash].value, value)) { \
+            if (value_type##_eq(&map->table[hash].value, value)) { \
                 /* it's already in the table */ \
                 return 0; \
             } \
             hash = (hash+1) % map->capacity; \
             ++travel; \
         } \
-        copy(&map->table[hash].key, key, sizeof *key); \
-        copy(&map->table[hash].value, value, sizeof *value); \
+        key_type##_copy(&map->table[hash].key, key); \
+        value_type##_copy(&map->table[hash].value, value); \
         map->occupied[hash] = 1; \
         \
         ++map->size; \
@@ -75,7 +60,7 @@
         key_type##value_type##KVPair *old_table = map->table; \
         bool *old_occupied = map->occupied; \
         u64 old_capacity = map->capacity; \
-        key_type##value_type##HashMap_construct(map, map->hash_function, map->eq_function); \
+        key_type##value_type##HashMap_construct(map); \
         map->capacity = old_capacity * 2; \
         if (old_capacity == 0) { \
             map->capacity = 10; \
@@ -106,10 +91,10 @@
         if (map->size == 0) { \
             return NULL; \
         } \
-        u64 hash = map->hash_function(key) % map->capacity; \
+        u64 hash = key_type##_hash(key) % map->capacity; \
         u64 travel = 0; \
         while (map->occupied[hash] != 0) { \
-            if (map->hash_function(&map->table[hash].key) == map->hash_function(key)) { \
+            if (key_type##_eq(&map->table[hash].key, key)) { \
                 return map->table + hash; \
             } \
             hash = (hash+1) % map->capacity; \
@@ -119,7 +104,11 @@
     } \
     \
     value_type *key_type##value_type##HashMap_get(const key_type##value_type##HashMap *map, const key_type *key) { \
-        return &(key_type##value_type##HashMap_get_helper(map, key)->value); \
+        key_type##value_type##KVPair *entry = key_type##value_type##HashMap_get_helper(map, key); \
+        if (entry == NULL) { \
+            return NULL; \
+        } \
+        return &entry->value; \
     } \
     \
     void key_type##value_type##HashMap_set(key_type##value_type##HashMap *map, const key_type *key, const value_type *value) { \
@@ -133,10 +122,10 @@
     } \
     \
     void key_type##value_type##HashMap_erase(key_type##value_type##HashMap *map, const key_type *key) { \
-        u64 hash = map->hash_function(key) % map->capacity; \
+        u64 hash = key_type##_hash(key) % map->capacity; \
         u64 travel = 0; \
         while (map->occupied[hash] != 0) { \
-            if (map->hash_function(&map->table[hash].key) == map->hash_function(key)) { \
+            if (key_type##_eq(&map->table[hash].key, key)) { \
                 map->occupied[hash] = 0; \
                 --map->size; \
                 return; \
