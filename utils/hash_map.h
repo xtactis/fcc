@@ -189,8 +189,6 @@
         return key_type##value_type##HashMap_rend(map); \
     } \
 
-// TODO(mdizdar): need to make these consistent as `for (EACH_##type)`
-// so this should become EACH_HASH_MAP
 #define HASH_MAP_EACH(key_type, value_type, it, map) \
     key_type##value_type##KVPair *it = key_type##value_type##HashMap_begin(map); \
     it != key_type##value_type##HashMap_end(map); \
