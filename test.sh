@@ -64,3 +64,7 @@ check 'while'
 check_fail 'undeclared_variable'
 
 echo "Result: $passed_tests/$total_tests tests passed!"
+
+if [ $passed_tests != $total_tests ]; then
+    exit 1
+fi
