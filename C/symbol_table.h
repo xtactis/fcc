@@ -37,6 +37,11 @@ char *SymbolTableEntry_toStr(char *s, const SymbolTableEntry *entry) {
     return s;
 }
 
+void SymbolTableEntry_print(const SymbolTableEntry *entry) {
+    char s[512];
+    printf("%s", SymbolTableEntry_toStr(s, entry));
+}
+
 bool SymbolTableEntry_eq(const SymbolTableEntry *a, const SymbolTableEntry *b) {
     return String_eq(&a->name, &b->name);
 }

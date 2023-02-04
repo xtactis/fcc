@@ -23,7 +23,7 @@ u64 String_hash(const String *name) {
 }
 
 bool String_eq(const String *a, const String *b) {
-    return strcmp(a->data, b->data);
+    return !strcmp(a->data, b->data);
 }
 
 void String_copy(String *dest, const String *src, ...) {
@@ -31,6 +31,10 @@ void String_copy(String *dest, const String *src, ...) {
     dest->data = malloc(src->count);
     dest->count = src->count;
     memcpy(dest->data, src->data, src->count+1);
+}
+
+void String_print(const String *s) {
+    printf("`%s` (%lu)", s->data, s->count);
 }
 
 #endif // STRING_H

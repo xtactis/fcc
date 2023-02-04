@@ -29,12 +29,20 @@ bool STEPtr_eq(const STEPtr *a, const STEPtr *b) {
     return *a == *b;
 }
 
+void STEPtr_print(const STEPtr *p) {
+    printf("%p", p);
+}
+
 void TempID_copy(TempID *dest, const TempID *src) {
     *dest = *src;
 }
 
-bool TempID_eq(const TemporaryID *a, const TemporaryID *b) {
+bool TempID_eq(const TempID *a, const TempID *b) {
     return *a == *b;
+}
+
+void TempID_print(const TempID *a) {
+    printf("%lu", *a);
 }
 
 _generate_hash_map(STEPtr, TempID);
