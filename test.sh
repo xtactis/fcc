@@ -10,28 +10,30 @@ fi
 
 check() {
     # TODO(mdizdar): actually implement testing
-    res="\e[32mOK"
+    res="\e[32m[       OK ]"
+    echo -e "\e[32m[ RUN      ]\e[0m $1"
     build/fcc $fcc_silent tests/$1.c -o tests/$1
     if [ $? != 0 ]; then
-        res="\e[31mFAILED"
+        res="\e[31m[  FAILED  ]"
     else
         passed_tests=$((passed_tests + 1))
     fi
     total_tests=$((total_tests + 1))
-    echo -e "test \`$1\` result: $res\e[0m"
+    echo -e "$res\e[0m $1"
 }
 
 check_fail() {
     # TODO(mdizdar): actually implement testing
-    res="\e[32mOK"
+    res="\e[32m[       OK ]"
+    echo -e "\e[32m[ RUN      ]\e[0m $1"
     build/fcc $fcc_silent tests/$1.c -o tests/$1
     if [ $? != 0 ]; then
         passed_tests=$((passed_tests + 1))
     else
-        res="\e[31mFAILED"
+        res="\e[31m[  FAILED  ]"
     fi
     total_tests=$((total_tests + 1))
-    echo -e "test \`$1\` result: $res\e[0m"
+    echo -e "$res\e[0m $1"
 }
 
 ./build.sh
