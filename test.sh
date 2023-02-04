@@ -5,7 +5,7 @@ declare -A negative_tests=(['undeclared_variable']=1)
 
 usage() {
     echo "Usage: test [ -l | --loud] 
-                      [ -o | --only test1[,test2[,...]]]"
+            [ -o | --only test1[,test2[,...]]]"
     exit 2
 }
 
