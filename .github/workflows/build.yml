@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    
+  workflow_dispatch:
+     
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: install gcc
+        run: |
+          sudo apt-get install gcc
+          
+      - name: build program
+        run: |
+          cd $GITHUB_WORKSPACE
+          ./build.sh
+      
+      - name: runs the program once
+        run: |
+          cd $GITHUB_WORKSPACE
+          ./build/fcc tests/main.c

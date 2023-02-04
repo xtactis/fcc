@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    
+  workflow_dispatch:
+     
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: install gcc
+        run: |
+          sudo apt-get install gcc
+      
+      - name: runs all of the tests
+        run: |
+          cd $GITHUB_WORKSPACE
+          ./test.sh
