@@ -136,6 +136,8 @@
         return dest; \
     }
 
+// TODO(mdizdar): need to make these consistent as `for (EACH_##type)`
+// so this should become EACH_ARRAY
 #define ARRAY_EACH(type, it, array) \
     type *it = type##Array_begin(array); \
     it != type##Array_end(array); \

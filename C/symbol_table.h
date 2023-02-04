@@ -19,12 +19,21 @@ STRUCT(Address, {
     u64 offset;
 });
 
+typedef u64 TemporaryID;
+typedef u64 Line;
+
+STRUCT(LineTemporaryID, {
+    TemporaryID id;
+    Line line;
+});
+
 STRUCT(SymbolTableEntry, {
     String name;
     Type *type;
     u64 definition_line;
     u64 definition_column;
-    u64 temporary_id; // NOTE(mdizdar): this is used in IR generation to keep track
+    LineTemporaryIDArray all_temp_ids; // indexed by line number in IR
+    TemporaryID temporary_id; // NOTE(mdizdar): this is used in IR generation to keep track
     Address location_in_memory;
 
     bool is_typename;

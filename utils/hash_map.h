@@ -154,7 +154,7 @@
                                                                      key_type##value_type##KVPair *el) { \
         assert(el >= map->table); \
         assert(el < map->table+map->capacity); \
-        for (u64 i = 1 + ((el - map->table) / sizeof *el); i < map->capacity; ++i) { \
+        for (u64 i = 1 + (u64)(el - map->table); i < map->capacity; ++i) { \
             if (map->occupied[i]) { \
                 return map->table + i; \
             } \
@@ -181,7 +181,7 @@
                                                                      key_type##value_type##KVPair *el) { \
         assert(el >= map->table); \
         assert(el < map->table+map->capacity); \
-        for (u64 i = ((el - map->table) / sizeof *el); i > 0; --i) { \
+        for (u64 i = el - map->table; i > 0; --i) { \
             if (map->occupied[i-1]) { \
                 return map->table + i - 1; \
             } \
@@ -189,6 +189,8 @@
         return key_type##value_type##HashMap_rend(map); \
     } \
 
+// TODO(mdizdar): need to make these consistent as `for (EACH_##type)`
+// so this should become EACH_HASH_MAP
 #define HASH_MAP_EACH(key_type, value_type, it, map) \
     key_type##value_type##KVPair *it = key_type##value_type##HashMap_begin(map); \
     it != key_type##value_type##HashMap_end(map); \
