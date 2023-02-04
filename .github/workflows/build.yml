@@ -17,7 +17,7 @@ jobs:
 
       - name: install gcc
         run: |
-          apt-get install gcc
+          sudo apt-get install gcc
           
       - name: build program
         run: |
