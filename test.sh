@@ -1,36 +1,48 @@
 #!/bin/bash
 
+all_tests=( 'main' 'int' 'two_variables' 'int_assign' 'int_assign_exp' 'return_exp' 'return_var' 'scope' 'ternary' 'if' 'ifelse' 'ifelseif' 'while' 'undeclared_variable' )
+declare -A negative_tests=(['undeclared_variable']=1)
+
+usage() {
+    echo "Usage: test [ -l | --loud] 
+                      [ -o | --only test1[,test2[,...]]]"
+    exit 2
+}
+
+fcc_loud=0
+run_only=${all_tests[@]}
+
+parsed_arguments=$(getopt -a -n test -o lo: --long loud,only: -- "$@")
+valid_arguments=$?
+if [ "$valid_arguments" != "0" ]; then
+    usage
+fi
+
+eval set -- "$parsed_arguments"
+while :
+do
+    case "$1" in
+        -l | --loud) fcc_loud=1 ; shift ;;
+        -o | --only) IFS=',' read -ra run_only <<< "$2" ; shift 2 ;;
+        --) shift; break ;;
+        *) echo "Unrecognized option $1"
+           usage ;;
+    esac
+done
+
 total_tests=0
 passed_tests=0
-
-fcc_silent='-s'
-if [[ $1 = '-loud' ]]; then
-    fcc_silent=''
-fi
 
 check() {
     # TODO(mdizdar): actually implement testing
     res="\e[32m[       OK ]"
     echo -e "\e[32m[ RUN      ]\e[0m $1"
-    build/fcc $fcc_silent tests/$1.c -o tests/$1
-    if [ $? != 0 ]; then
+    build/fcc $([ $fcc_loud == 0 ] && echo "-s" ]) tests/$1.c -o tests/$1
+    result=$?
+    if [ $result != 0 ] && [ -z "${negative_tests[$1]}" ]; then 
         res="\e[31m[  FAILED  ]"
     else
         passed_tests=$((passed_tests + 1))
-    fi
-    total_tests=$((total_tests + 1))
-    echo -e "$res\e[0m $1"
-}
-
-check_fail() {
-    # TODO(mdizdar): actually implement testing
-    res="\e[32m[       OK ]"
-    echo -e "\e[32m[ RUN      ]\e[0m $1"
-    build/fcc $fcc_silent tests/$1.c -o tests/$1
-    if [ $? != 0 ]; then
-        passed_tests=$((passed_tests + 1))
-    else
-        res="\e[31m[  FAILED  ]"
     fi
     total_tests=$((total_tests + 1))
     echo -e "$res\e[0m $1"
@@ -47,21 +59,9 @@ echo "==================================="
 echo "               TESTS               "
 echo "==================================="
 
-check 'main'
-check 'int'
-check 'two_variables'
-check 'int_assign'
-check 'int_assign_exp'
-check 'return_exp'
-check 'return_var'
-check 'scope'
-check 'ternary'
-check 'if'
-check 'ifelse'
-check 'ifelseif'
-check 'while'
-
-check_fail 'undeclared_variable'
+for t in ${run_only[@]}; do
+    check $t
+done
 
 echo "Result: $passed_tests/$total_tests tests passed!"
 
