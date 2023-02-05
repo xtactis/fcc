@@ -142,7 +142,7 @@ IR move_to_temp(IRVariable x) {
         .result = {
             .type = OT_TEMPORARY,
             .entry = 0,
-            .temporary_id = ++temporary_index
+            .temporary_id = temporary_index++
         },
         .operands[0] = x,
         .instruction = (Op)'='
@@ -465,19 +465,27 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             ir.instruction = OP_IF_JUMP;
             ir.result.type = OT_NONE;
             ir.operands[0] = IR_generate(AST->cond, generated_IR, current_scope, context);
+            IRVariable condition_result = ir.operands[0];
             ir.operands[1].type = OT_LABEL;
             ir.operands[1].named = false;
             
             IRArray_push_ptr(generated_IR, &ir);
-            u64 index_of_jmp = generated_IR->count - 2;
+            u64 top_of_ternary = generated_IR->count - 2;
             
+            STEPtrTempIDHashMap changed_vars_left, changed_vars_right;
+            STEPtrTempIDHashMap_construct(&changed_vars_left);
+            STEPtrTempIDHashMap_construct(&changed_vars_right);
+
             // if false
             IRVariable Fres = IR_generate(AST->right, generated_IR, current_scope, context);
             if (Fres.type != OT_TEMPORARY) {
                 IR moved = move_to_temp(Fres);
                 IRArray_push_ptr(generated_IR, &moved);
+                Fres = moved.result;
             }
             
+            find_changed_variables(top_of_ternary+1, generated_IR->count, current_scope, generated_IR, &changed_vars_left);
+
             IR ir2 = {
                 .instruction = OP_JUMP,
                 .result.type = OT_NONE,
@@ -489,22 +497,72 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             
             IRArray_push_ptr(generated_IR, &ir2);
             
-            IRArray_at(generated_IR, index_of_jmp)->operands[1].label_index = add_label(generated_IR); // after F
-            index_of_jmp = generated_IR->count - 2;
+            IRArray_at(generated_IR, top_of_ternary)->operands[1].label_index = add_label(generated_IR); // after F
+            u64 index_of_jmp = generated_IR->count - 2;
             
             // if true
             IRVariable Tres = IR_generate(AST->left, generated_IR, current_scope, context);
             if (Tres.type != OT_TEMPORARY) {
                 IR moved = move_to_temp(Tres);
                 IRArray_push_ptr(generated_IR, &moved);
+                Tres = moved.result;
             }
             
+            find_changed_variables(index_of_jmp+1, generated_IR->count, current_scope, generated_IR, &changed_vars_right);
+
             IRArray_at(generated_IR, index_of_jmp)->operands[0].label_index = add_label(generated_IR); // after T
             
-            ADD_PHI();
-            // HACK(mdizdar): this was a stupid hack before I bothered to make a proper Phi function
-            // F->result.temporary_id = T->result.temporary_id;
-            // ir = T;
+            for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars_left)) {
+                TempID *found_in_right = STEPtrTempIDHashMap_get(&changed_vars_right, &variable->key);
+                IR ir = {
+                    .instruction = OP_PHI,
+                    .result = {
+                        .type = OT_TEMPORARY,
+                        .entry = (uintptr_t)variable->key,
+                        .temporary_id = temporary_index++
+                    },
+                    .operands[0] = {
+                        .type = OT_TEMPORARY,
+                        .temporary_id = variable->value
+                    },
+                    .operands[1] = {
+                        .type = OT_TEMPORARY,
+                        .temporary_id = found_in_right != NULL ?
+                                        *found_in_right 
+                                      : get_id_before(&variable->key->all_temp_ids, top_of_ternary)
+                    },
+                    .condition_result = condition_result
+                };
+                IRArray_push_ptr(generated_IR, &ir);
+                SymbolTableEntry *entry = (SymbolTableEntry *)ir.result.entry;
+                entry->temporary_id = ir.result.temporary_id;
+                LineTemporaryIDArray_push_back(&entry->all_temp_ids, (LineTemporaryID) {
+                    .id = ir.result.temporary_id,
+                    .line = generated_IR->count,
+                });
+            }
+
+            ir = (IR) {
+                .instruction = OP_PHI,
+                .result = {
+                    .type = OT_TEMPORARY,
+                    .entry = 0,
+                    .temporary_id = temporary_index++
+                },
+                .operands[0] = {
+                    .type = OT_TEMPORARY,
+                    .temporary_id = Tres.temporary_id
+                },
+                .operands[1] = {
+                    .type = OT_TEMPORARY,
+                    .temporary_id = Fres.temporary_id
+                },
+                .condition_result = condition_result
+            };
+            IRArray_push_ptr(generated_IR, &ir);
+
+            STEPtrTempIDHashMap_destruct(&changed_vars_left);
+            STEPtrTempIDHashMap_destruct(&changed_vars_right);
             break;
         }
         case TOKEN_IF: {
