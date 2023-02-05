@@ -22,9 +22,10 @@ LabelArray findLabels(IRArray *ir) {
             } else {
                 newlabel.label_index = it->operands[0].label_index;
             }
-            newlabel.ir_index = i++;
+            newlabel.ir_index = i;
             LabelArray_push_back(&labels, newlabel);
         }
+        ++i;
     }
     return labels;
 }

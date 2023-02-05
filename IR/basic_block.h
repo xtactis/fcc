@@ -42,7 +42,7 @@ BasicBlock *makeBasicBlock(IRArray *ir, u64 index, LabelArray *labels) {
             bb->jump = findBasicBlock(ir, i+1, labels, &irs[i].operands[0]);
             BasicBlockPtrArray_push_back(bb->jump->in_blocks, bb);
             return bb;
-        } else if (irs[i].instruction == OP_IF_JUMP || 
+        } else if (irs[i].instruction == OP_IF_JUMP ||
                    irs[i].instruction == OP_IFN_JUMP) {
             bb->end = i;
             bb->next = findBasicBlock(ir, i+1, labels, NULL);
