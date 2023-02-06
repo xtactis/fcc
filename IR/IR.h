@@ -133,7 +133,11 @@ const char *IRVariable_toStr(IRVariable * const var, char *s) {
             break;
         }
         case OT_TEMPORARY: {
-            sprintf(s, "t%lu", var->temporary_id);
+            if (var->entry != 0) {
+                sprintf(s, "%s_%lu", ((SymbolTableEntry *)var->entry)->name.data, var->temporary_id);
+            } else {
+                sprintf(s, "t%lu", var->temporary_id);
+            }
             break;
         }
         case OT_DEREF_TEMPORARY: {
