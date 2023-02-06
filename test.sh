@@ -1,6 +1,6 @@
 #!/bin/bash
 
-all_tests=( 'main' 'int' 'two_variables' 'int_assign' 'int_assign_exp' 'return_exp' 'return_var' 'scope' 'ternary' 'if' 'ifelse' 'ifelseif' 'while' 'undeclared_variable' )
+all_tests=( 'main' 'int' 'two_variables' 'int_assign' 'int_assign_exp' 'return_exp' 'return_var' 'scope' 'ternary' 'if' 'ifelse' 'ifelseif' 'ifsabound' 'while' 'undeclared_variable' )
 declare -A negative_tests=(['undeclared_variable']=1)
 
 usage() {
