@@ -21,7 +21,7 @@ if [ $need_to_rebuild = "1" ]; then
     mkdir -p build
     pushd build > /dev/null
 
-    time gcc -std=c17 -Wall -Wextra -Og -g ../main.c -o fcc
+    time gcc -std=c17 -Wall -Wextra -Og -g -fdiagnostics-color=always ../main.c -o fcc
     status=$?
 
     popd > /dev/null # build
