@@ -31,6 +31,8 @@
         if (map->table != NULL) { \
             free(map->table); \
             free(map->occupied); \
+            map->table = NULL; \
+            map->occupied = NULL; \
         } \
     } \
     \
@@ -72,8 +74,10 @@
             if (old_occupied[i] == 0) continue; \
             key_type##value_type##HashMap_add_helper(map, &old_table[i].key, &old_table[i].value); \
         } \
-        free(old_table); \
-        free(old_occupied); \
+        if (old_table != NULL) { \
+            free(old_table); \
+            free(old_occupied); \
+        } \
     } \
     \
     void key_type##value_type##HashMap_add(key_type##value_type##HashMap *map, const key_type *key, const value_type *value) { \

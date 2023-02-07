@@ -65,17 +65,19 @@ typedef enum {
     OT_VALUE = 12,
     
     OT_SIZE = 13,
+
+    OT_PHI_VAR = 14,
 } OperandType;
 
 STRUCT(IRVariable, {
     OperandType type;
     union {
-        TemporaryID temporary_id; // TODO(mdizdar): find a way to know which variable coincides with which temporary
         u64 integer_value;
         u64 pointer_size;
         double double_value;
         float float_value;
         struct {
+            TemporaryID temporary_id; // TODO(mdizdar): find a way to know which variable coincides with which temporary
             union {
                 LabelID label_index;
                 String label_name;
@@ -96,9 +98,6 @@ STRUCT(IR, {
     IRVariable result;
     IRVariable operands[2];
 
-    // NOTE(mdizdar): stores the id of the temporary register that holds the result of the condition
-    IRVariable condition_result;
-    
     Op instruction;
 });
 
@@ -154,6 +153,14 @@ const char *IRVariable_toStr(IRVariable * const var, char *s) {
         }
         case OT_SIZE: {
             sprintf(s, "(%lu)", var->integer_value);
+            break;
+        }
+        case OT_PHI_VAR: {
+            if (var->entry != 0) {
+                sprintf(s, "[%s_%lu from before L%lu]", ((SymbolTableEntry *)var->entry)->name.data, var->temporary_id, var->label_index);
+            } else {
+                sprintf(s, "[t%lu from before L%lu]", var->temporary_id, var->label_index);
+            }
             break;
         }
         default: {
@@ -240,8 +247,7 @@ break;                                                         \
             break;
         }
         case OP_PHI: {
-            fprintf(fp, "%s = ", IRVariable_toStr(&ir->result, s));
-            fprintf(fp, "phi (%s) ", IRVariable_toStr(&ir->condition_result, s));
+            fprintf(fp, "%s = phi ", IRVariable_toStr(&ir->result, s));
             fprintf(fp, "%s ", IRVariable_toStr(&ir->operands[0], s));
             fprintf(fp, "%s%s", IRVariable_toStr(&ir->operands[1], s), newline);
             break;
@@ -293,6 +299,7 @@ void IR_save(const IRArray *generated_IR, char *outfile) {
 
 void IR_print(IR * const ir, u64 size) {
     for (u64 i = 0; i < size; ++i) {
+        printf("%3lu: ", i);
         IR_saveOne(&ir[i], stdout, "\n");
     }
 }

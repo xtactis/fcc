@@ -14,7 +14,7 @@
         u64 capacity; \
     } name##Array; \
     \
-    name##Array *name##Array_push_ptr(name##Array *array, name *element) { \
+    name##Array *name##Array_push_ptr(name##Array *array, const name *element) { \
         if (!array->capacity) { \
             array->data = malloc(sizeof(name) * 2); \
             memcpy(array->data, element, sizeof(name)); \
@@ -96,6 +96,23 @@
         if (array->count == index) return; \
         memcpy(array->data + index, array->data + index + 1, sizeof(name) * (array->count - index)); \
     } \
+    name##Array *name##Array_insert_ptr(name##Array *array, const name *new_element, u64 position) { \
+        assert(array); \
+        assert(array->count >= position); \
+        if (array->count == position) { \
+            return name##Array_push_ptr(array, new_element); \
+        } \
+        \
+        if (array->capacity == array->count) { \
+            array->capacity += array->capacity; \
+            array->data = realloc(array->data, array->capacity * sizeof(name)); \
+        } \
+        memcpy(array->data + position + 1, array->data + position, (array->count - position) * sizeof(name)); \
+        /* I'm still unsure if memcpy is the thing we want to be doing here */ \
+        memcpy(array->data + position, new_element, sizeof(name)); \
+        ++array->count; \
+        return array; \
+    } \
     \
     void name##Array_reserve(name##Array *array, u64 new_cap) { \
         array->capacity = new_cap; \
@@ -128,12 +145,17 @@
         } \
     } \
     \
-    name##Array *name##Array_copy(name##Array *dest, const name##Array *source) { \
-        name##Array_clear(dest); \
+    name##Array *name##Array_extend(name##Array *dest, const name##Array *source) { \
+        name##Array_reserve(dest, dest->count+source->count); \
         for (ARRAY_EACH(name, it, source)) { \
             name##Array_push_ptr(dest, it); \
         } \
         return dest; \
+    } \
+    \
+    name##Array *name##Array_copy(name##Array *dest, const name##Array *source) { \
+        name##Array_clear(dest); \
+        return name##Array_extend(dest, source); \
     }
 
 #define ARRAY_EACH(type, it, array) \
