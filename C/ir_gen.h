@@ -519,9 +519,23 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
 
             u64 right_bottom = add_label(generated_IR);
             IRArray_at(generated_IR, index_of_jmp)->operands[0].label_index = add_label(generated_IR); // after T
-            
+
+            STEPtrTempIDHashMap changed_vars_union;
+            STEPtrTempIDHashMap_construct(&changed_vars_union);
+
             for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars_left)) {
+                STEPtrTempIDHashMap_add(&changed_vars_union, &variable->key, &variable->value);
+            }
+            
+            for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars_right)) {
+                STEPtrTempIDHashMap_add(&changed_vars_union, &variable->key, &variable->value);
+            }
+            
+            for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars_union)) {
+                TempID *found_in_left = STEPtrTempIDHashMap_get(&changed_vars_left, &variable->key);
                 TempID *found_in_right = STEPtrTempIDHashMap_get(&changed_vars_right, &variable->key);
+                TempID last_id_before_if = get_id_before(&variable->key->all_temp_ids, top_of_ternary);
+
                 IR ir = {
                     .instruction = OP_PHI,
                     .result = {
@@ -531,29 +545,33 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                     },
                     .operands[0] = {
                         .type = OT_PHI_VAR,
-                        .temporary_id = variable->value,
                         .named = false,
-                        .label_index = right_bottom,
+                        .entry = (uintptr_t)variable->key,
+                    },
+                    .operands[1] = {
+                        .type = OT_PHI_VAR,
+                        .named = false,
                         .entry = (uintptr_t)variable->key,
                     },
                 };
-                if (found_in_right != NULL) {
-                    ir.operands[1] = (IRVariable) {
-                        .type = OT_PHI_VAR,
-                        .temporary_id = *found_in_right,
-                        .named = false,
-                        .label_index = left_bottom,
-                        .entry = (uintptr_t)variable->key,
-                    };
-                } else {
-                    ir.operands[1] = (IRVariable) {
-                        .type = OT_PHI_VAR,
-                        .temporary_id = get_id_before(&variable->key->all_temp_ids, top_of_ternary),
-                        .named = false,
-                        .label_index = before_if,
-                        .entry = (uintptr_t)variable->key
-                    };
+
+                if (found_in_right != NULL && found_in_left != NULL) {
+                    ir.operands[0].temporary_id = *found_in_left;
+                    ir.operands[0].label_index  = left_bottom;
+                    ir.operands[1].temporary_id = *found_in_right;
+                    ir.operands[1].label_index  = right_bottom;
+                } if (found_in_right != NULL) {
+                    ir.operands[0].temporary_id = last_id_before_if;
+                    ir.operands[0].label_index  = before_if;
+                    ir.operands[1].temporary_id = *found_in_right;
+                    ir.operands[1].label_index  = right_bottom;
+                } else { // must be in left
+                    ir.operands[0].temporary_id = *found_in_left;
+                    ir.operands[0].label_index  = left_bottom;
+                    ir.operands[1].temporary_id = last_id_before_if;
+                    ir.operands[1].label_index  = before_if;
                 }
+
                 IRArray_push_ptr(generated_IR, &ir);
                 SymbolTableEntry *entry = (SymbolTableEntry *)ir.result.entry;
                 entry->temporary_id = ir.result.temporary_id;
@@ -585,6 +603,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             };
             IRArray_push_ptr(generated_IR, &ir);
 
+            STEPtrTempIDHashMap_destruct(&changed_vars_union);
             STEPtrTempIDHashMap_destruct(&changed_vars_left);
             STEPtrTempIDHashMap_destruct(&changed_vars_right);
             break;
@@ -635,12 +654,22 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 find_changed_variables(jump_out_pos+1, generated_IR->count, current_scope, generated_IR, &changed_vars_right);
             }
 
-            // FIXME(mdizdar): this is fucked, if a variable goes untouched in the left branch, but is
-            // modified in the right branch, none of this will ever happen :(
-            // I'll have to make a union of the two changed_vars hashmaps, and iterate through that
-            // and not treat the left hand side as magical
+            STEPtrTempIDHashMap changed_vars_union;
+            STEPtrTempIDHashMap_construct(&changed_vars_union);
+
             for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars_left)) {
+                STEPtrTempIDHashMap_add(&changed_vars_union, &variable->key, &variable->value);
+            }
+            
+            for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars_right)) {
+                STEPtrTempIDHashMap_add(&changed_vars_union, &variable->key, &variable->value);
+            }
+
+            for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars_union)) {
+                TempID *found_in_left = STEPtrTempIDHashMap_get(&changed_vars_left, &variable->key);
                 TempID *found_in_right = STEPtrTempIDHashMap_get(&changed_vars_right, &variable->key);
+                TempID last_id_before_if = get_id_before(&variable->key->all_temp_ids, ifn_jump_pos);
+
                 IR ir = {
                     .instruction = OP_PHI,
                     .result = {
@@ -650,28 +679,31 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                     },
                     .operands[0] = {
                         .type = OT_PHI_VAR,
-                        .temporary_id = variable->value,
                         .named = false,
-                        .label_index = left_bottom,
-                        .entry = (uintptr_t)variable->key
-                    }
+                        .entry = (uintptr_t)variable->key,
+                    },
+                    .operands[1] = {
+                        .type = OT_PHI_VAR,
+                        .named = false,
+                        .entry = (uintptr_t)variable->key,
+                    },
                 };
-                if (found_in_right != NULL) {
-                    ir.operands[1] = (IRVariable) {
-                        .type = OT_PHI_VAR,
-                        .temporary_id = *found_in_right,
-                        .named = false,
-                        .label_index = right_bottom,
-                        .entry = (uintptr_t)variable->key
-                    };
-                } else {
-                    ir.operands[1] = (IRVariable) {
-                        .type = OT_PHI_VAR,
-                        .temporary_id = get_id_before(&variable->key->all_temp_ids, ifn_jump_pos),
-                        .named = false,
-                        .label_index = before_if,
-                        .entry = (uintptr_t)variable->key
-                    };
+
+                if (found_in_right != NULL && found_in_left != NULL) {
+                    ir.operands[0].temporary_id = *found_in_left;
+                    ir.operands[0].label_index  = left_bottom;
+                    ir.operands[1].temporary_id = *found_in_right;
+                    ir.operands[1].label_index  = right_bottom;
+                } if (found_in_right != NULL) {
+                    ir.operands[0].temporary_id = last_id_before_if;
+                    ir.operands[0].label_index  = before_if;
+                    ir.operands[1].temporary_id = *found_in_right;
+                    ir.operands[1].label_index  = right_bottom;
+                } else { // must be in left
+                    ir.operands[0].temporary_id = *found_in_left;
+                    ir.operands[0].label_index  = left_bottom;
+                    ir.operands[1].temporary_id = last_id_before_if;
+                    ir.operands[1].label_index  = before_if;
                 }
                 IRArray_push_ptr(generated_IR, &ir);
                 SymbolTableEntry *entry = (SymbolTableEntry *)ir.result.entry;
@@ -682,6 +714,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                 });
             }
 
+            STEPtrTempIDHashMap_destruct(&changed_vars_union);
             STEPtrTempIDHashMap_destruct(&changed_vars_left);
             STEPtrTempIDHashMap_destruct(&changed_vars_right);
             break;

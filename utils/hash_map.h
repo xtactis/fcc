@@ -191,7 +191,7 @@
             } \
         } \
         return key_type##value_type##HashMap_rend(map); \
-    } \
+    }
 
 #define HASH_MAP_EACH(key_type, value_type, it, map) \
     key_type##value_type##KVPair *it = key_type##value_type##HashMap_begin(map); \
