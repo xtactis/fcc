@@ -850,6 +850,9 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             break;
         }
         case TOKEN_FOR: {
+            STEPtrTempIDHashMap changed_vars;
+            STEPtrTempIDHashMap_construct(&changed_vars);
+
             Node *init_cond_iter = AST->cond;
             
             IR_generate(init_cond_iter->left, generated_IR, current_scope, context);
@@ -877,6 +880,8 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             IR_generate(init_cond_iter->right, generated_IR, current_scope, context);
             context->in_loop = false; // no longer in the loop lol
             
+            find_changed_variables(ifn_jump_pos+1, generated_IR->count, current_scope, generated_IR, &changed_vars);
+
             IR ir2 = {
                 .block = NULL,
                 .instruction = OP_JUMP,
@@ -892,7 +897,96 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             
             IRArray_at(generated_IR, ifn_jump_pos)->operands[1].label_index = add_specific_label(generated_IR, loop_end);
 
-            ADD_PHI();
+            TempIDTempIDHashMap old2phi;
+            TempIDTempIDHashMap_construct(&old2phi);
+
+            Line insertion_point = ifn_jump_pos - 1;
+            for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars)) {
+                TempID old_id = get_id_before(&variable->key->all_temp_ids, ifn_jump_pos);
+                TempIDTempIDHashMap_add(&old2phi, &old_id, &temporary_index);
+                IR ir = {
+                    .instruction = OP_PHI,
+                    .result = {
+                        .type = OT_TEMPORARY,
+                        .entry = (uintptr_t)variable->key,
+                        .temporary_id = temporary_index++
+                    },
+                    .operands[0] = {
+                        .type = OT_PHI_VAR,
+                        .temporary_id = variable->value,
+                        .named = false,
+                        .label_index = loop_end,
+                        .entry = (uintptr_t)variable->key
+                    },
+                    .operands[1] = {
+                        .type = OT_PHI_VAR,
+                        .temporary_id = old_id,
+                        .named = false,
+                        .label_index = loop_top,
+                        .entry = (uintptr_t)variable->key
+                    },
+                };
+                IRArray_insert_ptr(generated_IR, &ir, insertion_point);
+                SymbolTableEntry *entry = (SymbolTableEntry *)ir.result.entry;
+                entry->temporary_id = ir.result.temporary_id;
+                LineTemporaryIDArray_push_back(&entry->all_temp_ids, (LineTemporaryID) {
+                    .id = ir.result.temporary_id,
+                    .line = insertion_point,
+                });
+                ++insertion_point;
+            }
+
+            for (u64 i = insertion_point; i < generated_IR->count; ++i) {
+                IR *it = IRArray_at(generated_IR, i);
+                if (it->operands[0].type == OT_TEMPORARY) {
+                    TempID *replacement = TempIDTempIDHashMap_get(&old2phi, &it->operands[0].temporary_id);
+                    if (replacement != NULL) {
+                        it->operands[0].temporary_id = *replacement;
+                    }
+                }
+                if (it->operands[1].type == OT_TEMPORARY) {
+                    TempID *replacement = TempIDTempIDHashMap_get(&old2phi, &it->operands[1].temporary_id);
+                    if (replacement != NULL) {
+                        it->operands[1].temporary_id = *replacement;
+                    }
+                }
+            }
+
+            for (HASH_MAP_EACH(STEPtr, TempID, variable, &changed_vars)) {
+                TempID old_id = get_id_before(&variable->key->all_temp_ids, ifn_jump_pos);
+                IR ir = {
+                    .instruction = OP_PHI,
+                    .result = {
+                        .type = OT_TEMPORARY,
+                        .entry = (uintptr_t)variable->key,
+                        .temporary_id = temporary_index++
+                    },
+                    .operands[0] = {
+                        .type = OT_PHI_VAR,
+                        .temporary_id = variable->value,
+                        .named = false,
+                        .label_index = loop_end,
+                        .entry = (uintptr_t)variable->key
+                    },
+                    .operands[1] = {
+                        .type = OT_PHI_VAR,
+                        .temporary_id = old_id,
+                        .named = false,
+                        .label_index = loop_top,
+                        .entry = (uintptr_t)variable->key
+                    },
+                };
+                IRArray_push_ptr(generated_IR, &ir);
+                SymbolTableEntry *entry = (SymbolTableEntry *)ir.result.entry;
+                entry->temporary_id = ir.result.temporary_id;
+                LineTemporaryIDArray_push_back(&entry->all_temp_ids, (LineTemporaryID) {
+                    .id = ir.result.temporary_id,
+                    .line = generated_IR->count,
+                });
+            }
+
+            TempIDTempIDHashMap_destruct(&old2phi);
+            STEPtrTempIDHashMap_destruct(&changed_vars);
             break;
         }
         case TOKEN_BREAK: {
