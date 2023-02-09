@@ -504,7 +504,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             IRArray_push_ptr(generated_IR, &ir2);
             
             u64 left_bottom = add_label(generated_IR);
-            IRArray_at(generated_IR, top_of_ternary)->operands[1].label_index = add_label(generated_IR); // after F
+            IRArray_at(generated_IR, top_of_ternary+1)->operands[1].label_index = add_label(generated_IR); // after F
             u64 index_of_jmp = generated_IR->count - 2;
             
             // if true
