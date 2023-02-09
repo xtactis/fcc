@@ -68,7 +68,6 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
     
     LabelArray labels = findLabels(ir);
     makeBasicBlocks(ir, &labels);
-    return;
 
     livenessAnalysis(ir);
     
@@ -139,6 +138,21 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 } else {
                     u16 k = (u16)irs[i].operands[1].integer_value;
                     APPEND_CMD(SUBI, 24, k & 0xFF);
+                }
+                APPEND_CMD(MOV, res, 24);
+                break;
+            }
+            case '*': {
+                u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                u8 res = real_reg[irs[i].result.temporary_id];
+                APPEND_CMD(MOV, 24, rd);
+                if (irs[i].operands[1].type == OT_TEMPORARY) {
+                    u8 rr = real_reg[irs[i].operands[1].temporary_id];
+                    APPEND_CMD(MUL, 24, rr);
+                } else {
+                    u16 k = (u16)irs[i].operands[1].integer_value;
+                    APPEND_CMD(LDI, 25, k);
+                    APPEND_CMD(MUL, 24, 25);
                 }
                 APPEND_CMD(MOV, res, 24);
                 break;
@@ -413,7 +427,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 break;
             }
             default: {
-                error(0, "si puka?");
+                error(0, "si puka? %d", (int)irs[i].instruction);
             }
         }
     }

@@ -300,32 +300,9 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             .entry = (uintptr_t)AST->token->entry,
             .temporary_id = AST->token->entry->temporary_id
         };
-        /*
-        if (context->lhs) {
-            return (IRVariable) {
-                .type = OT_VARIABLE,
-                .entry = (uintptr_t)AST->token->entry
-            };
-        }
-        IR ir = {
-            .instruction = OP_LOAD,
-            .result = {
-                .type = OT_TEMPORARY,
-                .temporary_id = temporary_index++
-            },
-            .operands[0] = {
-                .type = OT_INT64, // FIXME(mdizdar): this should be more specific than "int64"
-                .integer_value = AST->token->entry->location_in_memory.offset
-            }
-        };
-        IRArray_push_ptr(generated_IR, &ir);
-        return ir.result;
-        */
     }
     context->lhs = false;
     
-    // TODO(mdizdar): maybe there's no need for mallocing this here since I can just
-    // push_back local variables and they'll get copied properly
     IR ir = (IR){.block = NULL};
     switch ((int)AST->token->type) {
         case '+': case '-':
@@ -454,7 +431,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             derefd.type = OT_DEREF_TEMPORARY;
             return derefd;
         }
-        case TOKEN_ADDRESS: 
+        case TOKEN_ADDRESS: // TODO(mdizdar): I'm not sure if address-of should stay as it is, or get the value of the address right now
         case '~': case '!': 
         case TOKEN_PLUS: case TOKEN_MINUS: {
             ir.instruction = Token_unary_to_Op(AST->token->type);

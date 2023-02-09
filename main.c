@@ -252,16 +252,16 @@ int main(int argc, char **argv) {
     AVRArray_construct(&generated_AVR);
 
     IR2AVR(&generated_IR, &generated_AVR, temporary_index);
-    //if (!silent) printAVR(&generated_AVR);
+    if (!silent) printAVR(&generated_AVR);
     
-    //if (!silent) puts(CYAN "***HEX***" RESET);
-    //if (!silent) printIntelHex(&generated_AVR);
+    if (!silent) puts(CYAN "***HEX***" RESET);
+    if (!silent) printIntelHex(&generated_AVR);
     
     if (outfile) {
         IR_save(&generated_IR, outfile);
         saveCFG(&generated_IR, outfile);
-//      saveAVR(&generated_AVR, outfile);
-//      saveIntelHex(&generated_AVR, outfile);
+      saveAVR(&generated_AVR, outfile);
+      saveIntelHex(&generated_AVR, outfile);
     }
     
     /*

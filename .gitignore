@@ -2,4 +2,6 @@
 build
 *.ir
 *.dot
+*.asm
+*.hex
 fcc
