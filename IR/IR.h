@@ -2,6 +2,7 @@
 #define IR_H
 
 #include "../C/symbol_table.h"
+#include "label.h"
 #include "../utils/dyn_array.h"
 
 typedef u64 TemporaryID;
@@ -302,6 +303,101 @@ void IR_print(IR * const ir, u64 size) {
         printf("%3lu: ", i);
         IR_saveOne(&ir[i], stdout, "\n");
     }
+}
+
+// TODO(mdizdar): I can't keep shuffling functions like this
+// the solution is using header and source files
+LabelArray findLabels(IRArray *ir) {
+    LabelArray labels;
+    LabelArray_construct(&labels);
+    
+    u64 i = 0;
+    for (ARRAY_EACH(IR, it, ir)) {
+        if (it->instruction == OP_LABEL) {
+            Label newlabel;
+            newlabel.named = it->operands[0].named;
+            if (it->operands[0].named) {
+                newlabel.label_name = it->operands[0].label_name;
+            } else {
+                newlabel.label_index = it->operands[0].label_index;
+            }
+            newlabel.ir_index = i;
+            LabelArray_push_back(&labels, newlabel);
+        }
+        ++i;
+    }
+    return labels;
+}
+
+// Returns new IRArray with no Phi functions, destructs the original IRArray
+IRArray IR_resolve_phi(IRArray *ir, LabelArray *labels) {
+    IRArray new_ir;
+    IRArray_construct(&new_ir);
+    IRArray_copy(&new_ir, ir);
+    for (ARRAY_EACH(IR, it, ir)) {
+        if (it->instruction == OP_PHI) {
+            Line left_index = -1;
+            Line right_index = -1;
+            for (ARRAY_EACH(Label, label, labels)) {
+                if (label->named) continue;
+                if (it->operands[0].label_index == label->label_index) {
+                    left_index = label->ir_index;
+                } else if (it->operands[1].label_index == label->label_index) {
+                    right_index = label->ir_index;
+                }
+                if (left_index != (Line)-1 && right_index != (Line)-1) {
+                    break;
+                }
+            }
+            IR left_mov = {
+                .instruction = '=',
+                .result = it->result,
+                .operands[0] = {
+                    .type = OT_TEMPORARY,
+                    .entry = it->operands[0].entry,
+                    .temporary_id = it->operands[0].temporary_id,
+                },
+            };
+            IRArray_insert_ptr(&new_ir, &left_mov, left_index);
+            if (right_index > left_index) ++right_index;
+            IR right_mov = {
+                .instruction = '=',
+                .result = it->result,
+                .operands[0] = {
+                    .type = OT_TEMPORARY,
+                    .entry = it->operands[1].entry,
+                    .temporary_id = it->operands[1].temporary_id,
+                },
+            };
+            IRArray_insert_ptr(&new_ir, &right_mov, right_index);
+            for (ARRAY_EACH(Label, label, labels)) {
+                if (label->ir_index > left_index) {
+                    ++label->ir_index;
+                }
+                if (label->ir_index > right_index) {
+                    ++label->ir_index;
+                }
+            }
+        }
+    }
+    IR *result = IRArray_begin(&new_ir);
+    u64 deleted = 0;
+    for (ARRAY_EACH(IR, it, &new_ir)) {
+        if (it->instruction != OP_PHI) {
+            *result = *it;
+            ++result;
+        } else {
+            ++deleted;
+        }
+    }
+    new_ir.count -= deleted;
+    IRArray_shrink_to_fit(&new_ir);
+
+    LabelArray_destruct(labels);
+    *labels = findLabels(&new_ir);
+
+    IRArray_destruct(ir);
+    return new_ir;
 }
 
 #endif // IR_H

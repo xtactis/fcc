@@ -8,28 +8,6 @@
 #include "../AVR/AVR.h"
 #include "../C/type.h"
 
-LabelArray findLabels(IRArray *ir) {
-    LabelArray labels;
-    LabelArray_construct(&labels);
-    
-    u64 i = 0;
-    for (ARRAY_EACH(IR, it, ir)) {
-        if (it->instruction == OP_LABEL) {
-            Label newlabel;
-            newlabel.named = it->operands[0].named;
-            if (it->operands[0].named) {
-                newlabel.label_name = it->operands[0].label_name;
-            } else {
-                newlabel.label_index = it->operands[0].label_index;
-            }
-            newlabel.ir_index = i;
-            LabelArray_push_back(&labels, newlabel);
-        }
-        ++i;
-    }
-    return labels;
-}
-
 // TODO(mdizdar): regs should probably be a typedef and not a raw u64
 void clashGraph(u64 current_reg, u64Array *regs, u8 *real_reg, u64 reg_number) {
     u64 *reg = regs[current_reg].data; // this can't be correct lol?
@@ -56,7 +34,7 @@ void clashGraph(u64 current_reg, u64Array *regs, u8 *real_reg, u64 reg_number) {
     }
 }
 
-void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
+void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg_number) {
 #define APPEND_CMD(CMD, ...) AVRArray_push_back(AVR_instructions, CMD(__VA_ARGS__));
 #define APPEND_LONG_CMD(CMD, ...) { \
     u32 c = CMD(__VA_ARGS__); \
@@ -66,8 +44,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
     
     IR *irs = (IR *)(ir->data);
     
-    LabelArray labels = findLabels(ir);
-    makeBasicBlocks(ir, &labels);
+    makeBasicBlocks(ir, labels);
 
     livenessAnalysis(ir);
     
@@ -110,7 +87,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
     }
     //*/
     
-    Label *ls = (Label *)labels.data;
+    Label *ls = (Label *)labels->data;
     u64 skip_label_swap = (u64)-1;
     for (u64 i = 0; i < ir->count; ++i) {
         switch ((int)irs[i].instruction) {
@@ -189,6 +166,17 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 u16 k = (u16)irs[i].operands[1].integer_value;
                 APPEND_CMD(CPI, rd, k & 0xFF);
                 APPEND_CMD(BRLO, 1);
+                APPEND_CMD(LDI, res, 0);
+                break;
+            }
+            case '>': {
+                u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                u8 res = real_reg[irs[i].result.temporary_id];
+                APPEND_CMD(LDI, res, 1);
+                // TODO(mdizdar): this only works in a very niche case
+                u16 k = (u16)irs[i].operands[1].integer_value;
+                APPEND_CMD(CPI, rd, k & 0xFF);
+                APPEND_CMD(BRGE, 1);
                 APPEND_CMD(LDI, res, 0);
                 break;
             }
@@ -290,7 +278,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 break;
             }
             case OP_LABEL: {
-                for (u64 j = 0; j < labels.count; ++j) {
+                for (u64 j = 0; j < labels->count; ++j) {
                     if (irs[i].operands[0].named != ls[j].named) continue;
                     if (ls[j].named) {
                         if (strcmp(irs[i].operands[0].label_name.data, ls[j].label_name.data)) continue;
@@ -309,12 +297,35 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 break;
             }
             case OP_JUMP: {
-                for (u64 j = 0; j < labels.count; ++j) {
+                for (u64 j = 0; j < labels->count; ++j) {
                     if (irs[i].operands[0].named != ls[j].named) continue;
                     if (ls[j].named) {
                         if (strcmp(irs[i].operands[0].label_name.data, ls[j].label_name.data)) continue;
                     } else {
                         if (irs[i].operands[0].label_index != ls[j].label_index) continue;
+                    }
+                    APPEND_LONG_CMD(JMP, (u32)j); 
+                    break;
+                }
+                break;
+            }
+            case OP_IF_JUMP: {
+                if (irs[i].operands[0].type == OT_TEMPORARY) {
+                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                    APPEND_CMD(MOV, 24, rd);
+                } else {
+                    u8 k = (u8)irs[i].operands[0].integer_value;
+                    APPEND_CMD(LDI, 24, k);
+                }
+                APPEND_CMD(AND, 24, 24);
+                APPEND_CMD(BREQ, 2);
+                
+                for (u64 j = 0; j < labels->count; ++j) {
+                    if (irs[i].operands[1].named != ls[j].named) continue;
+                    if (ls[j].named) {
+                        if (strcmp(irs[i].operands[1].label_name.data, ls[j].label_name.data)) continue;
+                    } else {
+                        if (irs[i].operands[1].label_index != ls[j].label_index) continue;
                     }
                     APPEND_LONG_CMD(JMP, (u32)j); 
                     break;
@@ -332,7 +343,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 APPEND_CMD(AND, 24, 24);
                 APPEND_CMD(BRNE, 2);
                 
-                for (u64 j = 0; j < labels.count; ++j) {
+                for (u64 j = 0; j < labels->count; ++j) {
                     if (irs[i].operands[1].named != ls[j].named) continue;
                     if (ls[j].named) {
                         if (strcmp(irs[i].operands[1].label_name.data, ls[j].label_name.data)) continue;
@@ -345,7 +356,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 break;
             }
             case OP_CALL: {
-                for (u64 j = 0; j < labels.count; ++j) {
+                for (u64 j = 0; j < labels->count; ++j) {
                     if (irs[i].operands[0].named != ls[j].named) continue;
                     if (ls[j].named) {
                         if (strcmp(irs[i].operands[0].label_name.data, ls[j].label_name.data)) continue;
@@ -427,7 +438,11 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, u64 reg_number) {
                 break;
             }
             default: {
-                error(0, "si puka? %d", (int)irs[i].instruction);
+                if ((int)irs[i].instruction < 'z') {
+                    error(0, "si puka? '%c'", (char)irs[i].instruction);
+                } else {
+                    error(0, "si puka? %d", (int)irs[i].instruction);
+                }
             }
         }
     }

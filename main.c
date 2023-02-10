@@ -245,13 +245,17 @@ int main(int argc, char **argv) {
     IR_generate(AST, &generated_IR, st.scope, &context);
     if (!silent) IR_print(generated_IR.data, generated_IR.count);
 
+    LabelArray labels = findLabels(&generated_IR);
 
+    generated_IR = IR_resolve_phi(&generated_IR, &labels);
+    if (!silent) puts(CYAN "***Phi resolved IR***" RESET);
+    if (!silent) IR_print(generated_IR.data, generated_IR.count);
     
     if (!silent) puts(CYAN "***AVR***" RESET);
     AVRArray generated_AVR;
     AVRArray_construct(&generated_AVR);
 
-    IR2AVR(&generated_IR, &generated_AVR, temporary_index);
+    IR2AVR(&generated_IR, &generated_AVR, &labels, temporary_index);
     if (!silent) printAVR(&generated_AVR);
     
     if (!silent) puts(CYAN "***HEX***" RESET);
@@ -260,8 +264,8 @@ int main(int argc, char **argv) {
     if (outfile) {
         IR_save(&generated_IR, outfile);
         saveCFG(&generated_IR, outfile);
-      saveAVR(&generated_AVR, outfile);
-      saveIntelHex(&generated_AVR, outfile);
+        saveAVR(&generated_AVR, outfile);
+        saveIntelHex(&generated_AVR, outfile);
     }
     
     /*
