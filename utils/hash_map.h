@@ -42,7 +42,7 @@
         u64 travel = 0; \
         /* NOTE(mdizdar): this is checking whether a hash is in use */ \
         while (map->occupied[hash] != 0) { \
-            if (value_type##_eq(&map->table[hash].value, value)) { \
+            if (key_type##_eq(&map->table[hash].key, key)) { \
                 /* it's already in the table */ \
                 return 0; \
             } \

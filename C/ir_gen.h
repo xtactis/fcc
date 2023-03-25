@@ -537,7 +537,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                     ir.operands[0].label_index  = left_bottom;
                     ir.operands[1].temporary_id = *found_in_right;
                     ir.operands[1].label_index  = right_bottom;
-                } if (found_in_right != NULL) {
+                } else if (found_in_right != NULL) {
                     ir.operands[0].temporary_id = last_id_before_if;
                     ir.operands[0].label_index  = before_if;
                     ir.operands[1].temporary_id = *found_in_right;
@@ -671,7 +671,7 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
                     ir.operands[0].label_index  = left_bottom;
                     ir.operands[1].temporary_id = *found_in_right;
                     ir.operands[1].label_index  = right_bottom;
-                } if (found_in_right != NULL) {
+                } else if (found_in_right != NULL) {
                     ir.operands[0].temporary_id = last_id_before_if;
                     ir.operands[0].label_index  = before_if;
                     ir.operands[1].temporary_id = *found_in_right;

@@ -349,6 +349,13 @@ IRArray IR_resolve_phi(IRArray *ir, LabelArray *labels) {
                     break;
                 }
             }
+            // NOTE (mdizdar): we want to be inserting BEFORE the jump at the end of the block
+            if (IRArray_at(&new_ir, left_index-1)->instruction == OP_JUMP) {
+                left_index -= 1;
+            }
+            if (IRArray_at(&new_ir, right_index-1)->instruction == OP_JUMP) {
+                right_index -= 1;
+            }
             IR left_mov = {
                 .instruction = '=',
                 .result = it->result,
