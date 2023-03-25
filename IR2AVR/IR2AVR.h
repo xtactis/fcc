@@ -62,7 +62,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
         }
     }
     
-    u8 *real_reg = malloc(sizeof(reg_number));
+    u8 *real_reg = malloc(sizeof(u8) * reg_number);
     for (u64 i = 0; i < reg_number; ++i) {
         real_reg[i] = 255;
     }
@@ -91,47 +91,93 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
     u64 skip_label_swap = (u64)-1;
     for (u64 i = 0; i < ir->count; ++i) {
         switch ((int)irs[i].instruction) {
-            case '+': {
-                u8 rd = real_reg[irs[i].operands[0].temporary_id];
+            case OP_LOGICAL_AND: {
+                u8 rd;
+                u8 rr;
                 u8 res = real_reg[irs[i].result.temporary_id];
-                APPEND_CMD(MOV, 24, rd);
+                if (irs[i].operands[0].type != OT_TEMPORARY) {
+                    // TODO(mdizdar): handle literals and temporaries properly
+                } else {
+                    rd = real_reg[irs[i].operands[0].temporary_id];
+                }
+                if (irs[i].operands[1].type != OT_TEMPORARY) {
+                    // TODO(mdizdar): handle literals and temporaries properly
+                } else {
+                    rr = real_reg[irs[i].operands[1].temporary_id];
+                }
+                APPEND_CMD(MOV, res, rd);
+                APPEND_CMD(AND, res, rr);
+
+                break;
+            }
+            case '+': {
+                u8 res = real_reg[irs[i].result.temporary_id];
+                if (irs[i].operands[0].type == OT_TEMPORARY) {
+                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                    APPEND_CMD(MOV, res, rd);
+                } else {
+                    u16 k = (u16)irs[i].operands[0].integer_value;
+                    APPEND_CMD(LDI, res, k);
+                }
+
                 if (irs[i].operands[1].type == OT_TEMPORARY) {
                     u8 rr = real_reg[irs[i].operands[1].temporary_id];
-                    APPEND_CMD(ADD, 24, rr);
+                    APPEND_CMD(ADD, res, rr);
                 } else {
                     u16 k = (u16)irs[i].operands[1].integer_value;
-                    APPEND_CMD(SUBI, 24, -(k & 0xEF));
+                    APPEND_CMD(SUBI, res, -(k & 0xEF));
                 }
-                APPEND_CMD(MOV, res, 24);
                 break;
             }
             case '-': {
-                u8 rd = real_reg[irs[i].operands[0].temporary_id];
                 u8 res = real_reg[irs[i].result.temporary_id];
-                APPEND_CMD(MOV, 24, rd);
+                if (irs[i].operands[0].type == OT_TEMPORARY) {
+                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                    APPEND_CMD(MOV, res, rd);
+                } else {
+                    u16 k = (u16)irs[i].operands[0].integer_value;
+                    APPEND_CMD(LDI, res, k);
+                }
                 if (irs[i].operands[1].type == OT_TEMPORARY) {
                     u8 rr = real_reg[irs[i].operands[1].temporary_id];
-                    APPEND_CMD(SBC, 24, rr);
+                    APPEND_CMD(SBC, res, rr);
                 } else {
                     u16 k = (u16)irs[i].operands[1].integer_value;
-                    APPEND_CMD(SUBI, 24, k & 0xFF);
+                    APPEND_CMD(SUBI, res, k & 0xFF);
                 }
-                APPEND_CMD(MOV, res, 24);
+                break;
+            }
+            case OP_MINUS: {
+                u8 res = real_reg[irs[i].result.temporary_id];
+                if (irs[i].operands[0].type == OT_TEMPORARY) {
+                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                    if (rd != res) {
+                        APPEND_CMD(MOV, res, rd);
+                    }
+                } else {
+                    APPEND_CMD(LDI, res, (u16)irs[i].operands[0].integer_value);
+                }
+                APPEND_CMD(NEG, res);
+
                 break;
             }
             case '*': {
-                u8 rd = real_reg[irs[i].operands[0].temporary_id];
                 u8 res = real_reg[irs[i].result.temporary_id];
-                APPEND_CMD(MOV, 24, rd);
+                if (irs[i].operands[0].type == OT_TEMPORARY) {
+                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                    APPEND_CMD(MOV, res, rd);
+                } else {
+                    u16 k = (u16)irs[i].operands[0].integer_value;
+                    APPEND_CMD(LDI, res, k);
+                }
                 if (irs[i].operands[1].type == OT_TEMPORARY) {
                     u8 rr = real_reg[irs[i].operands[1].temporary_id];
-                    APPEND_CMD(MUL, 24, rr);
+                    APPEND_CMD(MUL, res, rr);
                 } else {
                     u16 k = (u16)irs[i].operands[1].integer_value;
                     APPEND_CMD(LDI, 25, k);
-                    APPEND_CMD(MUL, 24, 25);
+                    APPEND_CMD(MUL, res, 25);
                 }
-                APPEND_CMD(MOV, res, 24);
                 break;
             }
             case '=': {
