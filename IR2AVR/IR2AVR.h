@@ -33,15 +33,29 @@ void clashGraph(u64 current_reg, u64Array *regs, u8 *real_reg, u64 reg_number) {
         clashGraph(reg[i], regs, real_reg, reg_number);
     }
 }
-
-void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg_number) {
 #define APPEND_CMD(CMD, ...) AVRArray_push_back(AVR_instructions, CMD(__VA_ARGS__));
 #define APPEND_LONG_CMD(CMD, ...) { \
     u32 c = CMD(__VA_ARGS__); \
     AVRArray_push_back(AVR_instructions, c >> 16); \
     AVRArray_push_back(AVR_instructions, c & 0xFFF); \
 }
-    
+
+u8 load_to_reg(u8 reg, const IRVariable *var, const u8 *real_reg, AVRArray *AVR_instructions) {
+    // TODO(mdizdar): handle things other than temporaries and literals. I'm not sure if the following
+    // block is useful or not since IIRC the way I implemented derefs is REALLY stupid
+    //           if (irs[i].operands[0].type == OT_DEREF_TEMPORARY) {
+    //               APPEND_CMD(MOV, 30, rd);
+    //               APPEND_CMD(LDI, 31, 0);
+    //               APPEND_CMD(LDDz, 24, 0);
+    if (var->type == OT_TEMPORARY) {
+        APPEND_CMD(MOV, reg, real_reg[var->temporary_id]);
+    } else {
+        APPEND_CMD(LDI, reg, var->integer_value);
+    }
+    return reg;
+}
+
+void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg_number) {
     IR *irs = (IR *)(ir->data);
     
     makeBasicBlocks(ir, labels);
@@ -71,7 +85,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
         clashGraph(i, regs, real_reg, reg_number);
     }
     
-    //*
+    /*
     u64 j = 0;
     for (ARRAY_EACH(IR, it, ir)) {
         printf("%lu:\t", j);
@@ -92,33 +106,48 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
     for (u64 i = 0; i < ir->count; ++i) {
         switch ((int)irs[i].instruction) {
             case OP_LOGICAL_AND: {
-                u8 rd;
-                u8 rr;
+                // TODO(mdizdar): it'd probaby be better to just not do a test if one of the operands is 
+                // a literal value, i.e. known at compile time. But we'll optimize later...
                 u8 res = real_reg[irs[i].result.temporary_id];
-                if (irs[i].operands[0].type != OT_TEMPORARY) {
-                    // TODO(mdizdar): handle literals and temporaries properly
-                } else {
-                    rd = real_reg[irs[i].operands[0].temporary_id];
-                }
+                APPEND_CMD(LDI, res, 1);
+                u8 rd = load_to_reg(24, &irs[i].operands[0], real_reg, AVR_instructions);
+                APPEND_CMD(TST, rd);
+                APPEND_CMD(BRNE, 1);
+                APPEND_CMD(LDI, res, 0);
+                u8 rr = load_to_reg(24, &irs[i].operands[1], real_reg, AVR_instructions);
+                APPEND_CMD(TST, rr);
+                APPEND_CMD(BRNE, 1);
+                APPEND_CMD(LDI, res, 0);
+                
+                break;
+            }
+            case '|': {
+                u8 res = load_to_reg(real_reg[irs[i].result.temporary_id], &irs[i].operands[0], real_reg, AVR_instructions);
                 if (irs[i].operands[1].type != OT_TEMPORARY) {
-                    // TODO(mdizdar): handle literals and temporaries properly
+                    APPEND_CMD(ORI, res, irs[i].operands[1].integer_value);
                 } else {
-                    rr = real_reg[irs[i].operands[1].temporary_id];
+                    APPEND_CMD(OR, res, real_reg[irs[i].operands[1].temporary_id]);
                 }
-                APPEND_CMD(MOV, res, rd);
-                APPEND_CMD(AND, res, rr);
+                break;
+            }
+            case '&': {
+                u8 res = load_to_reg(real_reg[irs[i].result.temporary_id], &irs[i].operands[0], real_reg, AVR_instructions);
+                if (irs[i].operands[1].type != OT_TEMPORARY) {
+                    APPEND_CMD(ANDI, res, irs[i].operands[1].integer_value);
+                } else {
+                    APPEND_CMD(AND, res, real_reg[irs[i].operands[1].temporary_id]);
+                }
+                break;
+            }
+            case '^': {
+                u8 res = load_to_reg(real_reg[irs[i].result.temporary_id], &irs[i].operands[0], real_reg, AVR_instructions);
+                u8 rr = load_to_reg(24, &irs[i].operands[1], real_reg, AVR_instructions);
+                APPEND_CMD(EOR, res, rr);
 
                 break;
             }
             case '+': {
-                u8 res = real_reg[irs[i].result.temporary_id];
-                if (irs[i].operands[0].type == OT_TEMPORARY) {
-                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
-                    APPEND_CMD(MOV, res, rd);
-                } else {
-                    u16 k = (u16)irs[i].operands[0].integer_value;
-                    APPEND_CMD(LDI, res, k);
-                }
+                u8 res = load_to_reg(real_reg[irs[i].result.temporary_id], &irs[i].operands[0], real_reg, AVR_instructions);
 
                 if (irs[i].operands[1].type == OT_TEMPORARY) {
                     u8 rr = real_reg[irs[i].operands[1].temporary_id];
@@ -130,14 +159,7 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
                 break;
             }
             case '-': {
-                u8 res = real_reg[irs[i].result.temporary_id];
-                if (irs[i].operands[0].type == OT_TEMPORARY) {
-                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
-                    APPEND_CMD(MOV, res, rd);
-                } else {
-                    u16 k = (u16)irs[i].operands[0].integer_value;
-                    APPEND_CMD(LDI, res, k);
-                }
+                u8 res = load_to_reg(real_reg[irs[i].result.temporary_id], &irs[i].operands[0], real_reg, AVR_instructions);
                 if (irs[i].operands[1].type == OT_TEMPORARY) {
                     u8 rr = real_reg[irs[i].operands[1].temporary_id];
                     APPEND_CMD(SBC, res, rr);
@@ -270,26 +292,6 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
                     APPEND_CMD(LDI, res, k & 0xFF);
                 }
                 APPEND_CMD(COM, res);
-                break;
-            }
-            case '&': {
-                u8 res = real_reg[irs[i].result.temporary_id];
-                u8 rd = real_reg[irs[i].operands[0].temporary_id];
-                if (irs[i].operands[0].type == OT_DEREF_TEMPORARY) {
-                    APPEND_CMD(MOV, 30, rd);
-                    APPEND_CMD(LDI, 31, 0);
-                    APPEND_CMD(LDDz, 24, 0);
-                } else {
-                    APPEND_CMD(MOV, 24, rd);
-                }
-                if (irs[i].operands[1].type == OT_TEMPORARY) {
-                    u8 rr = real_reg[irs[i].operands[1].temporary_id];
-                    APPEND_CMD(AND, 24, rr);
-                } else {
-                    u8 k = (u8)irs[i].operands[1].integer_value;
-                    APPEND_CMD(ANDI, 24, k);
-                }
-                APPEND_CMD(MOV, res, 24);
                 break;
             }
             case OP_BITSHIFT_LEFT: {
@@ -512,6 +514,8 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
             ++i;
         }
     }
+#undef APPEND_CMD
+#undef APPEND_LONG_CMD
 }
 
 #endif // IR2AVR_H
