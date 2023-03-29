@@ -426,10 +426,17 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             break;
         }
         case TOKEN_DEREF: {
-            // TODO(mdizdar): this is stupid and won't work if you deref more than once, should handle that as well
-            IRVariable derefd = IR_generate(AST->left, generated_IR, current_scope, context);
-            derefd.type = OT_DEREF_TEMPORARY;
-            return derefd;
+            ir = (IR){
+                .instruction = OP_DEREF,
+                .result = {
+                    .type = OT_TEMPORARY,
+                    .entry = 0,
+                    .temporary_id = temporary_index++
+                },
+                .operands[0] = IR_generate(AST->left, generated_IR, current_scope, context), 
+            };
+            IRArray_push_ptr(generated_IR, &ir);
+            break;
         }
         case TOKEN_ADDRESS: // TODO(mdizdar): I'm not sure if address-of should stay as it is, or get the value of the address right now
         case '~': case '!': 

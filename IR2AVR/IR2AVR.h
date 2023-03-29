@@ -105,6 +105,20 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
     u64 skip_label_swap = (u64)-1;
     for (u64 i = 0; i < ir->count; ++i) {
         switch ((int)irs[i].instruction) {
+            case OP_LOGICAL_OR: {
+                u8 res = real_reg[irs[i].result.temporary_id];
+                APPEND_CMD(LDI, res, 0);
+                u8 rd = load_to_reg(24, &irs[i].operands[0], real_reg, AVR_instructions);
+                APPEND_CMD(TST, rd);
+                APPEND_CMD(BREQ, 1);
+                APPEND_CMD(LDI, res, 1);
+                u8 rr = load_to_reg(24, &irs[i].operands[1], real_reg, AVR_instructions);
+                APPEND_CMD(TST, rr);
+                APPEND_CMD(BREQ, 1);
+                APPEND_CMD(LDI, res, 1);
+
+                break;
+            }
             case OP_LOGICAL_AND: {
                 // TODO(mdizdar): it'd probaby be better to just not do a test if one of the operands is 
                 // a literal value, i.e. known at compile time. But we'll optimize later...
@@ -167,6 +181,10 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
                     u16 k = (u16)irs[i].operands[1].integer_value;
                     APPEND_CMD(SUBI, res, k & 0xFF);
                 }
+                break;
+            }
+            case OP_PLUS: {
+                u8 res = load_to_reg(real_reg[irs[i].result.temporary_id], &irs[i].operands[0], real_reg, AVR_instructions);
                 break;
             }
             case OP_MINUS: {
@@ -323,6 +341,18 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
                 skip_label_swap = AVR_instructions->count;
                 APPEND_LONG_CMD(JMP, jump_back);
                 APPEND_CMD(MOV, res, 22);
+                break;
+            }
+            case OP_DEREF: {
+                u8 res = real_reg[irs[i].result.temporary_id];
+                u8 r0 = load_to_reg(24, &irs[i].operands[0], real_reg, AVR_instructions);
+                APPEND_CMD(MOV, 30, 24);
+                APPEND_CMD(LDI, 31, 0); // TODO(mdizdar): this is incorrect, pointers are always 2 bytes wide, but there are many things wrong with this code
+                APPEND_CMD(LDDz, res, 0); // TODO(mdizdar): this will only give us the correct behavior when dereferencing on the right side of an assignment
+                                          // left side requires *storage* not loading; regrettably, such dereferencing appears to be extremely common
+                                          // i.e. array indexing and struct member accessing through a pointer
+                                          // I'll need to figure out a good way of either having the information (on which side of an assignment am I) at all times
+                                          // or making it so it doesn't matter, and the actual loading/storing will happen exclusively with a '=' IR OP
                 break;
             }
             case OP_LABEL: {

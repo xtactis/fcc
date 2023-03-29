@@ -61,13 +61,12 @@ typedef enum {
     OT_FLOAT  = 8,
     
     OT_TEMPORARY = 9,
-    OT_DEREF_TEMPORARY = 10,
-    OT_LABEL = 11,
-    OT_VALUE = 12,
+    OT_LABEL = 10,
+    OT_VALUE = 11,
     
-    OT_SIZE = 13,
+    OT_SIZE = 12,
 
-    OT_PHI_VAR = 14,
+    OT_PHI_VAR = 13,
 } OperandType;
 
 STRUCT(IRVariable, {
