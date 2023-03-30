@@ -139,10 +139,6 @@ const char *IRVariable_toStr(IRVariable * const var, char *s) {
             }
             break;
         }
-        case OT_DEREF_TEMPORARY: {
-            sprintf(s, "*t%lu", var->temporary_id);
-            break;
-        }
         case OT_LABEL: {
             if (var->named) {
                 s = var->label_name.data;

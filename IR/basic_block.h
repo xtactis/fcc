@@ -119,13 +119,7 @@ void addHelper(IRVariableArray *vars, IRVariable *var, bool *changed) {
 void addVariable(IRVariableArray *vars, IRVariable *var, bool *changed) {
     if (var->type == OT_TEMPORARY) {
         addHelper(vars, var, changed);
-    } else if (var->type == OT_DEREF_TEMPORARY) {
-        IRVariable *derefd = malloc(sizeof(IRVariable));
-        derefd->type = OT_TEMPORARY;
-        derefd->entry = 0;
-        derefd->temporary_id = var->temporary_id;
-        addHelper(vars, derefd, changed);
-    }
+    } 
 }
 
 void removeVariable(IRVariableArray *vars, IRVariable *var, bool *changed) {
@@ -179,7 +173,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
                 break;
             }
             case '=': case '~': case '!': case OP_PLUS: case OP_MINUS: case OP_ADDRESS: {
-                if (!((irs[i].operands[0].type == OT_TEMPORARY || irs[i].operands[0].type == OT_DEREF_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id)) {
+                if (!((irs[i].operands[0].type == OT_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id)) {
                     if (irs[i].result.type == OT_TEMPORARY) {
                         addVariable(&notLive, &irs[i].result, &changed);
                     } else {
@@ -194,7 +188,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
                 break;
             }
             default: {
-                if (!(((irs[i].operands[0].type == OT_TEMPORARY || irs[i].operands[0].type == OT_DEREF_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id) || ((irs[i].operands[1].type == OT_TEMPORARY || irs[i].operands[1].type == OT_DEREF_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[1].temporary_id))) {
+                if (!(((irs[i].operands[0].type == OT_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id) || ((irs[i].operands[1].type == OT_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[1].temporary_id))) {
                     if (irs[i].result.type == OT_TEMPORARY) {
                         addVariable(&notLive, &irs[i].result, &changed);
                     } else {

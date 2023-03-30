@@ -222,25 +222,12 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
             }
             case '=': {
                 u8 res = real_reg[irs[i].result.temporary_id];
-                if (irs[i].result.type == OT_DEREF_TEMPORARY) {
-                    APPEND_CMD(MOV, 30, res);
-                    APPEND_CMD(LDI, 31, 0);
-                    if (irs[i].operands[0].type == OT_TEMPORARY) {
-                        u8 rd = real_reg[irs[i].operands[0].temporary_id];
-                        APPEND_CMD(STDz, rd, 0);
-                    } else {
-                        u16 k = (u16)irs[i].operands[0].integer_value;
-                        APPEND_CMD(LDI, 24, k & 0xFF);
-                        APPEND_CMD(STDz, 24, 0);
-                    }
+                if (irs[i].operands[0].type == OT_TEMPORARY) {
+                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                    APPEND_CMD(MOV, res, rd);
                 } else {
-                    if (irs[i].operands[0].type == OT_TEMPORARY) {
-                        u8 rd = real_reg[irs[i].operands[0].temporary_id];
-                        APPEND_CMD(MOV, res, rd);
-                    } else {
-                        u16 k = (u16)irs[i].operands[0].integer_value;
-                        APPEND_CMD(LDI, res, k & 0xFF);
-                    }
+                    u16 k = (u16)irs[i].operands[0].integer_value;
+                    APPEND_CMD(LDI, res, k & 0xFF);
                 }
                 break;
             }
@@ -294,12 +281,6 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
             }
             case '~': {
                 u8 res = real_reg[irs[i].result.temporary_id];
-                if (irs[i].result.type == OT_DEREF_TEMPORARY) {
-                    APPEND_CMD(MOV, 30, res);
-                    APPEND_CMD(LDI, 31, 0);
-                    APPEND_CMD(LDDz, 24, 0);
-                    res = 24;
-                }
                 if (irs[i].operands[0].type == OT_TEMPORARY) {
                     u8 rd = real_reg[irs[i].operands[0].temporary_id];
                     if (rd != res) {
