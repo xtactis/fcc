@@ -51,11 +51,14 @@ u64 u64_hash(const u64 *_key) {
     _generate_dynamic_array(type); \
     _generate_dynamic_array(type##Array); \
 
-#define STRUCT(name, body) \
+#define STRUCT_DECLARATION(type) \
     typedef struct name name, *name##Ptr; \
     _generate_declarations(name); \
     _generate_declarations(name##Ptr); \
     typedef struct name body name, *name##Ptr; \
+
+#define STRUCT(name, body) \
+    STRUCT_DECLARATION(name) \
     _generate_type(name); \
     _generate_type(name##Ptr);
 

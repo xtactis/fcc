@@ -3,22 +3,10 @@
 
 #include "../utils/common.h"
 
-STRUCT(Label, {
-    union {
-        u64 label_index;
-        String label_name;
-    };
-    u64 ir_index;
-    u32 correct_address;
-    bool named;
-});
+typedef u64 LabelID;
 
-bool Label_eq(const Label *a, const Label *b) {
-    if (a->named != b->named) return false;
-    if (a->named) {
-        return String_eq(&a->label_name, &b->label_name);
-    }
-    return a->label_index == b->label_index;
-}
+STRUCT_DECLARATION(Label);
+
+bool Label_eq(const Label *a, const Label *b);
 
 #endif // LABEL_H
