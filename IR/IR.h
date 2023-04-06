@@ -42,10 +42,6 @@ typedef enum {
     OP_GET_ARG        = 904,
 } Op;
 
-STRUCT(IRPointer, {
-    IRVariable *reference;
-    u64 offset;
-});
 
 STRUCT_DECLARATION(IR);
 
