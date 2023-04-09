@@ -2,7 +2,11 @@
 #define IRPOINTER_H
 
 #include "../utils/common.h"
+#include "IRVariable.h"
 
-STRUCT_DECLARATION(IRPointer);
+STRUCT(IRPointer, {
+    IRVariable *reference;
+    u64 offset;
+});
 
 #endif //IRPOINTER_H

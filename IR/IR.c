@@ -1,19 +1,6 @@
 #include "IR.h"
-#include "IRVariable.h"
-#include "BasicBlock.h"
-#include "../utils/common.h"
 
 TemporaryID temporary_index = 0; // global
-
-STRUCT(IR, {
-    struct BasicBlock *block;
-    IRVariableArray liveVars;
-    
-    IRVariable result;
-    IRVariable operands[2];
-
-    Op instruction;
-});
 
 void IR_saveOne(IR *ir, FILE *fp, char *newline) {
 #define TWO_OPERAND_OP(...) {                                         \
@@ -223,4 +210,26 @@ IRArray IR_resolve_phi(IRArray *ir, LabelArray *labels) {
 
     IRArray_destruct(ir);
     return new_ir;
+}
+
+LabelArray findLabels(IRArray *ir) {
+    LabelArray labels;
+    LabelArray_construct(&labels);
+    
+    u64 i = 0;
+    for (ARRAY_EACH(IR, it, ir)) {
+        if (it->instruction == OP_LABEL) {
+            Label newlabel;
+            newlabel.named = it->operands[0].named;
+            if (it->operands[0].named) {
+                newlabel.label_name = it->operands[0].label_name;
+            } else {
+                newlabel.label_index = it->operands[0].label_index;
+            }
+            newlabel.ir_index = i;
+            LabelArray_push_back(&labels, newlabel);
+        }
+        ++i;
+    }
+    return labels;
 }

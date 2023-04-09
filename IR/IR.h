@@ -1,11 +1,11 @@
 #ifndef IR_H
 #define IR_H
 
+#include "../utils/common.h"
 #include "../C/symbol_table.h"
+#include "IRVariable.h"
 #include "label.h"
-#include "../utils/dyn_array.h"
-
-typedef u64 TemporaryID;
+#include "basic_block.h"
 
 typedef enum {
     // single character Operations will just be their ascii value
@@ -42,38 +42,21 @@ typedef enum {
     OP_GET_ARG        = 904,
 } Op;
 
+STRUCT(IR, {
+    struct BasicBlock *block;
+    IRVariableArray liveVars;
+    
+    IRVariable result;
+    IRVariable operands[2];
 
-STRUCT_DECLARATION(IR);
+    Op instruction;
+});
 
 void IR_saveOne(IR *ir, FILE *fp, char *newline);
 void IR_save(const IRArray *generated_IR, char *outfile);
 void IR_print(IR * const ir, u64 size);
 // Returns new IRArray with no Phi functions, destructs the original IRArray
 IRArray IR_resolve_phi(IRArray *ir, LabelArray *labels);
-
-// TODO(mdizdar): I can't keep shuffling functions like this
-// the solution is using header and source files
-LabelArray findLabels(IRArray *ir) {
-    LabelArray labels;
-    LabelArray_construct(&labels);
-    
-    u64 i = 0;
-    for (ARRAY_EACH(IR, it, ir)) {
-        if (it->instruction == OP_LABEL) {
-            Label newlabel;
-            newlabel.named = it->operands[0].named;
-            if (it->operands[0].named) {
-                newlabel.label_name = it->operands[0].label_name;
-            } else {
-                newlabel.label_index = it->operands[0].label_index;
-            }
-            newlabel.ir_index = i;
-            LabelArray_push_back(&labels, newlabel);
-        }
-        ++i;
-    }
-    return labels;
-}
-
+LabelArray findLabels(IRArray *ir);
 
 #endif // IR_H

@@ -3,18 +3,20 @@
 
 #include "label.h"
 #include "IR.h"
+#include "IRVariable.h"
 #include "../utils/common.h"
 
-STRUCT_DECLARATION(BasicBlock);
+STRUCT(BasicBlock, {
+    bool livenessDone;
+    
+    u64 id;
+    u64 begin;
+    u64 end;
+    struct BasicBlock *jump;
+    struct BasicBlock *next;
+    
+    struct BasicBlockPtrArray *in_blocks;
+});
 
-BasicBlock *findBasicBlock(IRArray *ir, u64 index, LabelArray *labels, IRVariable *label);
-BasicBlock *makeBasicBlock(IRArray *ir, u64 index, LabelArray *labels);
-void makeBasicBlocks(IRArray *ir, LabelArray *labels);
-BasicBlock *findBasicBlock(IRArray *ir, u64 index, LabelArray *labels, IRVariable *label);
-void addHelper(IRVariableArray *vars, IRVariable *var, bool *changed);
-void addVariable(IRVariableArray *vars, IRVariable *var, bool *changed);
-void removeVariable(IRVariableArray *vars, IRVariable *var, bool *changed);
-void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *liveVars);
-void livenessAnalysis(IRArray *ir);
 
 #endif // BASIC_BLOCK_H

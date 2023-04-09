@@ -12,6 +12,9 @@
 
 #include "../IR/IR.h"
 
+extern TemporaryID temporary_index;
+extern LabelID label_index;
+
 #define ADD_PHI(...) NOT_IMPL;
 
 typedef SymbolTableEntryPtr STEPtr;
