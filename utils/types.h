@@ -45,20 +45,20 @@ u64 u64_hash(const u64 *_key) {
 #define _generate_declarations(type) \
     typedef struct type##Array type##Array, *type##ArrayPtr; \
     typedef struct type##ArrayArray type##ArrayArray, *type##ArrayArrayPtr; \
-    typedef struct type##ArrayArray type##Matrix, *type##MatrixPtr;
+    typedef struct type##ArrayArray type##Matrix, *type##MatrixPtr; \
+    _generate_dynamic_array_header(type); \
+    _generate_dynamic_array_header(type##Array);
 
 #define _generate_type(type) \
     _generate_dynamic_array(type); \
     _generate_dynamic_array(type##Array);
 
-#define STRUCT_DECLARATION(name) \
-    typedef struct name name, *name##Ptr; \
+#define STRUCT_HEADER(name, body) \
+    typedef struct name body name, *name##Ptr; \
     _generate_declarations(name); \
     _generate_declarations(name##Ptr);
 
-#define STRUCT(name, body) \
-    STRUCT_DECLARATION(name); \
-    typedef struct name body name, *name##Ptr; \
+#define STRUCT(name) \
     _generate_type(name); \
     _generate_type(name##Ptr); 
 

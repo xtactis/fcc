@@ -29,7 +29,7 @@ typedef enum {
     OT_PHI_VAR = 13,
 } OperandType;
 
-STRUCT(IRVariable, {
+STRUCT_HEADER(IRVariable, {
     OperandType type;
     union {
         u64 integer_value;

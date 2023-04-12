@@ -1,6 +1,8 @@
 #include "IR.h"
 
 TemporaryID temporary_index = 0; // global
+                                 //
+STRUCT(IR);
 
 void IR_saveOne(IR *ir, FILE *fp, char *newline) {
 #define TWO_OPERAND_OP(...) {                                         \

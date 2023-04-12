@@ -6,7 +6,7 @@
 #include "IRVariable.h"
 #include "../utils/common.h"
 
-STRUCT(BasicBlock, {
+STRUCT_HEADER(BasicBlock, {
     bool livenessDone;
     
     u64 id;

@@ -42,7 +42,7 @@ typedef enum {
     OP_GET_ARG        = 904,
 } Op;
 
-STRUCT(IR, {
+STRUCT_HEADER(IR, {
     struct BasicBlock *block;
     IRVariableArray liveVars;
     
@@ -51,6 +51,7 @@ STRUCT(IR, {
 
     Op instruction;
 });
+
 
 void IR_saveOne(IR *ir, FILE *fp, char *newline);
 void IR_save(const IRArray *generated_IR, char *outfile);

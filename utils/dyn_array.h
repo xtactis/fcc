@@ -5,15 +5,38 @@
 #include <assert.h>
 #include "common.h"
 
-// TODO(mdizdar): add a sorting function
-
-#define _generate_dynamic_array(name) \
+#define _generate_dynamic_array_header(name) \
     typedef struct name##Array { \
         name *data; \
         u64 count; \
         u64 capacity; \
-    } name##Array; \
+    } name##Array, *name##ArrayPtr; \
     \
+    name##Array *name##Array_push_ptr(name##Array *array, const name *element); \
+    name *name##Array_pop_back(name##Array *array); \
+    name##Array *name##Array_push_back(name##Array *array, name element); \
+    name *name##Array_at(const name##Array *array, u64 index); \
+    name *name##Array_front(const name##Array *array); \
+    name *name##Array_back(const name##Array *array); \
+    name *name##Array_begin(const name##Array *array); \
+    name *name##Array_end(const name##Array *array); \
+    name *name##Array_next(const name##Array *array, name *el); \
+    name *name##Array_rbegin(const name##Array *array); \
+    name *name##Array_rend(const name##Array *array); \
+    name *name##Array_previous(const name##Array *array, name *el); \
+    void name##Array_erase(name##Array *array, u64 index); \
+    name##Array *name##Array_insert_ptr(name##Array *array, const name *new_element, u64 position); \
+    void name##Array_reserve(name##Array *array, u64 new_cap); \
+    void name##Array_clear(name##Array *array); \
+    void name##Array_shrink_to_fit(name##Array *array); \
+    void name##Array_construct(name##Array *array); \
+    void name##Array_destruct(name##Array *array); \
+    name##Array *name##Array_extend(name##Array *dest, const name##Array *source); \
+    name##Array *name##Array_copy(name##Array *dest, const name##Array *source);
+
+// TODO(mdizdar): add a sorting function
+
+#define _generate_dynamic_array_source(name) \
     name##Array *name##Array_push_ptr(name##Array *array, const name *element) { \
         if (!array->capacity) { \
             array->data = malloc(sizeof(name) * 2); \
@@ -157,6 +180,10 @@
         name##Array_clear(dest); \
         return name##Array_extend(dest, source); \
     }
+
+#define _generate_dynamic_array(type) \
+    _generate_dynamic_array_header(type); \
+    _generate_dynamic_array_source(type);
 
 #define ARRAY_EACH(type, it, array) \
     type *it = type##Array_begin(array); \

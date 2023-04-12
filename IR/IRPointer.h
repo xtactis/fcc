@@ -4,7 +4,7 @@
 #include "../utils/common.h"
 #include "IRVariable.h"
 
-STRUCT(IRPointer, {
+STRUCT_HEADER(IRPointer, {
     IRVariable *reference;
     u64 offset;
 });

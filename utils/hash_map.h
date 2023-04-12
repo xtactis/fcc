@@ -5,7 +5,7 @@
 #include <assert.h>
 #include "common.h"
 
-#define _generate_hash_map(key_type, value_type) \
+#define _generate_hash_map_header(key_type, value_type) \
     typedef struct key_type##value_type##KVPair { \
         key_type key; \
         value_type value; \
@@ -19,6 +19,25 @@
         double resize_threshold; \
     } key_type##value_type##HashMap; \
     \
+    void key_type##value_type##HashMap_construct(key_type##value_type##HashMap *map); \
+    void key_type##value_type##HashMap_destruct(key_type##value_type##HashMap *map); \
+    u64 key_type##value_type##HashMap_add_helper(key_type##value_type##HashMap *map, const key_type *key, const value_type *value); \
+    void key_type##value_type##HashMap_resize(key_type##value_type##HashMap *map); \
+    void key_type##value_type##HashMap_add(key_type##value_type##HashMap *map, const key_type *key, const value_type *value); \
+    key_type##value_type##KVPair *key_type##value_type##HashMap_get_helper(const key_type##value_type##HashMap *map, const key_type *key); \
+    value_type *key_type##value_type##HashMap_get(const key_type##value_type##HashMap *map, const key_type *key); \
+    void key_type##value_type##HashMap_set(key_type##value_type##HashMap *map, const key_type *key, const value_type *value); \
+    void key_type##value_type##HashMap_erase(key_type##value_type##HashMap *map, const key_type *key); \
+    key_type##value_type##KVPair *key_type##value_type##HashMap_begin(const key_type##value_type##HashMap *map); \
+    key_type##value_type##KVPair *key_type##value_type##HashMap_end(const key_type##value_type##HashMap *map); \
+    key_type##value_type##KVPair *key_type##value_type##HashMap_next(const key_type##value_type##HashMap *map, \
+                                                                     key_type##value_type##KVPair *el); \
+    key_type##value_type##KVPair *key_type##value_type##HashMap_rbegin(const key_type##value_type##HashMap *map); \
+    key_type##value_type##KVPair *key_type##value_type##HashMap_rend(const key_type##value_type##HashMap *map); \
+    key_type##value_type##KVPair *key_type##value_type##HashMap_previous(const key_type##value_type##HashMap *map, \
+                                                                     key_type##value_type##KVPair *el);
+
+#define _generate_hash_map_source(key_type, value_type) \
     void key_type##value_type##HashMap_construct(key_type##value_type##HashMap *map) { \
         map->capacity = 0; \
         map->size = 0; \
@@ -192,6 +211,11 @@
         } \
         return key_type##value_type##HashMap_rend(map); \
     }
+
+#define _generate_hash_map(key_type, value_type) \
+    _generate_hash_map_header(key_type, value_type); \
+    _generate_hash_map_source(key_type, value_type);
+
 
 #define HASH_MAP_EACH(key_type, value_type, it, map) \
     key_type##value_type##KVPair *it = key_type##value_type##HashMap_begin(map); \

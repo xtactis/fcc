@@ -5,7 +5,7 @@
 
 typedef u64 LabelID;
 
-STRUCT(Label, {
+STRUCT_HEADER(Label, {
     union {
         u64 label_index;
         String label_name;

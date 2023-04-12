@@ -1,5 +1,7 @@
 #include "label.h"
 
+STRUCT(Label);
+
 LabelID label_index = 0; // global
 
 bool Label_eq(const Label *a, const Label *b) {
