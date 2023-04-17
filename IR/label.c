@@ -1,6 +1,6 @@
 #include "label.h"
 
-STRUCT(Label);
+STRUCT_SOURCE(Label);
 
 LabelID label_index = 0; // global
 

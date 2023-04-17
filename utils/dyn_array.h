@@ -195,22 +195,4 @@
     it != type##Array_rend(array); \
     it = type##Array_previous(array, it)
 
-_generate_type(u8);
-_generate_type(u16);
-_generate_type(u32);
-_generate_type(u64);
-_generate_type(s8);
-_generate_type(s16);
-_generate_type(s32);
-_generate_type(s64);
-_generate_type(b8);
-_generate_type(b16);
-_generate_type(b32);
-_generate_type(b64);
-_generate_type(bool);
-_generate_type(char);
-_generate_type(int);
-_generate_type(f32);
-_generate_type(f64);
-
 #endif // DYN_ARRAY_H

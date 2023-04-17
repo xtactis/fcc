@@ -1,3 +1,3 @@
 #include "basic_block.h"
 
-STRUCT(BasicBlock);
+STRUCT_SOURCE(BasicBlock);

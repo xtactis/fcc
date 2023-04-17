@@ -49,17 +49,25 @@ u64 u64_hash(const u64 *_key) {
     _generate_dynamic_array_header(type); \
     _generate_dynamic_array_header(type##Array);
 
+#define _generate_definitions(type) \
+    _generate_dynamic_array_source(type); \
+    _generate_dynamic_array_source(type##Array);
+
 #define _generate_type(type) \
-    _generate_dynamic_array(type); \
-    _generate_dynamic_array(type##Array);
+    _generate_declarations(type); \
+    _generate_definitions(type);
 
 #define STRUCT_HEADER(name, body) \
     typedef struct name body name, *name##Ptr; \
     _generate_declarations(name); \
     _generate_declarations(name##Ptr);
 
-#define STRUCT(name) \
-    _generate_type(name); \
-    _generate_type(name##Ptr); 
+#define STRUCT_SOURCE(name) \
+    _generate_definitions(name); \
+    _generate_definitions(name##Ptr); 
+
+#define STRUCT(name, body) \
+    STRUCT_HEADER(name, body); \
+    STRUCT_SOURCE(name);
 
 #endif //TYPES_H

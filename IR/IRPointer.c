@@ -1,3 +1,3 @@
 #include "IRPointer.h"
 
-STRUCT(IRPointer);
+STRUCT_SOURCE(IRPointer);

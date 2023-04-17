@@ -1,7 +1,7 @@
 #include "IRVariable.h"
 #include "../C/symbol_table.h"
 
-STRUCT(IRVariable);
+STRUCT_SOURCE(IRVariable);
 
 const char *IRVariable_toStr(IRVariable * const var, char *s) {
     switch (var->type) {

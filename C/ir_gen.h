@@ -55,7 +55,7 @@ void TempID_print(const TempID *a) {
 _generate_hash_map(STEPtr, TempID);
 _generate_hash_map(TempID, TempID);
 
-STRUCT(IRContext, {
+typedef struct IRContext {
     u64 loop_top;
     u64 loop_end;
     u64 loop_continue;
@@ -65,7 +65,7 @@ STRUCT(IRContext, {
     bool in_loop;
     bool global;
     bool lhs;
-});
+} IRContext;
 
 static inline bool Token_is_value(Token *token) {
     return token->type == TOKEN_IDENT || (token->type >= TOKEN_LITERAL && token->type < TOKEN_KEYWORD);

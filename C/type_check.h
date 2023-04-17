@@ -7,6 +7,7 @@
 #include "symbol_table.h"
 #include "token.h"
 #include "type.h"
+#include "node.h"
 
 static inline Type *type_of(Node *AST) {
     return AST->type;
