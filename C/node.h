@@ -3,6 +3,7 @@
 
 #include "../utils/common.h"
 #include "token.h"
+#include "scope.h"
 
 STRUCT_HEADER(Node, {
     Token *token;

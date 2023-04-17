@@ -17,41 +17,8 @@
 #define RESET   "\x1B[0m"
 #define NOT_IMPL error(0, "Not implemented!");
 
-_Noreturn void error(u64 lineno, const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    
-    fputs(RED, stderr);
-    if (lineno > 0) {
-        fprintf(stderr, "[Line %lu] ERROR ", lineno);
-    }
-    vfprintf(stderr, fmt, args);
-    fputs(RESET "\n", stderr);
-    
-    va_end(args);
-    exit(1);
-}
-
-_Noreturn void internal_error(const char * filename, u64 line_number) {
-    fputs(RED, stderr);
-    fprintf(stderr, "Internal compiler error at %s:%lu", filename, line_number);
-    fputs(RESET "\n", stderr);
-    exit(1);
-}
-#define internal_error internal_error(__FILE__, __LINE__)
-
-void warning(u64 lineno, const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    
-    fputs(YELLOW, stderr);
-    if (lineno > 0) {
-        fprintf(stderr, "[Line %lu] WARNING ", lineno);
-    }
-    vfprintf(stderr, fmt, args);
-    fputs(RESET "\n", stderr);
-    
-    va_end(args);
-}
+_Noreturn void error(u64 lineno, const char* fmt, ...);
+_Noreturn void internal_error(const char * filename, u64 line_number);
+void warning(u64 lineno, const char* fmt, ...);
 
 #endif // PRINTING_H

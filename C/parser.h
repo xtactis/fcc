@@ -12,6 +12,7 @@
 #include "type.h"
 #include "reserved.h"
 #include "arena.h"
+#include "node.h"
 
 #include "../IR/IR.h"
 

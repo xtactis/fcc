@@ -1,6 +1,6 @@
 #include "scope.h"
 
-_generate_hash_map_header(String, SymbolTableEntry);
+_generate_hash_map_source(String, SymbolTableEntry);
 
 STRUCT_SOURCE(Scope);
 

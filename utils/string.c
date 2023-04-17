@@ -1,4 +1,5 @@
 #include "string.h"
+#include <stdio.h>
 
 STRUCT_SOURCE(String);
 

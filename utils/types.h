@@ -30,17 +30,7 @@ typedef double f64;
 _Static_assert(sizeof(f32) == 4, "Machines not compliant with IEEE 754/IEC 559 are not supported. `float` should be 4 bytes (32 bits) wide.");
 _Static_assert(sizeof(f64) == 8, "Machines not compliant with IEEE 754/IEC 559 are not supported. `double` should be 8 bytes (64 bits) wide.");
 
-u64 u64_hash(const u64 *_key) {
-    u64 key = *_key;
-    key = (~key) + (key << 21); // key = (key << 21) - key - 1;
-    key = key ^ (key >> 24);
-    key = (key + (key << 3)) + (key << 8); // key * 265
-    key = key ^ (key >> 14);
-    key = (key + (key << 2)) + (key << 4); // key * 21
-    key = key ^ (key >> 28);
-    key = key + (key << 31);
-    return key;
-}
+u64 u64_hash(const u64 *_key);
 
 #define _generate_declarations(type) \
     typedef struct type##Array type##Array, *type##ArrayPtr; \

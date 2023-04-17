@@ -9,6 +9,8 @@
 #include "type.h"
 #include "node.h"
 
+#define internal_error internal_error(__FILE__, __LINE__)
+
 static inline Type *type_of(Node *AST) {
     return AST->type;
 }

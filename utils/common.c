@@ -1,5 +1,17 @@
 #include "common.h"
 
+#ifndef _MSC_VER
+
+u64 max(u64 a, u64 b) {
+    return a > b ? a : b;
+}
+
+u64 min(u64 a, u64 b) {
+    return a < b ? a : b;
+}
+
+#endif
+
 _generate_definitions(u8);
 _generate_definitions(u16);
 _generate_definitions(u32);

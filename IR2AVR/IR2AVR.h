@@ -4,7 +4,8 @@
 #include "../utils/common.h"
 #include "../IR/label.h"
 #include "../IR/IR.h"
-#include "../IR/basic_block.h"
+#include "../IR/CFG.h"
+#include "../IR/liveness_analysis.h"
 #include "../AVR/AVR.h"
 #include "../C/type.h"
 

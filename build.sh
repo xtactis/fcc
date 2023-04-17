@@ -8,7 +8,9 @@ SCRIPT_DIR="$( pwd )"
 
 need_to_rebuild=0
 c_files="$SCRIPT_DIR/main.c
-         $SCRIPT_DIR/IR/*.c"
+         $SCRIPT_DIR/IR/*.c
+	 $SCRIPT_DIR/utils/*.c
+	 $SCRIPT_DIR/C/*.c"
 h_files="$SCRIPT_DIR/IR/*.h
          $SCRIPT_DIR/IR2AVR/*.h
          $SCRIPT_DIR/utils/*.h

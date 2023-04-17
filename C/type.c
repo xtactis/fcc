@@ -2,6 +2,8 @@
 
 STRUCT_SOURCE(Type);
 
+#define internal_error internal_error(__FILE__, __LINE__)
+
 // NOTE(mdizdar): in a real compiler this should depend on the target machine, but since we're targetting exactly one machine... 
 u64 Type_sizeof(Type *type) {
     if (type->pointer_count) {

@@ -3,7 +3,7 @@
 
 #include <string.h>
 #include <assert.h>
-#include "common.h"
+#include <stdlib.h>
 
 #define _generate_dynamic_array_header(name) \
     typedef struct name##Array { \

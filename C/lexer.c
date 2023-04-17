@@ -1,22 +1,20 @@
 #include "lexer.h"
+#include <ctype.h>
 
 STRUCT_SOURCE(Lexer);
 
 TokenType checkKeyword(const char *name) {
-    u32 kw_len = sizeof(KEYWORDS) / sizeof(char*);
-    for (u32 i = 0; i < kw_len; ++i) {
+    for (u32 i = 0; i < KEYWORDS_count; ++i) {
         if (strcmp(name, KEYWORDS[i]) == 0) {
             return (TokenType)(TOKEN_KEYWORD + i + 1); // NOTE(mdizdar): this is a disgusting error prone hack, but it works...
         }
     }
-    u32 type_len = sizeof(TYPES) / sizeof(char*);
-    for (u32 i = 0; i < type_len; ++i) {
+    for (u32 i = 0; i < TYPES_count; ++i) {
         if (strcmp(name, TYPES[i]) == 0) {
             return (TokenType)(TOKEN_TYPE + i + 1); // NOTE(mdizdar): this is a disgusting error prone hack, but it works...
         }
     }
-    u32 mod_len = sizeof(MODIFIERS) / sizeof(char*);
-    for (u32 i = 0; i < mod_len; ++i) {
+    for (u32 i = 0; i < MODIFIERS_count; ++i) {
         if (strcmp(name, MODIFIERS[i]) == 0) {
             return (TokenType)(TOKEN_MODIFIER + i + 1); // NOTE(mdizdar): this is a disgusting error prone hack, but it works...
         }
@@ -220,7 +218,7 @@ Token *Lexer_peekNextToken(Lexer *lexer) {
                     return Lexer_returnToken(lexer, lookahead, t);
                 } else if (lookahead - lexer->peek == 1) {
                     if ((c != '>' || prev != '>') && (c != '<' || prev != '<')) {
-                        for (u32 i = 0; i < sizeof(MULTI_OPS)/sizeof(char *) - 4; ++i) {
+                        for (u32 i = 0; i < MULTI_OPS_count - 4; ++i) {
                             if (prev == MULTI_OPS[i][0] && c == MULTI_OPS[i][1]) {
                                 t->type = TOKEN_OPERATOR+i+1; // NOTE(mdizdar): this is a disgusting error prone hack, but it works...
                                 return Lexer_returnToken(lexer, lookahead+1, t);
