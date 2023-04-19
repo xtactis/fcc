@@ -1,5 +1,6 @@
 #include "liveness_analysis.h"
 
+// FIXME(mdizdar): half of this file seems to be treating an array as a hash table, make it an actual hash table :)
 void addHelper(IRVariableArray *vars, IRVariable *var, bool *changed) {
     for (ARRAY_EACH(IRVariable, it, vars)) {
         if (it->type == var->type && it->temporary_id == var->temporary_id) return;
@@ -100,14 +101,17 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
             IRVariableArray_push_ptr(liveVars, l);
         }
     }
+    if (block->loop) return;
     if (!changed) return;
     block->livenessDone = true;
+    block->loop = true;
     IRVariableArray liveCopy;
     IRVariableArray_construct(&liveCopy);
     for (ARRAY_EACH(BasicBlockPtr, in_block, block->in_blocks)) {
         IRVariableArray_copy(&liveCopy, liveVars);
         livenessAnalysisOneBlock(ir, *in_block, &liveCopy);
     }
+    block->loop = false;
     IRVariableArray_destruct(&liveCopy);
 }
 

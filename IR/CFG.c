@@ -11,6 +11,7 @@ BasicBlock *makeBasicBlock(IRArray *ir, u64 index, LabelArray *labels) {
     bb->in_blocks = malloc(sizeof(BasicBlockPtrArray));
     BasicBlockPtrArray_construct(bb->in_blocks);
     bb->livenessDone = false;
+    bb->loop = false;
     
     IR *irs = ir->data;
     irs[index].block = bb;

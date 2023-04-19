@@ -8,6 +8,7 @@
 
 STRUCT_HEADER(BasicBlock, {
     bool livenessDone;
+    bool loop;
     
     u64 id;
     u64 begin;
