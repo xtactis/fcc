@@ -3,6 +3,7 @@
 
 #include "label.h"
 #include "../utils/common.h"
+#include "IRPointer.h"
 
 typedef u64 TemporaryID;
 
@@ -15,7 +16,7 @@ typedef enum {
     OT_INT32 = 4,
     OT_INT64 = 5,
     
-    OT_POINTER = 6,
+    OT_REFERENCE = 6,
     
     OT_DOUBLE = 7,
     OT_FLOAT  = 8,
@@ -45,6 +46,7 @@ STRUCT_HEADER(IRVariable, {
             bool named;
         };
     };
+    IRPointer pointer;
     uintptr_t entry; // why am I doing this instead of just including SymbolTableEntry?
                      // is the idea that STE is C specific and this shouldn't be?
 });

@@ -222,13 +222,28 @@ void IR2AVR(IRArray *ir, AVRArray *AVR_instructions, LabelArray *labels, u64 reg
                 break;
             }
             case '=': {
-                u8 res = real_reg[irs[i].result.temporary_id];
-                if (irs[i].operands[0].type == OT_TEMPORARY) {
-                    u8 rd = real_reg[irs[i].operands[0].temporary_id];
-                    APPEND_CMD(MOV, res, rd);
+                if (irs[i].result.type == OT_REFERENCE) {
+                    u8 res = load_to_reg(24, irs[i].result.pointer.reference_var, real_reg, AVR_instructions);
+                    if (irs[i].operands[0].type == OT_TEMPORARY) {
+                        u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                        APPEND_CMD(MOV, 30, res);
+                        APPEND_CMD(LDI, 31, 0); // TODO(mdizdar): this is incorrect, pointers are always 2 bytes wide, but there are many things wrong with this code
+                        APPEND_CMD(STDz, 0, rd); // TODO(mdizdar): this will only give us the correct behavior when dereferencing on the right side of an assignment
+                    } else {
+                        u16 k = (u16)irs[i].operands[0].integer_value;
+                        APPEND_CMD(LDI, 30, res);
+                        APPEND_CMD(LDI, 31, 0);
+                        APPEND_CMD(STDz, 0, k & 0xFF); // TODO(mdizdar): this will only give us the correct behavior when dereferencing on the right side of an assignment
+                    }
                 } else {
-                    u16 k = (u16)irs[i].operands[0].integer_value;
-                    APPEND_CMD(LDI, res, k & 0xFF);
+                    u8 res = real_reg[irs[i].result.temporary_id];
+                    if (irs[i].operands[0].type == OT_TEMPORARY) {
+                        u8 rd = real_reg[irs[i].operands[0].temporary_id];
+                        APPEND_CMD(MOV, res, rd);
+                    } else {
+                        u16 k = (u16)irs[i].operands[0].integer_value;
+                        APPEND_CMD(LDI, res, k & 0xFF);
+                    }
                 }
                 break;
             }

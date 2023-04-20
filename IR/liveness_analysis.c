@@ -31,6 +31,10 @@ void removeVariable(IRVariableArray *vars, IRVariable *var, bool *changed) {
     IRVariableArray_erase(vars, i);
 }
 
+static inline bool hasID(const IRVariable *var) {
+    return var->type == OT_TEMPORARY || var->type == OT_REFERENCE;
+}
+
 void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *liveVars) {
     bool changed = false;
     IR *irs = ir->data;
@@ -42,7 +46,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
         }
         switch ((int)irs[i].instruction) {
             case OP_POP: {
-                if (irs[i].operands[0].type == OT_TEMPORARY) {
+                if (hasID(&irs[i].operands[0])) {
                     addVariable(&notLive, &irs[i].operands[0], &changed);
                 } else {
                     addVariable(&irs[i].liveVars, &irs[i].operands[0], &changed);
@@ -54,7 +58,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
                 break;
             }
             case OP_GET_RETURNED: case OP_GET_ARG: {
-                if (irs[i].result.type == OT_TEMPORARY) {
+                if (hasID(&irs[i].result)) {
                     addVariable(&notLive, &irs[i].result, &changed);
                 } else {
                     addVariable(&irs[i].liveVars, &irs[i].result, &changed);
@@ -66,7 +70,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
                 break;
             }
             case '=': case '~': case '!': case OP_PLUS: case OP_MINUS: case OP_ADDRESS: {
-                if (!((irs[i].operands[0].type == OT_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id)) {
+                if (!(hasID(&irs[i].operands[0]) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id)) {
                     if (irs[i].result.type == OT_TEMPORARY) {
                         addVariable(&notLive, &irs[i].result, &changed);
                     } else {
@@ -81,7 +85,7 @@ void livenessAnalysisOneBlock(IRArray *ir, BasicBlock *block, IRVariableArray *l
                 break;
             }
             default: {
-                if (!(((irs[i].operands[0].type == OT_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id) || ((irs[i].operands[1].type == OT_TEMPORARY) && irs[i].result.temporary_id == irs[i].operands[1].temporary_id))) {
+                if (!((hasID(&irs[i].operands[0]) && irs[i].result.temporary_id == irs[i].operands[0].temporary_id) || (hasID(&irs[i].operands[1]) && irs[i].result.temporary_id == irs[i].operands[1].temporary_id))) {
                     if (irs[i].result.type == OT_TEMPORARY) {
                         addVariable(&notLive, &irs[i].result, &changed);
                     } else {

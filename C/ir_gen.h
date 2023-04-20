@@ -9,8 +9,10 @@
 #include "token.h"
 #include "type.h"
 #include "arena.h"
+#include "node.h"
 
 #include "../IR/IR.h"
+#include "../IR/IRPointer.h"
 
 extern TemporaryID temporary_index;
 extern LabelID label_index;
@@ -158,9 +160,9 @@ IR move_to_temp(IRVariable x) {
 }
 
 OperandType operand_from_type(Type *type) { // I'm just gonna pretend structs don't exist
-    if (type->pointer_count) {
-        return OT_POINTER;
-    }
+    //if (type->pointer_count) {
+    //    return OT_POINTER;
+    //}
     switch (type->basic_type) {
         case BASIC_CHAR:
         case BASIC_SCHAR:
@@ -429,14 +431,20 @@ IRVariable IR_generate(Node *AST, IRArray *generated_IR, const Scope *current_sc
             break;
         }
         case TOKEN_DEREF: {
+            IRVariable *var = malloc(sizeof(IRVariable));
+            *var = IR_generate(AST->left, generated_IR, current_scope, context);
             ir = (IR){
                 .instruction = OP_DEREF,
                 .result = {
-                    .type = OT_TEMPORARY,
-                    .entry = 0,
-                    .temporary_id = temporary_index++
+                    .type = OT_REFERENCE,
+                    .pointer = {
+                        .reference_var = var,
+                        .offset = 0
+                    },
+                    .temporary_id = temporary_index++,
+                    .entry = 0
                 },
-                .operands[0] = IR_generate(AST->left, generated_IR, current_scope, context), 
+                .operands[0] = *var,
             };
             IRArray_push_ptr(generated_IR, &ir);
             break;
