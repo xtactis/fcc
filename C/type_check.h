@@ -70,6 +70,12 @@ bool is_union(Type *type) {
 Type *get_base_type(Type *type) {
     // TODO(mdizdar): uncomment this
     //if (type->pointer_count) warning(0, "not sure if I should be letting it slide that this is a pointer tbh");
+    if (type->pointer_count) {
+	Type *tmp = malloc(sizeof(Type));
+	*tmp = *type;
+	--tmp->pointer_count;
+	return tmp;
+    }
     if (type->is_typedef) return get_base_type(type->typedef_type);
     return type;
 }
