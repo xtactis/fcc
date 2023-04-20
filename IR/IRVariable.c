@@ -41,6 +41,13 @@ const char *IRVariable_toStr(IRVariable * const var, char *s) {
             }
             break;
         }
+	case OT_REFERENCE: {
+	    char ss[256];
+	    IRVariable_toStr(var->pointer.reference_var, ss);
+	    sprintf(s, "t%lu[^%s]", var->temporary_id, ss);
+
+	    break;
+        }
         case OT_LABEL: {
             if (var->named) {
                 s = var->label_name.data;
